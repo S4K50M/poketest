@@ -17,7 +17,10 @@ test('HTML assets resolve beside index.html on disk and below a hosting subpath'
 
 test('all bundled font URLs resolve relative to the CSS file',async()=>{
   const stylesheet=new URL('../src/style.css',import.meta.url),css=await readFile(stylesheet,'utf8');
-  const fonts=[...css.matchAll(/url\('([^']+)'\)/g)].map(m=>m[1]);
+  const urls=[...css.matchAll(/url\('([^']+)'\)/g)].map(m=>m[1]);
+  for(const asset of urls)await access(new URL(asset,stylesheet));
+  const fonts=urls.filter(url=>url.startsWith('../assets/fonts/'));
+  assert(urls.includes('./combat-style.css'),'combat styling must remain local and portable');
   assert.equal(fonts.length,11);
   for(const font of fonts){assert(font.startsWith('../assets/fonts/'));await access(new URL(font,stylesheet));}
 });

@@ -45,6 +45,15 @@ export function playCampaign(g,{chapters=6,switchParty=true,onGuardian=()=>{}}={
   return g.snapshot();
 }
 export function climbTo(g,x,y,max=2500){
+  // The faster motor has a lower combined jump apex than the old floaty one.
+  // Route via actual ledges instead of repeatedly attempting a 300px jump
+  // from the ground straight onto the grove shrine.
+  const p=g.player,maxRise=g.abilities.has('wings')?270:150;
+  if(p.grounded&&p.y-y>maxRise){
+    const ledge=g.platforms.filter(b=>b.y>y+5&&b.y<p.y-5&&p.y-b.y<=maxRise)
+      .sort((a,b)=>a.y-b.y||Math.abs(x-(a.x+a.w/2))-Math.abs(x-(b.x+b.w/2)))[0];
+    if(ledge){const approach=Math.max(ledge.x+24,Math.min(x,ledge.x+ledge.w-24));if(!climbTo(g,approach,ledge.y,max))return false;}
+  }
   for(let i=0;i<max;i++){
     const p=g.player;if(Math.abs(x-p.x)<23&&Math.abs(y-p.y)<5&&p.grounded){g.setInputs({});return true;}
     g.setInputs({right:p.x<x-12,left:p.x>x+12});

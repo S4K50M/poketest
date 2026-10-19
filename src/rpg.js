@@ -23,14 +23,14 @@ export class RPGCampaign extends CampaignEngine{
   save(){
     const base=super.save();if(!this.rpgReady)return base;
     this.dropArchive[this.roomId]=this.worldDrops.map(d=>({...d}));
-    const s={...base,version:3,expansion:'the-ninth-memory',quests:structuredClone(this.quests),trackedQuest:this.trackedQuest,faction:this.faction,reputation:{...this.reputation},talents:[...this.talents],talentPoints:this.talentPoints,gear:this.gear.map(d=>({...d})),loadout:{...this.loadout},lootSerial:this.lootSerial,companionXP:{...this.companionXP},surge:this.surge,defeatedBosses:[...this.defeatedBosses],historyKnown:[...this.historyKnown],trueEnding:this.trueEnding,keepsakes:[...this.keepsakes],questFlags:[...this.questFlags],dropArchive:structuredClone(this.dropArchive),eventCleared:[...this.eventCleared],shopStock:{...this.shopStock}};
+    const s={...base,version:4,combat:this.combat.serialize(),expansion:'the-ninth-memory',quests:structuredClone(this.quests),trackedQuest:this.trackedQuest,faction:this.faction,reputation:{...this.reputation},talents:[...this.talents],talentPoints:this.talentPoints,gear:this.gear.map(d=>({...d})),loadout:{...this.loadout},lootSerial:this.lootSerial,companionXP:{...this.companionXP},surge:this.surge,defeatedBosses:[...this.defeatedBosses],historyKnown:[...this.historyKnown],trueEnding:this.trueEnding,keepsakes:[...this.keepsakes],questFlags:[...this.questFlags],dropArchive:structuredClone(this.dropArchive),eventCleared:[...this.eventCleared],shopStock:{...this.shopStock}};
     this.persist(s);return s;
   }
   loadSave(s){
-    if(!s||![2,3].includes(s.version))return false;
+    if(!s||![2,3,4].includes(s.version))return false;
     this.loading=true;const loaded=super.loadSave({...s,version:2,fragments:array(s.fragments).filter(id=>!own(CHRONICLE_BOSSES,id))});this.loading=false;if(!loaded)return false;
     // v2 saves keep their main journey and receive the new systems at sensible defaults.
-    if(s.version===3){
+    if(s.version>=3){
       this.quests={};for(const [id,q] of Object.entries(s.quests||{}))if(own(QUESTS,id)&&['active','ready','complete'].includes(q?.state))this.quests[id]={state:q.state,progress:QUESTS[id].objectives.map((o,i)=>Math.floor(number(q.progress?.[i],0,o.count||1)))};
       this.trackedQuest=own(this.quests,s.trackedQuest)?s.trackedQuest:null;this.faction=own(FACTIONS,s.faction)?s.faction:null;
       for(const id of Object.keys(this.reputation))this.reputation[id]=number(s.reputation?.[id],0,100);
@@ -43,7 +43,7 @@ export class RPGCampaign extends CampaignEngine{
       this.eventCleared=new Set(array(s.eventCleared).filter(id=>own(ROOMS,id)));this.dropArchive={};for(const [room,drops] of Object.entries(s.dropArchive||{}))if(own(ROOMS,room)&&Array.isArray(drops))this.dropArchive[room]=drops.filter(d=>d&&own(EQUIPMENT,d.template)&&typeof d.id==='string').map(d=>({id:d.id,template:d.template,x:number(d.x,30,ROOMS[room].width-30),y:number(d.y,0,650)}));
       for(const id of Object.keys(SHOP))this.shopStock[id]=Math.floor(number(s.shopStock?.[id]??SHOP[id].stock,0,SHOP[id].stock));
     }else{this.talentPoints=2+this.level-1;}
-    this.worldDrops=(this.dropArchive[this.roomId]||[]).map(d=>({...d}));this.message='';this.messageTime=0;this.applyFactionBoon();if(s.party.some(m=>m.hp>0))this.party.forEach((m,i)=>{if(Number.isFinite(s.party[i].hp))m.hp=clamp(s.party[i].hp,0,m.maxHp);});if(!this.player.hp)this.activeSlot=this.party.findIndex(m=>m.hp>0);this.acceptAutostartQuests();this.refreshKnowledge();return true;
+    this.worldDrops=(this.dropArchive[this.roomId]||[]).map(d=>({...d}));this.message='';this.messageTime=0;this.applyFactionBoon();if(s.party.some(m=>m.hp>0))this.party.forEach((m,i)=>{if(Number.isFinite(s.party[i].hp))m.hp=clamp(s.party[i].hp,0,m.maxHp);});if(!this.player.hp)this.activeSlot=this.party.findIndex(m=>m.hp>0);this.acceptAutostartQuests();this.refreshKnowledge();this.combat.load(s.combat);return true;
   }
   loadRoom(id,spawn=150,persist=true){
     if(this.rpgReady){this.dropArchive[this.roomId]=this.worldDrops.map(d=>({...d}));this.worldEvent=null;this.worldEffects=[];}
@@ -62,7 +62,7 @@ export class RPGCampaign extends CampaignEngine{
     if(action==='surge')return this.castSurge();
     const ok=super.input(action);if(ok&&action==='dash')this.player.dashCooldown=Math.max(8,this.player.dashCooldown-(this.talents.has('fleet')?3:0)-(this.faction==='unwritten'?3:0));return ok;
   }
-  switchTo(slot,forced=false){const ok=super.switchTo(slot,forced);if(ok&&this.rpgReady&&!forced&&this.talents.has('overdrive')){for(const e of this.enemies)if(e.hp>0&&Math.abs(e.x-this.player.x)<135)this.strike(e,10,this.player.face,{dot:true});this.worldEffects.push({type:'aurora',x:this.player.x,y:this.player.y-35,life:35,maxLife:35});}return ok;}
+  switchTo(slot,forced=false){const ok=super.switchTo(slot,forced);if(ok)this.combat.releaseShield();if(ok&&this.rpgReady&&!forced&&this.talents.has('overdrive')){for(const e of this.enemies)if(e.hp>0&&Math.abs(e.x-this.player.x)<135)this.strike(e,10,this.player.face,{dot:true});this.worldEffects.push({type:'aurora',x:this.player.x,y:this.player.y-35,life:35,maxLife:35});}return ok;}
   strike(e,damage,direction,options={}){
     if(e.boss==='nullheart'&&!this.nullheartReady()){this.say('THE NULLHEART WAITS · AWAKEN THE HOLLOW SOVEREIGN FIRST');return;}
     const hp=e.hp,owner=this.party[options.source??this.activeSlot]?.data.id;
@@ -75,9 +75,12 @@ export class RPGCampaign extends CampaignEngine{
     }
   }
   hurt(direction=0,amount=1,status={}){
-    const p=this.player,reduced=amount*(1-Math.min(.45,this.equipmentMods().armor)),blocked=(p.guard>0||p.fortress)&&direction===-p.face;
-    if(this.rpgReady&&this.talents.has('secondchance')&&!this.revivalUsed&&!this.player.invul&&!blocked&&this.player.hp>0&&this.player.hp<=reduced*(p.armor>0?.5:1)){this.revivalUsed=true;this.player.hp=1;this.player.invul=90;this.say('REFUSE THE SILENCE · ONE MORE HEARTBEAT');this.emit('heal');return true;}
-    return super.hurt(direction,reduced,status);
+    return super.hurt(direction,amount*(1-Math.min(.45,this.equipmentMods().armor)),status);
+  }
+  preventLethal(amount,direction){
+    const p=this.player,blocked=(p.guard>0||p.fortress)&&direction===-p.face;
+    if(!this.rpgReady||!this.talents.has('secondchance')||this.revivalUsed||p.invul||p.respawning||blocked||p.hp<=0||p.hp>amount*(p.armor>0?.5:1))return false;
+    this.revivalUsed=true;p.hp=1;p.invul=90;p.attack=null;this.cancelHeal();this.combat.releaseShield();this.say('REFUSE THE SILENCE · ONE MORE HEARTBEAT');this.emit('heal');return true;
   }
   gainXP(amount){const before=this.level;super.gainXP(amount);if(this.rpgReady&&this.level>before){this.talentPoints+=this.level-before;this.emit('talentpoint');}}
   step(){
@@ -86,7 +89,7 @@ export class RPGCampaign extends CampaignEngine{
     const mods=this.equipmentMods();this.player.spirit=Math.min(100,this.player.spirit+mods.focus*.4);
     if(this.talents.has('reservoir'))this.party.forEach((m,i)=>{if(i!==this.activeSlot)m.spirit=Math.min(100,m.spirit+.12);});
     if(this.stats.heals>heals&&this.talents.has('stillwater'))this.player.hp=Math.min(this.player.maxHp,this.player.hp+.5);
-    this.worldEffects=this.worldEffects.filter(e=>--e.life>0);for(const e of this.enemies)if(e.hp<=0&&e.deathTimer>0)e.deathTimer--;
+    this.worldEffects=this.worldEffects.filter(e=>--e.life>0);
     const range=this.talents.has('magnet')?180:58;
     for(const d of [...this.worldDrops])if(Math.hypot(this.player.x-d.x,this.player.y-30-d.y)<range)this.pickupLoot(d.id);
     if(this.roomId.endsWith('-path')&&this.roomTime===900&&!this.eventCleared.has(this.roomId))this.startWorldEvent();
@@ -212,5 +215,5 @@ export class RPGCampaign extends CampaignEngine{
     else if(e.state==='recover'&&e.timer<=0){e.state='patrol';e.timer=22;}
     if(Math.abs(p.x-e.x)<65&&Math.abs(p.y-e.y)<115&&e.state!=='recover')this.hurt(Math.sign(p.x-e.x),1.5);
   }
-  snapshot(){const s=super.snapshot();if(!this.rpgReady)return s;return {...s,expansion:'the-ninth-memory',quests:structuredClone(this.quests),trackedQuest:this.trackedQuest,faction:this.faction,reputation:{...this.reputation},talents:[...this.talents],talentPoints:this.talentPoints,gear:this.gear.map(d=>({...d})),loadout:{...this.loadout},companionXP:{...this.companionXP},surge:this.surge,defeatedBosses:[...this.defeatedBosses],trueEnding:this.trueEnding,keepsakes:[...this.keepsakes],worldEvent:this.worldEvent?{...this.worldEvent}:null,eventCleared:[...this.eventCleared],worldDrops:this.worldDrops.map(d=>({...d})),historyKnown:[...this.historyKnown]};}
+  snapshot(){const s=super.snapshot();if(!this.rpgReady)return s;return {...s,expansion:'the-ninth-memory',quests:structuredClone(this.quests),trackedQuest:this.trackedQuest,faction:this.faction,reputation:{...this.reputation},talents:[...this.talents],talentPoints:this.talentPoints,gear:this.gear.map(d=>({...d})),loadout:{...this.loadout},companionXP:{...this.companionXP},surge:this.surge,combat:this.combat.snapshot(),defeatedBosses:[...this.defeatedBosses],trueEnding:this.trueEnding,keepsakes:[...this.keepsakes],worldEvent:this.worldEvent?{...this.worldEvent}:null,eventCleared:[...this.eventCleared],worldDrops:this.worldDrops.map(d=>({...d})),historyKnown:[...this.historyKnown]};}
 }

@@ -1,10 +1,12 @@
 import { TrainingEngine, MOTOR } from './training.js';
 import { ROSTER, findFighter } from './roster.js';
 import { MINIONS } from './designs.js';
+import { CombatDirector } from './combat.js';
+import { COMBAT } from './combat-data.js';
 import { ROOMS, BOSSES, CHAPTERS, ABILITIES, CHARMS, DIALOGUES, DEFAULT_PARTY } from './world.js';
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const finite=(v,a,b,fallback=0)=>Number.isFinite(v)?clamp(v,a,b):fallback;
-export const CAMPAIGN_MOTOR={...MOTOR,run:8.4,acceleration:2.4,friction:2.8,gravity:.68,jump:-15.3,doubleJump:-13.5,dash:20,dashFrames:10,dashCooldown:21};
+export const CAMPAIGN_MOTOR={...MOTOR,...COMBAT.motor};
 const starterIds=ROSTER.slice(0,8).map(d=>d.id);
 
 export class CampaignEngine extends TrainingEngine{
@@ -13,7 +15,7 @@ export class CampaignEngine extends TrainingEngine{
     this.abilities=new Set(['dash']);this.unlocked=new Set(starterIds);this.fragments=new Set();this.visited=new Set();this.opened=new Set();this.defeated=new Set();this.memories=new Set();this.shrines=new Set();
     this.inventory={heartwood:0,ember:0,pearl:0,stormglass:0,frostcore:0,riftglass:0,flask:3,pickaxe:1,lantern:1};
     this.charms=new Set();this.equipped=[];this.tools=['pickaxe','lantern'];this.toolIndex=0;this.roomId='sanctuary';this.storyStage=0;this.finished=false;this.ending=null;this.playtime=0;this.combo=0;this.comboTimer=0;this.attackBuffer=null;this.swingIndex=0;this.transition=0;this.grapple=null;this.landing=0;this.tutorial=0;
-    this.loadRoom('sanctuary',150,false);
+    this.combat=new CombatDirector(this);this.loadRoom('sanctuary',150,false);
     if(options.save)this.loadSave(options.save);
   }
   save(){
@@ -50,29 +52,23 @@ export class CampaignEngine extends TrainingEngine{
     this.projectiles=[];this.enemyShots=[];this.waves=[];this.hazards=[];this.zones=[];this.effects=[];this.decoy=null;this.skillStrike=null;this.attackBuffer=null;this.grapple=null;
     const p=this.player;this.cancelHeal();Object.assign(p,{x:spawn,y:520,vx:0,vy:0,grounded:true,jumpCount:0,jumpBuffer:0,dash:0,dashCooldown:0,wall:0,wallLock:0,attack:null,airDashes:0,respawning:0,slow:0,root:0,slick:0,burn:0,guard:0,armor:0,fortress:false,specialHeld:false,skillVector:null,invul:30});
     for(const o of this.room.objects)if(o.kind==='lever'&&this.opened.has(id+':'+o.id))this.platforms.push({...o.bridge});
-    this.checkpoint={x:spawn,y:520};this.transition=100;this.roomTime=0;this.emit('room',{room:id});if(persist)this.save();return true;
+    this.combat?.reset();this.checkpoint={x:spawn,y:520};this.transition=100;this.roomTime=0;this.emit('room',{room:id});if(persist)this.save();return true;
   }
   input(action){
     if(this.paused||this.phase!=='playing'||this.player.respawning)return false;
     const p=this.player;
+    if(p.stagger&&['jump','special','grapple'].includes(action))return false;
+    if(['jump','special','grapple','heal'].includes(action))this.combat.releaseShield();
+    const combatAction=this.combat.input(action);if(combatAction!==null)return combatAction;
     if(action==='interact')return this.interact();
     if(action==='tool')return this.useTool();
     if(action==='toolCycle')return this.cycleTool();
     if(action==='potion')return this.useFlask();
     if(action==='grapple')return this.useGrapple();
-    if(action==='light'||action==='heavy'){
-      this.cancelHeal();
-      if(p.attack||p.dash){this.attackBuffer={action,life:10};return true;}
-      const heavy=action==='heavy';this.swingIndex=(this.swingIndex+1)%3;
-      p.attack={type:action,frame:0,start:heavy?5:2,active:heavy?5:4,recovery:heavy?9:5,dir:this.inputs.down&&!p.grounded?'down':this.inputs.up?'up':'side',hit:new Set(),swing:this.swingIndex};
-      p.armor=heavy&&['pyrojaw','terrakhan','ferrodrake'].includes(this.data.id)?1:0;
-      if(p.grounded)p.vx+=p.face*(heavy?2.5:1.5);this.emit('slash');return true;
-    }
-    if(action==='dash'&&p.attack){if(p.attack.frame<p.attack.start+2)return false;p.attack=null;}
-    if(action==='dash'&&!p.grounded&&!this.abilities.has('dash'))return false;
     if(action==='upgrade'){const ok=this.buyUpgrade();if(ok)this.save();return ok;}
-    const accepted=super.input(action);if(accepted&&action==='dash')p.dashCooldown=this.abilities.has('blink')?14:21;return accepted;
+    return super.input(action);
   }
+  releaseShield(){this.combat.releaseShield();}
   jump(){
     const p=this.player;if(!p.jumpBuffer)return;
     if(p.grounded||p.coyote>0){p.vy=this.motor.jump;p.jumpCount=1;p.coyote=0;this.stats.jumps++;}
@@ -83,9 +79,9 @@ export class CampaignEngine extends TrainingEngine{
   }
   step(){
     if(this.paused||this.phase!=='playing')return;
-    this.playtime++;this.roomTime++;this.motor.run=CAMPAIGN_MOTOR.run*(this.equipped.includes('feather')?1.12:1)*(this.runMultiplier?.()||1);this.motor.dashCooldown=this.abilities.has('blink')?14:21;
+    this.playtime++;this.roomTime++;this.motor.run=CAMPAIGN_MOTOR.run*(this.equipped.includes('feather')?1.12:1)*(this.runMultiplier?.()||1);this.motor.dashCooldown=this.abilities.has('blink')?12:17;
+    if(!this.hitstop)this.combat.step();
     if(this.transition>0)this.transition--;if(this.comboTimer>0)this.comboTimer--;else this.combo=0;if(this.landing>0)this.landing--;
-    if(this.attackBuffer){if(--this.attackBuffer.life<=0)this.attackBuffer=null;else if(!this.player.attack&&!this.player.dash){const a=this.attackBuffer.action;this.attackBuffer=null;this.input(a);}}
     const wasGrounded=this.player.grounded,vy=this.player.vy;
     // Moving platforms carry grounded actors. Violet veils only yield during an awakened dash.
     for(const block of this.platforms)if(block.moving){const before=block.x;block.x=block.origin+Math.sin(this.tick*block.rate)*block.amplitude;if(this.player.grounded&&Math.abs(this.player.y-block.y)<2&&this.player.x>before-10&&this.player.x<before+block.w+10)this.player.x+=block.x-before;}
@@ -110,19 +106,23 @@ export class CampaignEngine extends TrainingEngine{
     if(p.x<650&&this.roomId==='moss-path'&&this.tutorial<1){this.tutorial=1;this.say('J QUICK STRIKE · K HEAVY · SHIFT DASH · HOLD F TO HEAL');}
   }
   updateAttack(){
-    super.updateAttack();
-    const a=this.player.attack;if(a&&a.frame===a.start)this.effects.push({type:'slash',x:this.player.x+this.player.face*50,y:this.player.y-35,face:this.player.face,dir:a.dir,heavy:a.type==='heavy',swing:a.swing,life:12});
+    this.combat.updateAttack();
   }
   strike(e,damage,direction,options={}){
     if(e.hp<=0)return;
-    const before=e.hp;const power=this.equipped.includes('fang')?1.22:1;
+    const before=e.hp,brokenStun=e.stun>20&&e.boss&&e.state==='recover'?e.stun:0;const power=(this.equipped.includes('fang')?1.22:1)*(1+this.combat.flow*.0015);
     super.strike(e,damage*power,direction,options);
-    if(e.hp<before){if(e.boss)e.stun=Math.min(e.stun,3);this.hitstop=options.dot?0:options.heavy?3:1;
+    if(e.hp<before){if(e.boss)e.stun=brokenStun||Math.min(e.stun,3);this.hitstop=options.dot?0:this.player.attack?.hitstop||(options.heavy?3:1);
       if(!options.dot){this.combo++;this.comboTimer=100;this.effects.push({type:'number',x:e.x,y:e.y-80,text:String(Math.round(before-e.hp)),life:35,color:this.data.accent});}
     }
+    this.combat.onStrike(e,before,direction,options);
   }
   hurt(direction=0,amount=1,status={}){
+    if(this.player.dash&&this.player.invul)this.combat.evade(direction);
+    const defended=this.combat.defend(direction,amount);if(defended!==null)return defended;
+    if(this.preventLethal?.(amount,direction))return true;
     const ok=super.hurt(direction,amount,status);
+    if(ok)this.combat.onHurt();
     if(ok&&this.equipped.includes('thorn'))for(const e of this.enemies)if(e.hp>0&&Math.abs(e.x-this.player.x)<180)this.strike(e,18,direction,{heavy:true});
     return ok;
   }
@@ -135,7 +135,7 @@ export class CampaignEngine extends TrainingEngine{
     }
     this.save();
   }
-  respawn(wipe=false){super.respawn(wipe);this.grapple=null;for(const e of this.enemies)if(e.hp>0&&e.boss){e.hp=e.maxHp;e.phase=1;e.pattern=0;}this.save();}
+  respawn(wipe=false){super.respawn(wipe);this.combat?.reset();this.grapple=null;for(const e of this.enemies)if(e.hp>0&&e.boss){e.hp=e.maxHp;e.phase=1;e.pattern=0;}this.save();}
   interact(){
     const p=this.player,near=this.room.objects.filter(o=>Math.abs(p.x-o.x)<100&&Math.abs(p.y-(o.y||520))<100).sort((a,b)=>Math.hypot(p.x-a.x,p.y-(a.y||520))-Math.hypot(p.x-b.x,p.y-(b.y||520)))[0];
     if(!near){this.say('FIND A BENCH, DOOR, OR TRAVELER · E TO INTERACT');return false;}
@@ -230,7 +230,7 @@ export class CampaignEngine extends TrainingEngine{
     this.effects.push({type:'swap',x:p.x,y:p.y-40,life:35});this.say(this.data.skill.toUpperCase());this.emit('cast');return true;
   }
   updateEnemies(){
-    for(const e of this.enemies){if(e.hp<=0)continue;if(e.boss){this.updateBoss(e);continue;}if(['sinder','voltlet','pebbleback','dewdrop','sproutlet'].includes(e.kind)){this.updateMinion(e);continue;}this.updateWild(e);}
+    for(const e of this.enemies){if(e.hp<=0){if(e.deathTimer>0)e.deathTimer--;continue;}if(this.combat.updateEnemy(e))continue;if(e.boss){this.updateBoss(e);continue;}if(['sinder','voltlet','pebbleback','dewdrop','sproutlet'].includes(e.kind)){this.updateMinion(e);continue;}this.updateWild(e);}
   }
   updateWild(e){
     const p=this.player,d=MINIONS[e.kind];if(Math.abs(e.x-p.x)>1000)return;this.discovered.add(e.kind);if(e.flash)e.flash--;if(e.slow)e.slow--;
@@ -268,5 +268,5 @@ export class CampaignEngine extends TrainingEngine{
     else if(e.state==='recover'&&e.timer<=0){e.state='patrol';e.timer=e.phase===2?18:32;}
     if(dist<62&&Math.abs(p.y-e.y)<110&&e.state!=='recover')this.hurt(Math.sign(p.x-e.x),e.boss==='crown'?1.5:1);
   }
-  snapshot(){const s=super.snapshot();return {...s,mode:'campaign',room:this.roomId,roomName:this.room.name,biome:this.room.biome,chapter:CHAPTERS[Math.min(this.fragments.size,5)].title,abilities:[...this.abilities],fragments:[...this.fragments],unlocked:[...this.unlocked],visited:[...this.visited],inventory:{...this.inventory},charms:[...this.charms],equipped:[...this.equipped],memories:[...this.memories],shrines:[...this.shrines],combo:this.combo,finished:this.finished,ending:this.ending,playtime:this.playtime,enemies:this.enemies.map(e=>({id:e.id,boss:e.boss,kind:e.kind,hp:e.hp,maxHp:e.maxHp,state:e.state,x:e.x,y:e.y,phase:e.phase})),nearby:this.room.objects.filter(o=>Math.abs(o.x-this.player.x)<100).map(o=>o.id)};}
+  snapshot(){const s=super.snapshot();return {...s,mode:'campaign',combat:this.combat.snapshot(),room:this.roomId,roomName:this.room.name,biome:this.room.biome,chapter:CHAPTERS[Math.min(this.fragments.size,5)].title,abilities:[...this.abilities],fragments:[...this.fragments],unlocked:[...this.unlocked],visited:[...this.visited],inventory:{...this.inventory},charms:[...this.charms],equipped:[...this.equipped],memories:[...this.memories],shrines:[...this.shrines],combo:this.combo,finished:this.finished,ending:this.ending,playtime:this.playtime,enemies:this.enemies.map(e=>({id:e.id,boss:e.boss,kind:e.kind,hp:e.hp,maxHp:e.maxHp,state:e.state,x:e.x,y:e.y,phase:e.phase})),nearby:this.room.objects.filter(o=>Math.abs(o.x-this.player.x)<100).map(o=>o.id)};}
 }

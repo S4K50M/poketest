@@ -1,4 +1,4 @@
-# Kinetic Monsters: The Ninth Memory
+# Kinetic Monsters: Momentum
 
 A playable, original 2D creature action RPG in the browser. The former 1v1 arena has been removed. Choose three companions, follow Professor Vell through six biomes, recover the Worldheart’s memories, and choose its future.
 
@@ -15,9 +15,37 @@ npm run dev
 
 The development command starts the static server on port 3000 and rebuilds the portable bundle when source files change. `PORT=3200 npm run dev` selects another port. `npm start` serves the already-built game without a watcher.
 
-You can also open **index.html** directly. Keep `assets/`, `src/style.css`, and `bundle/game.js` beside it. All CSS, scripts, fonts, and icons are local relative paths. For GitHub Pages, publish the repository root. A server provides the most consistent browser save behavior; saves are stored per browser origin, not in a cloud account.
+You can also open **index.html** directly. Keep the complete `assets/`, `src/`, and `bundle/` folders beside it. All CSS, scripts, fonts, and icons are local relative paths. For GitHub Pages, publish the repository root. A server provides the most consistent browser save behavior; saves are stored per browser origin, not in a cloud account.
 
 After changing source, run `npm run build` and commit `bundle/game.js`. The checked-in classic script avoids module-fetch restrictions when opening the HTML from disk.
+
+## Momentum · combat evolution 4.0
+
+The campaign now uses a dedicated frame-driven combat director. Movement accelerates to 10.3 pixels/frame, ground dashes travel at 24 pixels/frame, and attacks can cancel after contact. Light chains are **J → J → J**; branch **J → J → K** into a launcher, or use **W + K**. Jump to chase a launched minion, strike in the air, and pogo with **S + J**. Briar Claw unlocks an aerial **S + K** plunge and grounded **S + Shift** slide; Sky Thread unlocks aimed vertical/diagonal air dashes. Jump buffering, variable height, wall jumps, and finite aerial dash resources remain.
+
+Hold **G** to raise a directional shield. Its first seven simulation frames deflect an incoming hit, restore Focus/Guard, and open a **J/K riposte**. Holding drains Guard; blocked hits drain more. A shattered shield briefly staggers you, then leaves Guard unavailable until it reforms. Release to regenerate it. Repeated taps cannot bypass the 24-frame parry lock. Attacks and companion signatures lower the shield. Taking damage interrupts offense, shakes the scene, reduces Flow, and produces visible recoil. Land hits, parry, and eventually perform precise Rift evades to build **Flow**, granting up to 15% additional damage; it decays out of combat. Bosses resist ordinary hit-stun and launches. Fill their posture meter to earn a longer punish window.
+
+**H** opens the Kinetic Arsenal. Equip two of twelve arts, **Z** cycles them, and **X** casts the selected art. They share the active companion’s Focus with healing and signature skills; each also has an independent cooldown. Unlocks are derived from actual journey progress, including older saves.
+
+| Combat art | Unlock | Role |
+| --- | --- | --- |
+| Kinetic Bolt / Aegis Pulse | Starting arts | Piercing ranged opener / Guard-restoring shell |
+| Comet Rush | Briar Matron | Burning dash launcher |
+| Thread Cyclone | Saint Bellows | Pulling vortex with repeated hits |
+| Tideglass Nova | Ink Leviathan | Freeze and slow a crowd |
+| Thunderstep | Storm Conductor | Protected electric rush |
+| Rift Sever | Hourglass Stag | Long directional punish |
+| Worldheart Eclipse | Hollow Sovereign | Area burst and life recovery |
+| Stolen Second | Belltwin | Local time-slow field |
+| Paper Moon | Palimpsest | Persistent gravity singularity |
+| Kindred Choir | 200 mastery on a companion | Homing attacks from all living party members |
+| First Sunrise | Nullheart | Launching explosion and recovery |
+
+Power rushes share the finite aerial dash budget. Companion signature skills remain separate, Focus-funded mobility choices. Switching never refreshes jumps, aerial dashes, Guard, or art cooldowns. The new controller also owns input buffering, cancel windows, juggle gravity, hit confirmation, shield regeneration and posture. It leaves room progression and RPG rewards independent.
+
+All eleven playable rigs now articulate anticipation, contact, recovery, running, airborne movement, shielding, casting and recoil. Every boss and minion receives state-based action/death animation; bosses add phase energy, ground runes and posture cues. Travelers breathe, look toward the player and animate books or accessories. Layered biome particles, elemental impact sparks, dash trails, camera impulses and animated interface feedback complete the presentation. **Reduced motion**, in the Arsenal, removes camera shake and softens flashes; the browser’s preference is used for a new journey.
+
+Version-4 saves retain the existing `kinetic-worldheart-v2` key and migrate both v2 and v3 progress. They add equipped arts, selected slot, motion preference and combat statistics. Midfight poses, fields, Flow and cooldowns are transient; loading returns to the saved room checkpoint as before.
 
 ## The expedition
 
@@ -57,7 +85,7 @@ Each companion gains independent mastery from its own attacks. At 80, 200, and 4
 
 Linger in a region path for fifteen seconds to encounter an aurora, meteor, or eclipse fracture. Three new echoes appear with readable attack tells. Clear them for a talent point, Lumens, and a flask. World-event victories persist; leaving a partially cleared event does not respawn its defeated enemies for farming. The new wild species are Candlewraiths, Clockscarabs, Oathbound sentinels, and Hushlings.
 
-The version-3 save keeps the existing storage key and migrates version-2 campaigns, retaining party, fragments, inventory, discoveries, and defeated enemies. It adds quests, talents, equipment, companion mastery, covenant, reputation, history, ground loot, merchant stock, keepsakes, world events, and true endings. Save data stays in the browser; it is not account-backed.
+The RPG save keeps the existing storage key and migrates earlier campaigns, retaining party, fragments, inventory, discoveries, and defeated enemies. It adds quests, talents, equipment, companion mastery, covenant, reputation, history, ground loot, merchant stock, keepsakes, world events, and true endings. Save data stays in the browser; it is not account-backed.
 
 ## Controls
 
@@ -67,7 +95,11 @@ The version-3 save keeps the existing storage key and migrates version-2 campaig
 | W / S | Aim up / down |
 | Space | Jump; release early for a short hop |
 | Shift | Dash; cancel attack recovery |
-| J | Fast strike; buffer the next strike in a three-swing animation chain |
+| J | Three-part light chain; buffer the next strike |
+| G, held | Shield; first seven frames parry; J/K riposte |
+| X / Z / H | Cast selected art / cycle two arts / Kinetic Arsenal |
+| W + K / J J K | Launcher; jump to chase |
+| Air S + K | Plunge after Briar Claw unlock |
 | K | Heavy strike; flip armored Pebblebacks |
 | Air S + J | Downstrike / pogo bounce |
 | L | Neutral elemental technique |
@@ -87,7 +119,7 @@ Touch controls appear on narrow screens. Keyboard controls are also listed in th
 
 ## Combat and companions
 
-Combat runs at a fixed **60 Hz**. Running reaches speed in a few frames; light attacks use 2 startup, 4 active, and 5 recovery frames. Heavies use 5 / 5 / 9. The engine supports ten-frame attack buffering, recovery dash cancels, coyote time, buffered jumps, variable jump height, wall slides, aerial steering, pogo refreshes, brief dash protection, directional attacks, and hit confirmation. A light hit pauses impact for one frame; heavy hits pause for three.
+Combat runs at a fixed **60 Hz**. The first light uses 2 startup / 3 active / 4 recovery frames, branching lights use 2/4/4 and 3/4/7, and heavy uses 5/5/9. A 12-frame input buffer accepts the next attack during a strike, while each move defines its own cancel window and hitbox. The director handles directional attacks, launchers, finite air movement, parries, shields, posture and power fields. Rendering never changes combat timing. Light hits pause impact briefly; heavy finishers and perfect reversals pause longer.
 
 Each companion keeps independent hearts, Focus, and cooldowns. Switching preserves location, velocity, debuffs, and spent air resources. It cannot refill jumps or grant free invulnerability. A knocked-out companion yields to a living partner. A full party wipe returns to the checkpoint, resets surviving guardians to full health, and loses 10% of Lumens. Resting revives the party.
 
@@ -115,21 +147,29 @@ npm run check
 npm test
 npm run test:browser
 npm run test:rpg
+npm run test:combat
 ```
 
 `npm run check` checks every source file and verifies the committed browser bundle matches source. Node tests cover locomotion, party behavior, elemental skills, campaign topology, ability gates, actual rift collision, grapple physics, the persistent bridge, crafting transactions, unique rewards, wipes, save validation, guardian phases, and input-driven complete campaign runs with all eight starting leads. The original isolated locomotion training fixture remains for regression tests; it is not exposed as a game mode.
 
-`npm run test:rpg` additionally exercises actual quest turn-ins, talent purchases, equipment, faction boons, merchant trades, v3 reloads, every forbidden boss rig, true endings, collected history, and mobile RPG screens. Its later checkpoints are earned by completing all eight optional arcs through inputs.
+`npm run test:rpg` additionally exercises actual quest turn-ins, talent purchases, equipment, faction boons, merchant trades, save reloads, every forbidden boss rig, true endings, collected history, and mobile RPG screens. Its later checkpoints are earned by completing all eight optional arcs through inputs.
 
 The Chromium suite starts its own temporary server. It exercises story dialogue, keyboard traversal, a guardian fight, rewards, save/reload, recruitment, inventory, atlas, pause, all biome and guardian renderers, touch movement, a 390-pixel layout, and nested `/poketest/` hosting. Later-biome rendering checkpoints are earned by the input-driven simulation controller. Screenshots go to ignored `test-results/`.
 
 The browser suite uses `CHROMIUM_PATH`, system Chromium if available, or Playwright’s installed browser. On a fresh machine without Chromium, run `npx playwright install chromium`. Direct `file://` navigation may be restricted by managed browser policy; asset tests additionally verify every HTML and font URL against the filesystem and a repository hosting subpath.
 
+`npm run test:combat` checks real keyboard chains, shields, power loadouts, progression locks, Focus/cooldowns, pause release, v4 migration, reduced motion and mobile touch. It also checks world-frame camera transforms so standing actors and their ground baseline remain visible. New combat unit tests cover all twelve arts, precise frame windows, shield-buffer exploits, lethal shield-break rescue, and boss stun resistance.
+
 ## Architecture
 
 | File | Responsibility |
 | --- | --- |
-| `src/rpg.js` | RPG quests, equipment, talents, factions, mastery, world events, v2/v3 save migration |
+| `src/rpg.js` | RPG quests, equipment, talents, factions, mastery, world events, v2/v3/v4 save migration |
+| `src/combat.js` | Frame-driven attack controller, movement cancels, Guard/parry, juggle/posture, powers |
+| `src/combat-data.js` | Move frame data, movement tuning, twelve art definitions and unlock rules |
+| `src/combat-fx.js` | Capped particles, biome ambience, elemental impacts, camera and screen feedback |
+| `src/entity-animation.js` | Boss/minion action, recoil/death, telegraphs and NPC interaction animation |
+| `src/combat-ui.js`, `src/combat-style.css` | Responsive Arsenal, move manual, power loadout and combat HUD |
 | `src/chronicle.js` | Eight optional story arcs, covenants, new rooms/bosses/entities, ten history records |
 | `src/rpg-data.js` | Talent trees, equipment modifiers, item rarities, merchant stock, bond ranks |
 | `src/rpg-ui.js` | Quest journal, talent constellation, reliquary, soul bonds, history, covenants, merchant |

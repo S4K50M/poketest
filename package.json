@@ -1,6 +1,6 @@
 {
   "name": "kinetic-monsters",
-  "version": "3.0.0",
+  "version": "4.0.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -10,7 +10,8 @@
     "test:browser": "node tests/browser.mjs",
     "check": "node scripts/check.mjs",
     "build": "node scripts/build.mjs",
-    "test:rpg": "node tests/rpg-browser.mjs"
+    "test:rpg": "node tests/rpg-browser.mjs",
+    "test:combat": "node tests/combat-browser.mjs"
   },
   "engines": {
     "node": ">=20"

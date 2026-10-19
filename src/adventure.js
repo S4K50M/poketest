@@ -74,7 +74,7 @@ export class AdventureSystems{
     for(const key of ['slow','root','slick','burn','guard'])if(p[key]>0)p[key]--;
     if(p.burn===1)this.hurt(0,.5);
     const stopped=!this.inputs.left&&!this.inputs.right&&Math.abs(p.vx)<.5;
-    p.healing=!!(p.healHeld&&stopped&&p.grounded&&!p.attack&&!p.dash&&!p.respawning&&p.hp<p.maxHp&&p.spirit>=HEAL.cost);
+    p.healing=!!(p.healHeld&&stopped&&p.grounded&&!p.attack&&!p.dash&&!p.respawning&&!p.shielding&&!p.stagger&&!p.guardBroken&&p.hp<p.maxHp&&p.spirit>=HEAL.cost);
     if(p.healing){
       // Recovery is a commitment, even immediately after taking a hit.
       p.invul=0;
@@ -86,7 +86,7 @@ export class AdventureSystems{
     if(this.decoy&&--this.decoy.life<=0)this.decoy=null;
     if(this.skillStrike){
       const s=this.skillStrike;s.life--;
-      for(const e of this.enemies)if(e.hp>0&&!s.hit.has(e.id)&&Math.abs(e.x-p.x)<95&&Math.abs(e.y-p.y)<100){s.hit.add(e.id);this.strike(e,s.damage,p.face,{heavy:true,element:s.element,source:s.owner});if(s.element==='Ice'){e.slow=180;this.effects.push({type:'ice',x:e.x,y:e.y,life:35});}}
+      for(const e of this.enemies)if(e.hp>0&&!s.hit.has(e.id)&&Math.abs(e.x-p.x)<(s.radius||95)&&Math.abs(e.y-p.y)<100){s.hit.add(e.id);this.strike(e,s.damage,p.face,{heavy:true,element:s.element,source:s.owner,launch:s.launch,stun:s.stun});if(s.element==='Ice'){e.slow=180;this.effects.push({type:'ice',x:e.x,y:e.y,life:35});}}
       if(s.life<=0){this.skillStrike=null;p.armor=0;}
     }
     for(const zone of this.zones){

@@ -16,11 +16,11 @@ test('campaign starts with three companions, real tools, flasks, and locked stor
   const g=new CampaignEngine();assert.equal(g.roomId,'sanctuary');assert.equal(g.party.length,3);assert.deepEqual([...g.abilities],['dash']);assert.equal(g.inventory.flask,3);assert(g.inventory.pickaxe);assert(g.inventory.lantern);assert.equal(g.unlocked.size,8);
 });
 test('fast movement, two-frame light startup, input buffering and recovery dash cancels',()=>{
-  const g=new CampaignEngine(),p=g.player;g.setInputs({right:true});frames(g,5);assert(p.vx>8);assert.equal(CAMPAIGN_MOTOR.dash,20);
-  g.setInputs({});g.input('light');assert.equal(p.attack.start,2);frames(g,5);g.input('heavy');assert.equal(g.attackBuffer.action,'heavy');frames(g,7);assert.equal(p.attack.type,'heavy');frames(g,7);assert(g.input('dash'));assert.equal(p.attack,null);assert(p.dash>0);
+  const g=new CampaignEngine(),p=g.player;g.setInputs({right:true});frames(g,5);assert(p.vx>9.5);assert.equal(CAMPAIGN_MOTOR.run,10.3);assert.equal(CAMPAIGN_MOTOR.dash,24);
+  g.setInputs({});g.input('light');assert.equal(p.attack.start,2);frames(g,5);g.input('heavy');assert.equal(g.combat.buffer.action,'heavy');frames(g,7);assert.equal(p.attack.type,'heavy');frames(g,7);assert(g.input('dash'));assert.equal(p.attack,null);assert(p.dash>0);
 });
 test('Rift Step reduces dash recovery for both ordinary and twin-dash companions',()=>{
-  for(const id of ['pyrojaw','zephyrix']){const g=new CampaignEngine([id]);g.abilities.add('blink');assert(g.input('dash'));assert.equal(g.player.dashCooldown,14);}
+  for(const id of ['pyrojaw','zephyrix']){const g=new CampaignEngine([id]);g.abilities.add('blink');assert(g.input('dash'));assert.equal(g.player.dashCooldown,12);}
 });
 test('double jumps and wall kicks require earned abilities',()=>{
   const g=new CampaignEngine(),p=g.player;g.input('jump');frames(g,8);const n=g.stats.doubleJumps;g.input('jump');g.step();assert.equal(g.stats.doubleJumps,n);g.abilities.add('wings');g.input('jump');g.step();assert.equal(g.stats.doubleJumps,n+1);

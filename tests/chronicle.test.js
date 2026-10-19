@@ -86,7 +86,7 @@ test('a v2 campaign earned with real traversal and combat migrates without losin
   assert.equal(g.lumens,legacy.lumens);
   assert.equal(g.level,legacy.level);
   assert.equal(g.inventory.flask,legacy.inventory.flask);
-  assert.equal(g.save().version,3);
+  assert.equal(g.save().version,4);
   assert(g.talents instanceof Set);
   assert(Array.isArray(g.gear));
   assert.deepEqual([...roundTrip(g).fragments],[...legacy.fragments]);
@@ -199,7 +199,7 @@ test('leaving a partially cleared world event cannot respawn defeated echoes for
  const g=new RPGCampaign();g.loadRoom('moss-path',550);g.startWorldEvent('aurora');const e=g.enemies.find(e=>e.event);g.strike(e,1000,1,{heavy:true});const dead=e.key;g.loadRoom('sanctuary');g.loadRoom('moss-path',550);assert(g.startWorldEvent('aurora'));assert.equal(g.enemies.filter(e=>e.event).length,2);assert(!g.enemies.some(e=>e.key===dead));
 });
 test('partially corrupt v3 optional fields stay playable and completed saves do not announce a fresh quest',()=>{
- const g=new RPGCampaign(),s=g.save();s.defeatedBosses={bad:true};s.historyKnown=null;s.questFlags=14;s.eventCleared='oops';s.shopStock=undefined;const r=new RPGCampaign(undefined,{save:s});assert.equal(r.fragments.size,0);assert(r.historyKnown instanceof Set);assert.equal(r.shopStock.flask,5);assert.equal(r.messageTime,0);assert(r.input('light'));
+ const g=new RPGCampaign(),s=g.save();s.version=3;delete s.combat;s.defeatedBosses={bad:true};s.historyKnown=null;s.questFlags=14;s.eventCleared='oops';s.shopStock=undefined;const r=new RPGCampaign(undefined,{save:s});assert.equal(r.fragments.size,0);assert(r.historyKnown instanceof Set);assert.equal(r.shopStock.flask,5);assert.equal(r.messageTime,0);assert(r.input('light'));
 });
 for(const faction of ['wardens','chorus'])test(`${faction} can finish all eight stories and earns its own persistent true ending`,async()=>{
  const {playChronicle}=await import('./helpers/chronicle-route.js');const g=new RPGCampaign();playChronicle(g,{faction});assert.equal(g.trueEnding,faction);assert.equal(g.faction,faction);assert(Object.values(g.quests).every(q=>q.state==='complete'));assert.equal(roundTrip(g).trueEnding,faction);assert.equal(g.bossInfo('nullheart').name,CHRONICLE_BOSSES.nullheart.variants[faction].name);

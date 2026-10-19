@@ -1,3 +1,5 @@
+import { drawEntityAnimated, drawBossAura, drawNPCAnimation } from './entity-animation.js';
+import { CombatFX } from './combat-fx.js';
 import {drawChronicleEntity,drawChronicleBoss} from './chronicle-art.js';
 import {drawRPGObject,drawRPGWorld,drawRPGAuras} from './rpg-render.js';
 import { fitCanvas } from './render.js';
@@ -14,14 +16,14 @@ const text=(c,txt,x,y,col='#dbeae0',size=12,align='center')=>{c.fillStyle=col;c.
 const noise=n=>{const a=Math.sin(n*127.1+37)*43758.5453;return a-Math.floor(a);};
 
 export class WorldRenderer{
-  constructor(canvas){this.canvas=canvas;this.camera=0;this.cameraY=0;this.lastRoom='';this.shake=0;this.flash=0;this.time=0;}
-  event(e){if(['hurt','slam','bossdefeated','enrage'].includes(e.type))this.shake=e.type==='bossdefeated'?16:8;else if(e.type==='hit')this.shake=Math.max(this.shake,2.5);if(e.type==='bossdefeated')this.flash=1;}
+  constructor(canvas){this.canvas=canvas;this.camera=0;this.cameraY=0;this.lastRoom='';this.shake=0;this.flash=0;this.time=0;this.fx=new CombatFX();this.lastClock=0;}
+  event(e,g){if(e.type!=='hit')this.fx.event(e,g);}
   render(g,clock){
-    const {c,w,h}=fitCanvas(this.canvas);if(!w||!h)return;const scale=h/660,view=w/scale,t=clock/1000,b=BIOMES[g.room.biome];this.time=t;
+    const {c,w,h}=fitCanvas(this.canvas);if(!w||!h)return;const scale=h/660,view=w/scale,t=clock/1000,b=BIOMES[g.room.biome];this.time=t;this.fx.reducedMotion=!!g.combat?.settings.reducedMotion;this.fx.update(Math.min(.05,Math.max(0,(clock-(this.lastClock||clock))/1000)));this.lastClock=clock;
     const target=Math.max(0,Math.min(g.worldWidth-view,g.player.x-view*.38+g.player.vx*7));
     if(this.lastRoom!==g.roomId){this.camera=target;this.lastRoom=g.roomId;}this.camera+=(target-this.camera)*.12;this.cameraY+=(Math.min(0,g.player.y-245)-this.cameraY)*.09;
-    c.save();c.scale(scale,scale);if(this.shake>.1){c.translate(Math.sin(t*80)*this.shake,Math.cos(t*91)*this.shake*.45);this.shake*=.83;}
-    this.backdrop(c,b,view,660,this.camera,t);
+    c.save();c.scale(scale,scale);const impulse=this.fx.camera();c.translate(impulse.x,impulse.y);if(impulse.zoom!==1){c.translate(view/2,330);c.scale(impulse.zoom,impulse.zoom);c.translate(-view/2,-330);}
+    this.backdrop(c,b,view,660,this.camera,t);this.fx.drawAmbient(c,g,this.camera,this.cameraY,view,660,t);
     c.save();c.translate(-this.camera,-this.cameraY);
     // Luminous dust lives in the scene instead of following the camera.
     for(let i=0;i<55;i++){const x=noise(i+9)*g.worldWidth,y=70+noise(i+72)*420+Math.sin(t*.5+i)*15;glow(c,x,y,4,b.color+'25');oval(c,x,y,.8,.8,b.color+'99');}
@@ -36,12 +38,17 @@ export class WorldRenderer{
     for(const a of g.room.anchors){line(c,[[a.x,a.y-36],[a.x,a.y]],'#d6b87866',1);glow(c,a.x,a.y,25,'#ffdd932a');poly(c,[[a.x,a.y-9],[a.x+8,a.y],[a.x,a.y+9],[a.x-8,a.y]],'#f8d895');}
     for(const r of g.relics)if(!r.collected){const yy=r.y+Math.sin(t*3+r.x)*6;glow(c,r.x,yy,35,b.color+'30');poly(c,[[r.x,yy-13],[r.x+8,yy],[r.x,yy+13],[r.x-8,yy]],b.color,'#efffe6');}
     for(const z of g.zones){glow(c,z.x,z.y-25,z.radius,z.type==='fire'?'#ff9b3833':z.type==='wind'?'#bfffe128':'#e2d6ff33');for(let i=0;i<9;i++){const xx=z.x+Math.sin(t*4+i)*z.radius*.8;line(c,[[xx,z.y],[xx+10,z.y-18-Math.sin(i+t*6)*10]],z.type==='fire'?'#ffb96d88':'#d0f7ed77',2);}}
-    for(const e of g.enemies)if(e.hp<=0&&e.deathTimer>0){if(e.boss)drawChronicleBoss(c,e,t);else drawChronicleEntity(c,e,t);}else if(e.hp>0){if(e.boss)this.boss(c,e,t);else this.minion(c,e,t);if(e.hp<e.maxHp){c.fillStyle='#0c1729';c.fillRect(e.x-24,e.y-(e.boss?180:70),48,3);c.fillStyle=e.boss?BOSSES[e.boss].color:MINIONS[e.kind].color;c.fillRect(e.x-24,e.y-(e.boss?180:70),48*e.hp/e.maxHp,3);}}
+    for(const e of g.enemies){
+      if(e.hp<=0&&!e.deathTimer)continue;e.reducedMotion=!!g.combat?.settings.reducedMotion;
+      if(e.boss&&e.hp>0)drawBossAura(c,e,t,BOSSES[e.boss].color);
+      drawEntityAnimated(c,e,t,()=>e.boss?this.boss(c,e,t):this.minion(c,e,t));
+      if(e.hp>0&&e.hp<e.maxHp){c.fillStyle='#0c1729';c.fillRect(e.x-24,e.y-(e.boss?180:70),48,3);c.fillStyle=e.boss?BOSSES[e.boss].color:MINIONS[e.kind].color;c.fillRect(e.x-24,e.y-(e.boss?180:70),48*e.hp/e.maxHp,3);}
+    }
     if(g.decoy){c.save();c.globalAlpha=.35;drawCreature(c,findFighter('noxshade'),g.decoy.x,g.decoy.y,.36,1,{walk:t},t);c.restore();}
     for(const e of g.effects)if(e.type==='trail'){c.save();c.globalAlpha=e.life/32;drawCreature(c,findFighter(e.creature),e.x,e.y,.38,e.face,{air:true},t,{shadow:false});c.restore();}
     const p=g.player,a=p.attack,af=a?Math.sin(Math.PI*Math.min(1,a.frame/(a.start+a.active))):0;
     c.save();if(p.invul&&Math.floor(g.tick/4)%2)c.globalAlpha=.5;
-    drawCreature(c,g.data,p.x,p.y,.38,p.face,{walk:p.walkPhase,attack:af,heavy:a?.type==='heavy',air:!p.grounded,land:g.landing/10,hit:p.flash>0},t);c.restore();
+    drawCreature(c,g.data,p.x,p.y,.38,p.face,{state:p.flash?'hit':p.riposte?'parry':p.shielding?'shield':p.dash?'dash':p.powerAura?'cast':a?a.type==='heavy'?'heavy':'attack':!p.grounded?'air':Math.abs(p.vx)>.5?'walk':'idle',walk:p.walkPhase,attack:af,heavy:a?.type==='heavy',air:!p.grounded,land:g.landing/10,hit:p.flash>0},t,{attackProgress:a?a.frame/(a.start+a.active+a.recovery):0,combo:a?.swing||1,speed:Math.min(1,Math.abs(p.vx)/10),shieldRatio:p.shield/100,charged:p.powerAura>0,elementColor:g.data.accent});c.restore();
     drawRPGAuras(c,g,t);
     if(p.healing){glow(c,p.x,p.y-30,80,'#abf2ce38');for(let i=0;i<6;i++){const ang=t*3+i*TAU/6;oval(c,p.x+Math.cos(ang)*32,p.y-35+Math.sin(ang)*35,2,2,'#dcffe0');}}
     if(p.guard||p.fortress){c.strokeStyle='#dce7a4';c.lineWidth=3;c.beginPath();c.arc(p.x,p.y-35,48,-Math.PI*.5,Math.PI*.5);c.stroke();}
@@ -59,12 +66,14 @@ export class WorldRenderer{
       }
     }
     for(const e of g.effects)this.effect(c,e,t,b);
+    this.fx.drawWorld(c,g,t);
+    for(const f of g.combat?.fields||[]){if(!Number.isFinite(f.x))continue;const radius=f.radius||100;c.save();c.globalAlpha=Math.min(.6,f.life/25);c.strokeStyle=f.color||b.color;c.lineWidth=2;c.setLineDash(f.type==='time'?[8,12]:[]);c.beginPath();c.ellipse(f.x,f.y,radius*(.9+Math.sin(t*5)*.04),f.type==='gravity'?radius*.6:35,t*.15,0,TAU);c.stroke();glow(c,f.x,f.y,radius,(f.color||b.color)+'14');c.restore();}
     const near=g.room.objects.filter(o=>Math.abs(o.x-p.x)<90&&Math.abs((o.y||520)-p.y)<95).sort((x,y)=>Math.abs(x.x-p.x)-Math.abs(y.x-p.x))[0];
     if(near){const locked=near.need>g.fragments.size||near.ability&&!g.abilities.has(near.ability);text(c,'[ E ]  '+(locked?'SEALED · ':'')+near.name,near.x,(near.y||520)-110,locked?'#b6acbf':'#f6e5bb',11);}
     c.restore();
     // Soft foreground silhouette and cinematic light rays.
     const vign=c.createLinearGradient(0,0,0,660);vign.addColorStop(0,'#07101d77');vign.addColorStop(.3,'transparent');vign.addColorStop(.85,'transparent');vign.addColorStop(1,'#040a14bb');c.fillStyle=vign;c.fillRect(0,0,view,660);
-    if(this.flash>.01){c.fillStyle=`rgba(240,255,224,${this.flash*.5})`;c.fillRect(0,0,view,660);this.flash*=.89;}
+    this.fx.drawScreen(c,view,660,t);
     c.restore();
   }
   backdrop(c,b,w,h,cam,t){
@@ -110,12 +119,13 @@ export class WorldRenderer{
     else if(b.kind==='frost')poly(c,[[p.x,p.y],[p.x+p.w,p.y],[p.x+p.w-14,p.y+10],[p.x+20,p.y+8]],'#cce8e788');
   }
   object(c,o,g,t){
-    if(drawRPGObject(c,o,g,t))return;
+    if(['npc','merchant'].includes(o.kind)){let drawn=false;drawNPCAnimation(c,o,g,t,()=>{drawn=drawRPGObject(c,o,g,t);});if(drawn)return;}else if(drawRPGObject(c,o,g,t))return;
     const x=o.x,y=o.y||520,col=BIOMES[g.room.biome].color,key=g.roomId+':'+o.id,used=g.opened.has(key);
     if(o.kind==='bench'){
       glow(c,x,y-62,100,'#f4dea92a');line(c,[[x-32,y-14],[x-32,y],[x+30,y],[x+30,y-14]],'#6a7264',7);line(c,[[x-42,y-23],[x+42,y-23]],'#9b9f83',7);line(c,[[x+50,y],[x+50,y-105],[x+28,y-105]],'#a4a78a',3);oval(c,x+27,y-89,8,14,'#fae4b5');glow(c,x+27,y-89,35,'#ffe2a550');
     }else if(o.kind==='npc'){
-      oval(c,x,y,20,6,'#08151e88');poly(c,[[x-15,y-63],[x+10,y-62],[x+23,y-3],[x-22,y-3]],'#d0d6bb','#263e3d');oval(c,x,y-79,13,16,'#d9b996');poly(c,[[x-18,y-85],[x-9,y-108],[x+12,y-106],[x+20,y-85]],'#b5c5b9');line(c,[[x+22,y-52],[x+31,y-8]],'#c7b783',3);oval(c,x+31,y-54,6,10,'#edd69b');text(c,'PROF. VELL',x,y-126,'#cbd8c4',9);
+      drawNPCAnimation(c,o,g,t,()=>{
+      oval(c,x,y,20,6,'#08151e88');poly(c,[[x-15,y-63],[x+10,y-62],[x+23,y-3],[x-22,y-3]],'#d0d6bb','#263e3d');oval(c,x,y-79,13,16,'#d9b996');poly(c,[[x-18,y-85],[x-9,y-108],[x+12,y-106],[x+20,y-85]],'#b5c5b9');line(c,[[x+22,y-52],[x+31,y-8]],'#c7b783',3);oval(c,x+31,y-54,6,10,'#edd69b');text(c,'PROF. VELL',x,y-126,'#cbd8c4',9);});
     }else if(o.kind==='workbench'){
       c.fillStyle='#747e69';c.fillRect(x-40,y-36,80,9);line(c,[[x-31,y-29],[x-31,y],[x+30,y],[x+30,y-29]],'#555e54',6);poly(c,[[x-15,y-40],[x-6,y-70],[x+8,y-70],[x+25,y-40]],'#a5a78a');glow(c,x,y-55,25,'#ffe6ac33');text(c,'THE MENDER',x,y-97,'#c8d5bf',9);
     }else if(o.kind==='portal'){

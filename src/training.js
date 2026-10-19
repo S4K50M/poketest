@@ -103,8 +103,8 @@ export class TrainingEngine extends AdventureSystems{
     p.spirit=Math.min(100,p.spirit+.06);
     if(p.grounded){p.coyote=(this.motor||MOTOR).coyote;p.dashUsed=false;p.airDashes=0;}else p.coyote=Math.max(0,p.coyote-1);
     this.jump();if(p.jumpBuffer>0)p.jumpBuffer--;
-    const direction=p.root>0||p.healing||p.fortress?0:Number(this.inputs.right)-Number(this.inputs.left),oldX=p.x,oldY=p.y,slow=p.slow>0?.55:1;
-    if(p.dash>0){p.vx=(p.skillVector?.x??p.face)*(this.motor||MOTOR).dash*slow;p.vy=(p.skillVector?.y||0)*(this.motor||MOTOR).dash;p.dash--;this.effects.push({type:'trail',x:p.x,y:p.y,face:p.face,creature:this.data.id,life:13});}
+    const direction=p.root>0||p.healing||p.fortress||p.stagger>0?0:Number(this.inputs.right)-Number(this.inputs.left),oldX=p.x,oldY=p.y,slow=(p.slow>0?.55:1)*(p.shielding?.4:1);
+    if(p.dash>0){p.vx=(p.skillVector?.x??p.face)*(p.dashSpeed||(this.motor||MOTOR).dash)*slow;p.vy=(p.skillVector?.y||0)*(p.dashSpeed||(this.motor||MOTOR).dash);p.dash--;this.effects.push({type:'trail',x:p.x,y:p.y,face:p.face,creature:this.data.id,life:13});}
     else{
       if(!p.wallLock){const speed=(this.motor||MOTOR).run*clamp(.96+(this.data.speed-.059)*2,.90,1.08)*slow;p.vx=approach(p.vx,direction*speed,direction?(p.slick>0?.6:(this.motor||MOTOR).acceleration):(p.slick>0?.12:(this.motor||MOTOR).friction));if(direction)p.face=direction;}
       p.vy=Math.min((this.motor||MOTOR).fall,p.vy+(this.motor||MOTOR).gravity);
