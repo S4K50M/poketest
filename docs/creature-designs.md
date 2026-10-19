@@ -1,5 +1,11 @@
 # Supplied creature design reference
 
+[Documentation index](README.md) · [Project README](../README.md)
+
+This document preserves the supplied creature concepts. It is a design reference, not an exact list of implemented mechanics. For current controls, unlocks, movement limits, hit behavior, and signatures, read the [gameplay](gameplay.md) and [combat](combat.md) guides and the runtime definitions in [designs.js](../src/designs.js).
+
+The live campaign adds Mycora, Lumivern, and Chronowl as rescued companions, plus additional wild species and guardians. Free flight, arena wall-splats, command grabs, and other wording below should not be interpreted as supported features unless confirmed by the current implementation. The supplied text follows unchanged.
+
 1. Pyrojaw (Fire/Rock) – The Heavy-Armor Brawler/Gator (Quadrupedal)
    - Design: An imposing, quadrupedal volcan-alligator with jagged, dark obsidian plates on its back and glowing orange magma seams along its scales. It has a heavy, igneous rock club on the end of its burning tail and a fiery, volcanic snout.
    - Move/Combat Animations: Runs on all fours with heavy, earth-shaking thuds. It bites with aggressive lunges and swings its heavy, smoldering tail-club.
