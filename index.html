@@ -20,7 +20,8 @@
   <main id="selection-screen">
     <div class="section-kicker"><span><i class="tiny-square"></i> IRON FIST ARENA</span><span>01 — SELECT YOUR FIGHTER</span><span class="session">LOCAL SESSION <i class="live-dot"></i></span></div>
     <section class="selection-heading"><div><p class="eyebrow">INSTINCT MEETS IMPACT.</p><h1>BUILT TO <em>BRAWL.</em></h1></div><p class="intro">No turns. No mercy.<br>Just you, your monster, and the next hit.</p></section>
-    <section class="path-launch"><div class="path-emblem" aria-hidden="true">◇</div><div><span class="eyebrow">NEW · A PLAYABLE FIELD LESSON</span><h2>THE HOLLOW FOUNDRY</h2><p>Learn to leap. Dash through danger. Let the walls become a path.</p></div><span class="path-launch-meta">6 CHAMBERS<br>ONE INSTINCT</span><button id="start-training">BEGIN THE PATH <span>↗</span></button></section>
+    <section class="path-launch"><div class="path-emblem" aria-hidden="true">◇</div><div><span class="eyebrow">EXPEDITION · A PARTY OF THREE</span><h2>THE HOLLOW FOUNDRY</h2><p>Three creatures. Five wild species. One bond that carries you through.</p></div><span class="path-launch-meta">SWITCH. RECOVER.<br>GROW TOGETHER.</span><button id="start-training">BEGIN THE PATH <span>↗</span></button></section>
+    <section class="party-builder" aria-label="Choose your expedition party"><div class="party-builder-heading"><span class="eyebrow">YOUR ACTIVE PARTY <b>03 / 03</b></span><p>Choose three different creatures. Switch with <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> or <kbd>Q</kbd> during the level.</p></div><div id="party-loadout" class="party-loadout"></div></section>
     <section class="select-layout" aria-label="Fighter selection">
       <div class="roster-panel">
         <div class="panel-label"><span><b class="lime">P1</b> CHOOSE YOUR FIGHTER</span><span>8 AVAILABLE</span></div>
@@ -39,7 +40,7 @@
         <div class="detail-top"><span class="eyebrow">FIGHTER INTEL</span><span class="crosshair">⌖</span></div>
         <h3 id="detail-title">Pressure.<br>Then eruption.</h3><p id="detail-desc" class="detail-description"></p>
         <div class="stats" id="fighter-stats"></div>
-        <div class="signature"><span class="eyebrow">SIGNATURE MOVE</span><h4 id="signature-name"></h4><div id="signature-keys" class="key-sequence"></div><p id="signature-desc"></p></div>
+        <div class="signature"><span class="eyebrow">EXPEDITION SKILL</span><h4 id="signature-name"></h4><div id="signature-keys" class="key-sequence"></div><p id="signature-desc"></p></div>
         <div class="difficulty"><span>TECHNICAL DIFFICULTY</span><div id="difficulty-pips"></div></div>
       </aside>
     </section>
@@ -68,18 +69,24 @@
   </main>
 
   <main id="training-screen" hidden>
-    <div class="game-toolbar"><button id="path-exit">← FIGHTER SELECT</button><span>THE HOLLOW FOUNDRY <i> / </i> A FIELD LESSON</span><div><button id="path-retry">WAYLIGHT <kbd>R</kbd></button><button id="path-pause">PAUSE <kbd>ESC</kbd></button></div></div>
+    <div class="game-toolbar"><button id="path-exit">← PARTY & ROSTER</button><span>THE HOLLOW FOUNDRY <i> / </i> EXPEDITION</span><div><button id="path-journal-button">JOURNAL <kbd>M</kbd></button><button id="path-retry">WAYLIGHT <kbd>R</kbd></button><button id="path-pause">PAUSE <kbd>ESC</kbd></button></div></div>
     <section class="path-shell">
       <canvas id="path-canvas" tabindex="0" aria-label="Side-view training level. A and D move, Space jumps, Shift dashes, J attacks. Follow the professor’s lessons."></canvas>
       <div class="path-hud"><div><span id="path-fighter-name" class="eyebrow">PYROJAW / PILGRIM</span><div id="path-health" aria-label="Health"></div><div class="path-spirit"><i id="path-spirit-fill"></i></div><span class="path-spirit-label">FOCUS · L TO CHANNEL</span></div><div class="path-area"><span id="path-chapter">FIELD LESSON 01 / 06</span><strong id="path-zone">THE AWAKENING</strong><div id="path-progress"></div></div><div class="path-echoes"><span>◈</span> <strong id="path-shards">00</strong><small>/ 06 ECHO SHARDS</small></div></div>
+      <div class="path-party" id="path-party" aria-label="Switch active party member"></div>
+      <div class="path-rpg"><span id="path-bond-label">BOND LV. 1</span><strong id="path-lumens">0 LUMENS</strong><div class="path-xp"><i id="path-xp-fill"></i></div><small id="path-bond-xp">0 / 60 XP</small></div>
+      <div id="path-heal" class="path-heal" hidden><span id="path-heal-label">FOCUSING · HOLD F</span><div><i id="path-heal-fill"></i></div></div>
+      <div id="path-statuses" class="path-statuses"></div>
       <div class="path-toast" id="path-toast" role="status" aria-live="polite"></div>
       <aside id="path-coach" class="path-coach"><div class="coach-heading"><span class="coach-avatar" aria-hidden="true">V</span><div><span>PROF. VELL</span><small>YOUR FIELD INSTRUCTOR</small></div><button id="path-coach-toggle" aria-expanded="true">HIDE −</button></div><div class="coach-content"><h2 id="path-lesson">Find your feet.</h2><p id="path-hint"></p><div class="path-lesson-keys" id="path-keys"></div><div class="path-goal" id="path-goal"></div></div></aside>
       <div class="path-waymark"><span>↗</span><strong id="path-next">FOLLOW THE WAYLIGHT</strong><small>A PATH IS LEARNED ONE STEP AT A TIME.</small></div>
       <div class="path-overlay" id="path-overlay" hidden><p class="eyebrow" id="path-overlay-kicker">TAKE A BREATH</p><h2 id="path-overlay-title">PAUSED</h2><p id="path-overlay-description">YOUR NEXT STEP IS WAITING.</p><div class="path-results" id="path-results" hidden></div><div class="path-overlay-buttons"><button id="path-resume">CONTINUE THE PATH ↗</button><button id="path-again" hidden>WALK IT AGAIN ↗</button><button id="path-to-arena" hidden>ENTER THE ARENA ↗</button><button id="path-overlay-exit">FIGHTER SELECT</button></div></div>
     </section>
-    <div class="path-control-strip"><span><kbd>A</kbd><kbd>D</kbd> MOVE</span><span><kbd>SPACE</kbd> JUMP / DOUBLE-JUMP</span><span><kbd>SHIFT</kbd> DASH</span><span><kbd>J</kbd> STRIKE</span><span><kbd>S + J</kbd> DOWNSTRIKE</span><span><kbd>K</kbd> HEAVY</span><span><kbd>L</kbd> CAST</span><span><kbd>E</kbd> REST</span></div>
+    <div class="path-control-strip"><span><kbd>A</kbd><kbd>D</kbd> MOVE</span><span><kbd>SPACE</kbd> JUMP</span><span><kbd>SHIFT</kbd> DASH</span><span><kbd>J</kbd> STRIKE / S+J BOUNCE</span><span><kbd>K</kbd> HEAVY</span><span><kbd>L</kbd> SKILL</span><span><kbd>1 / 2 / 3</kbd> SWITCH</span><span><kbd>F</kbd> HOLD TO HEAL</span><span><kbd>E</kbd> REST</span><span><kbd>B</kbd> FORGE</span></div>
     <div class="path-footnote"><span><i class="live-dot"></i> RESPONSIVE MOVEMENT · FORGIVING LANDINGS</span><span>ORIGINAL CREATURES. A NEW WAY TO MOVE.</span></div>
   </main>
+
+  <dialog id="field-journal"><button id="close-journal" class="close-dialog" aria-label="Close field journal">×</button><p class="eyebrow">PROF. VELL’S FIELD NOTES</p><h2>THE LIVING<br><em>FOUNDRY.</em></h2><div id="journal-progress"></div><h3 class="journal-section-title">YOUR COMPANIONS</h3><div id="journal-party"></div><h3 class="journal-section-title">WILD SPECIES <span id="journal-discovered"></span></h3><div id="journal-minions"></div><p class="guide-foot">Hold F to recover a heart for 33 Focus. E rests the whole party. B forges a Heartwood Charm at your waylight. Progress lasts for this expedition.</p></dialog>
 
   <dialog id="guide-dialog"><button class="close-dialog" id="close-guide" aria-label="Close controls">×</button><p class="eyebrow">KNOW YOUR NEXT MOVE</p><h2>FIGHT WITH<br><em>INSTINCT.</em></h2><div class="guide-tabs"><button class="selected" data-tab="basics">THE BASICS</button><button data-tab="moves">FIGHTER MOVES</button></div><div id="guide-body"></div><p class="guide-foot">Keyboard required · Relative inputs follow your opponent · Escape to pause</p></dialog>
   <script defer src="./bundle/game.js"></script>

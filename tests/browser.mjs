@@ -31,8 +31,14 @@ try{
     await page.locator('#back-select').click();
   }
   console.log('PASS: all eight fighters render and enter combat; opponent cannot be the selected fighter.');
+  await page.selectOption('#party-select-0','pyrojaw');await page.selectOption('#party-select-1','zephyrix');await page.selectOption('#party-select-2','noxshade');
+  assert.deepEqual((await page.evaluate(()=>window.kinetic.snapshot())).party,['pyrojaw','zephyrix','noxshade']);
+  await page.selectOption('#party-select-1','noxshade');assert.equal(new Set((await page.evaluate(()=>window.kinetic.snapshot())).party).size,3);await page.selectOption('#party-select-1','zephyrix');
   await page.locator('#start-training').click();
   assert.equal((await page.evaluate(()=>window.kinetic.snapshot())).mode,'training');
+  await page.keyboard.press('Digit2');await page.clock.runFor(340);assert.equal((await page.evaluate(()=>window.kinetic.snapshot())).player.id,'zephyrix');
+  await page.locator('[data-switch-slot="2"]').click();await page.clock.runFor(340);assert.equal((await page.evaluate(()=>window.kinetic.snapshot())).player.id,'noxshade');
+  await page.keyboard.press('KeyQ');await page.clock.runFor(340);assert.equal((await page.evaluate(()=>window.kinetic.snapshot())).player.id,'pyrojaw');
   await page.keyboard.down('KeyD');await page.clock.runFor(700);
   assert((await page.evaluate(()=>window.kinetic.snapshot())).player.x>350);
   await page.keyboard.down('Space');await page.clock.runFor(120);
@@ -48,9 +54,14 @@ try{
   await page.locator('#close-guide').click();await page.clock.runFor(32);assert(!(await page.evaluate(()=>window.kinetic.snapshot())).paused);assert.equal(await page.evaluate(()=>document.activeElement.id),'path-canvas');
   await page.locator('#sound-toggle').click();assert.equal(await page.evaluate(()=>document.activeElement.id),'path-canvas');await page.locator('#sound-toggle').click();
   await page.locator('#path-coach-toggle').click();assert.equal(await page.locator('#path-coach-toggle').getAttribute('aria-expanded'),'false');await page.locator('#path-coach-toggle').click();
-  await page.keyboard.press('KeyR');await page.clock.runFor(35);assert.equal((await page.evaluate(()=>window.kinetic.snapshot())).player.x,1080);
+  await page.keyboard.press('KeyR');await page.clock.runFor(350);assert.equal((await page.evaluate(()=>window.kinetic.snapshot())).player.x,1080);
+  const beforeHeal=await page.evaluate(()=>window.kinetic.snapshot());assert(beforeHeal.player.hp<beforeHeal.player.maxHp);
+  await page.keyboard.down('KeyF');await page.clock.runFor(900);await page.keyboard.up('KeyF');
+  const healed=await page.evaluate(()=>window.kinetic.snapshot());assert.equal(healed.player.hp,Math.min(beforeHeal.player.maxHp,beforeHeal.player.hp+1));assert.equal(healed.stats.heals,1);assert(healed.player.spirit<80);
+  await page.keyboard.press('KeyM');assert(await page.locator('#field-journal').isVisible());assert.equal(await page.locator('.journal-species').count(),5);assert.equal(await page.locator('#journal-party article').count(),3);assert((await page.evaluate(()=>window.kinetic.snapshot())).paused);
+  await page.screenshot({path:'test-results/journal.png',fullPage:true});await page.keyboard.press('Escape');await page.clock.runFor(32);assert(!(await page.evaluate(()=>window.kinetic.snapshot())).paused);assert.equal(await page.evaluate(()=>document.activeElement.id),'path-canvas');
   await page.screenshot({path:'test-results/training.png',fullPage:true});await page.locator('#path-exit').click();assert.equal((await page.evaluate(()=>window.kinetic.snapshot())).phase,'selection');
-  console.log('PASS: training entry, faster movement, real jump traversal and lesson gates, dash, pause/manual, coach toggle, checkpoint retry, and mode exit.');
+  console.log('PASS: three-member party selection, duplicate swapping, keyboard/HUD/cycle switching, real healing with Focus cost, journal, traversal, pause and checkpoint recovery.');
   await page.locator('[data-fighter="pyrojaw"]').click();await page.selectOption('#opponent-select','glaciolith');await page.selectOption('#ai-level','easy');
   await page.locator('#start-fight').click();await page.clock.runFor(2300);
   const initial=await page.evaluate(()=>window.kinetic.snapshot());

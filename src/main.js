@@ -1,10 +1,12 @@
 import { ROSTER, findFighter, ARENAS, getMove } from './roster.js';
 import { CombatEngine } from './engine.js';
 import { paintPortrait, ArenaRenderer } from './render.js';
-import { TrainingUI, PATH_GUIDE } from './training-ui.js';
+import { TrainingUI, PATH_GUIDE, PARTY_GUIDE } from './training-ui.js';
 
 const $=id=>document.getElementById(id);
 let selected='pyrojaw',opponent='voltantis',game=null,view='select',sound=false,audio=null,guideTab='basics';
+let partyIds=['pyrojaw','voltantis','zephyrix'];
+try{const saved=JSON.parse(localStorage.getItem('kinetic-party-v1'));if(Array.isArray(saved)&&saved.length===3&&new Set(saved).size===3&&saved.every(id=>ROSTER.some(d=>d.id===id))){partyIds=saved;selected=saved[0];}}catch{}
 const pressed=new Set();let accumulator=0,last=performance.now(),heroLast=0;
 const renderer=new ArenaRenderer($('arena-canvas'));
 const statNames=['POWER','MOBILITY','DEFENSE','TECHNIQUE'];
@@ -15,19 +17,20 @@ function tone(freq=200,duration=.08,type='sine',volume=.05){
 const training=new TrainingUI({onExit:returnToSelect,onArena:()=>{training.stop();startMatch()},onSound:e=>{
   if(['jump','dash','walljump'].includes(e.type))tone(e.type==='dash'?320:460,.07,'triangle',.02);
   if(['hit','pogo','slam','hurt'].includes(e.type))tone(e.type==='hurt'?80:180,.12,'sawtooth',.035);
-  if(['learned','checkpoint','relic','complete'].includes(e.type))tone(700,.25,'sine',.035);
+  if(['learned','checkpoint','relic','complete','levelup','upgrade','heal','switch'].includes(e.type))tone(e.type==='switch'?510:700,.25,'sine',.035);
 }});
-function startTraining(){view='training';game=null;pressed.clear();training.start(selected);}
+function startTraining(){view='training';game=null;pressed.clear();training.start([...partyIds]);}
 $('start-training').addEventListener('click',startTraining);$('nav-path').addEventListener('click',startTraining);
 function buildRoster(){
-  $('roster-grid').innerHTML=ROSTER.map((d,i)=>`<button class="fighter-card" data-fighter="${d.id}" style="--fighter-color:${d.color}" aria-label="Select ${d.name}, ${d.element} ${d.role}" aria-pressed="false"><span class="card-num">${String(i+1).padStart(2,'0')}</span><canvas aria-hidden="true"></canvas><span class="card-bottom"><span class="card-name">${d.name.toUpperCase()}</span><span class="card-element">${d.element.toUpperCase()}<i></i></span></span></button>`).join('');
+  $('roster-grid').innerHTML=ROSTER.map((d,i)=>`<button class="fighter-card" data-fighter="${d.id}" style="--fighter-color:${d.color}" aria-label="Select ${d.name}, ${d.element} ${d.role}" aria-pressed="false"><span class="card-num">${String(i+1).padStart(2,'0')}</span><canvas aria-hidden="true"></canvas><span class="card-bottom"><span class="card-name">${d.name.toUpperCase()}</span><span class="card-element">${d.types.join(" / ").toUpperCase()}<i></i></span></span></button>`).join('');
   document.querySelectorAll('.fighter-card').forEach(card=>card.addEventListener('click',()=>selectFighter(card.dataset.fighter)));
   selectFighter(selected);
 }
 function selectFighter(id){
   selected=id;const d=findFighter(id),i=ROSTER.indexOf(d);
+  const occupied=partyIds.indexOf(id);if(occupied>0)[partyIds[0],partyIds[occupied]]=[id,partyIds[0]];else partyIds[0]=id;
   if(opponent===selected)opponent=ROSTER[(i+1)%ROSTER.length].id;
-  $('preview-element').textContent=`◈ ${d.element.toUpperCase()} / ${d.role.toUpperCase()}`;
+  $('preview-element').textContent=`◈ ${d.types.join(' / ').toUpperCase()}`;
   $('fighter-preview').style.setProperty('--accent',d.color);
   $('preview-watermark').textContent=String(i+1).padStart(2,'0');$('preview-number').textContent=`KM—${String(i+1).padStart(3,'0')}`;
   $('preview-archetype').textContent=d.archetype.toUpperCase();$('preview-name').innerHTML=d.name.toUpperCase()+'<span>↗</span>';
@@ -38,8 +41,14 @@ function selectFighter(id){
   document.querySelector('.hero-caption').innerHTML=`<span>${d.epithet.toUpperCase()}</span><span>ORIGINAL SPECIMEN / ${String(i+1).padStart(3,'0')}</span>`;
   $('hero-canvas').setAttribute('aria-label',`Original illustration of ${d.name}, ${d.description}`);
   $('opponent-select').innerHTML=ROSTER.filter(d=>d.id!==selected).map(d=>`<option value="${d.id}" ${d.id===opponent?'selected':''}>${d.name.toUpperCase()}</option>`).join('');
-  updateCards();tone(500,.05,'triangle',.025);
+  renderPartyBuilder();updateCards();tone(500,.05,'triangle',.025);
 }
+function renderPartyBuilder(){
+  $('party-loadout').innerHTML=partyIds.map((id,i)=>{const d=findFighter(id);return `<article class="party-choice" style="--party-color:${d.color}"><span class="party-slot-number">0${i+1}</span><canvas aria-hidden="true"></canvas><div><label for="party-select-${i}">${i===0?'LEAD CREATURE':'COMPANION '+(i+1)}</label><select id="party-select-${i}" data-party-slot="${i}" aria-label="Party slot ${i+1}">${ROSTER.map(d=>`<option value="${d.id}" ${d.id===id?'selected':''}>${d.name.toUpperCase()}</option>`).join('')}</select><small>${d.types.join(' / ').toUpperCase()} · ${d.maxHp} HEARTS</small></div><span class="party-passive">${d.passive}</span></article>`}).join('');
+  document.querySelectorAll('.party-choice').forEach((c,i)=>paintPortrait(c.querySelector('canvas'),findFighter(partyIds[i])));
+  try{localStorage.setItem('kinetic-party-v1',JSON.stringify(partyIds));}catch{}
+}
+$('party-loadout').addEventListener('change',e=>{const slot=Number(e.target.dataset.partySlot);if(!Number.isInteger(slot))return;const id=e.target.value,old=partyIds.indexOf(id);if(old>=0&&old!==slot)[partyIds[slot],partyIds[old]]=[partyIds[old],partyIds[slot]];else partyIds[slot]=id;selectFighter(partyIds[0]);});
 function updateCards(){
   document.querySelectorAll('.fighter-card').forEach(card=>{const d=findFighter(card.dataset.fighter);card.classList.toggle('selected',d.id===selected);card.classList.toggle('cpu',d.id===opponent);card.setAttribute('aria-pressed',d.id===selected);paintPortrait(card.querySelector('canvas'),d);});
   paintPortrait($('opponent-avatar'),findFighter(opponent),{face:-1});
@@ -88,7 +97,8 @@ const basicGuide=`
 <div class="guide-row"><span>WALLS & ROUNDS</span><span><strong>Take the fight downstairs.</strong> Launch into walls for a guaranteed follow-up window. Heavy impacts damage and break walls into a lower tier. Break a lower-tier wall for a ring-out. Win 2 rounds; each lasts 60 seconds. Timeout compares remaining HP percentage. Exact ties replay the round.</span></div>`;
 function updateGuide(){
   document.querySelectorAll('[data-tab]').forEach(b=>b.classList.toggle('selected',b.dataset.tab===guideTab));
-  if(guideTab==='basics'){$('guide-body').innerHTML=training.active?PATH_GUIDE:basicGuide;return;}
+  if(guideTab==='basics'){$('guide-body').innerHTML=training.active?PARTY_GUIDE+PATH_GUIDE:basicGuide;return;}
+  if(training.active){const d=training.game.data;$('guide-body').innerHTML=`<h3 class="guide-fighter-label">${d.name.toUpperCase()} / ${d.types.join(' · ')}</h3><div class="guide-row"><span>NEUTRAL L</span><span><strong>${d.skill}</strong></span></div><div class="guide-row"><span>DIRECTION + L</span><span><strong>${d.directional}</strong><br>${d.signatureDesc}</span></div><div class="guide-row"><span>J / K</span><span>Light starts in 4 frames; heavy in 9 frames. Creature damage scales with your shared Bond Level and Heartwood Charm. Heavy attacks flip Pebbleback shells.</span></div>${PARTY_GUIDE}`;return;}
   const d=findFighter(selected),f=game?.fighters[0]||{};
   const moves=[['J',getMove(d,'jab')],['K',getMove(d,'heavy')],['U',getMove(d,'grab')],...Object.entries(d.specials).map(([dir,m])=>[({neutral:'L',forward:'D + L',back:'A + L',up:'W + L',down:'S + L'})[dir],m])];
   if(d.id==='pyrojaw')moves.push(['D, S, D + K',getMove(d,'godfist')]);
@@ -170,4 +180,4 @@ let resizeTimer;window.addEventListener('resize',()=>{clearTimeout(resizeTimer);
 buildRoster();requestAnimationFrame(animate);
 
 // A read-only snapshot is convenient for browser QA and frame-data inspection.
-window.kinetic={snapshot:()=>training.active?training.game.snapshot():game?{phase:game.phase,paused:game.paused,tick:game.tick,time:game.time,wins:[...game.wins],round:game.round,tier:game.tier,fighters:game.fighters.map(f=>({id:f.data.id,hp:f.hp,x:f.x,z:f.z,y:f.y,guard:f.guard,kinetic:f.kinetic,stamina:f.stamina,move:f.attack?.move.name||null}))}:{phase:'selection',player:selected,opponent}};
+window.kinetic={snapshot:()=>training.active?training.game.snapshot():game?{phase:game.phase,paused:game.paused,tick:game.tick,time:game.time,wins:[...game.wins],round:game.round,tier:game.tier,fighters:game.fighters.map(f=>({id:f.data.id,hp:f.hp,x:f.x,z:f.z,y:f.y,guard:f.guard,kinetic:f.kinetic,stamina:f.stamina,move:f.attack?.move.name||null}))}:{phase:'selection',player:selected,opponent,party:[...partyIds]}};

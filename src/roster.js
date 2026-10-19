@@ -1,3 +1,4 @@
+import { DESIGNS } from './designs.js';
 // Distances are arena units. Timings are 60 Hz simulation frames.
 const special = (name, props = {}) => ({ name, startup: 19, active: 5, recovery: 23, damage: 19, range: 1.9, width: .65, stun: 23, cost: 20, cooldown: 120, ...props });
 export const ROSTER = [
@@ -58,6 +59,8 @@ export const ROSTER = [
     specials:{neutral:special('Alloy Claw',{damage:23,armor:true}),forward:special('Turbine Fang',{travel:.11,range:2.3,damage:25,wallBreak:true}),back:special('Chrome Ray',{projectile:true,range:9,startup:24,damage:22}),up:special('Dragon Install',{install:true,cost:35,cooldown:600,startup:18}),down:special('Steel Cyclone',{range:2.2,width:1.8,damage:22,launch:.17})},
   },
 ];
+
+for(const fighter of ROSTER)Object.assign(fighter,DESIGNS[fighter.id]);
 
 export const findFighter = id => ROSTER.find(f => f.id === id) || ROSTER[0];
 export const ARENAS = {

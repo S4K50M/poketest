@@ -41,13 +41,13 @@ test('pit failure returns to the waylight and preserves learned skills',()=>{
   const g=new TrainingEngine();g.lesson=2;g.completed[0]=g.completed[1]=true;g.checkpoint={x:2340,y:520};Object.assign(g.player,{x:2750,y:710,grounded:false,vy:16});g.step();assert.equal(g.player.x,2340);assert.equal(g.player.y,520);assert.equal(g.stats.falls,1);assert(g.player.invul>0);assert(g.completed[1]);assert.equal(g.lesson,2);
 });
 test('resting restores health and focus at any previously activated waylight',()=>{
-  const g=new TrainingEngine();g.lesson=3;g.player.x=LESSONS[1].spawn;g.player.hp=2;g.player.spirit=5;assert(g.input('interact'));assert.equal(g.player.hp,6);assert.equal(g.player.spirit,100);assert.equal(g.checkpoint.x,LESSONS[1].spawn);
+  const g=new TrainingEngine();g.lesson=3;g.player.x=LESSONS[1].spawn;g.player.hp=2;g.player.spirit=5;assert(g.input('interact'));assert.equal(g.player.hp,g.player.maxHp);assert.equal(g.player.spirit,100);assert.equal(g.checkpoint.x,LESSONS[1].spawn);
 });
 test('light attack respects startup and hits each enemy only once per swing',()=>{
-  const g=new TrainingEngine();g.lesson=5;Object.assign(g.player,{x:6480,y:520,invul:90});g.input('light');frames(g,3);assert.equal(g.enemies[0].hp,28);frames(g,9);assert.equal(g.enemies[0].hp,16);assert.equal(g.stats.hits,1);
+  const g=new TrainingEngine();g.enemies=g.enemies.filter(e=>e.encounter);g.lesson=5;Object.assign(g.player,{x:6480,y:520,invul:90});g.input('light');frames(g,3);assert.equal(g.enemies[0].hp,28);frames(g,9);assert.equal(g.enemies[0].hp,14);assert.equal(g.stats.hits,1);
 });
 test('elemental casting costs focus and can hit a target once',()=>{
-  const g=new TrainingEngine();g.lesson=5;g.player.x=6400;g.input('special');assert.equal(g.player.spirit,75);frames(g,25);assert.equal(g.enemies[0].hp,8);g.player.spirit=0;assert(!g.input('special'));
+  const g=new TrainingEngine('aqualance');g.enemies=g.enemies.filter(e=>e.encounter);g.lesson=5;g.player.x=6400;g.input('special');assert.equal(g.player.spirit,75);frames(g,25);assert.equal(g.enemies[0].hp,5);g.player.spirit=0;assert(!g.input('special'));
 });
 test('warden telegraphs its charge and alternates into jumpable ground shockwaves',()=>{
   const g=new TrainingEngine();g.lesson=5;g.player.x=7100;const e=g.enemies[2];e.state='windup';e.timer=2;e.face=-1;const x=e.x;g.step();assert.equal(e.x,x);g.step();assert.equal(e.state,'charge');g.step();assert(e.x<x);
@@ -59,5 +59,5 @@ test('pause freezes the level, attacks, enemies and resource clocks',()=>{
 });
 for(const data of ROSTER)test(`${data.name} completes all six chambers through real movement and combat inputs`,()=>{
   const g=new TrainingEngine(data.id),result=driveTrainingRoute(g);
-  assert.equal(result.phase,'complete',JSON.stringify(result));assert(result.completed.every(Boolean));assert(result.stats.airDashes>0&&result.stats.pogos>0&&result.stats.wallJumps>0&&result.stats.doubleJumps>0);assert(result.enemies.every(e=>e.hp===0));assert(result.player.hp>0);
+  assert.equal(result.phase,'complete',JSON.stringify(result));assert(result.completed.every(Boolean));assert(result.stats.airDashes>0&&result.stats.pogos>0&&result.stats.wallJumps>0&&result.stats.doubleJumps>0);assert(result.enemies.filter(e=>e.encounter).every(e=>e.hp===0));assert(result.player.hp>0);assert.equal(result.party.length,3);
 });
