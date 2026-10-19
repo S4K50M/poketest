@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#10120e" />
+  <meta name="description" content="Eight original creatures. Frame-perfect combat. Enter the Iron Fist Arena in this playable 2.5D fighting game." />
+  <title>Kinetic Monsters — Iron Fist Arena</title>
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="Kinetic Monsters home"><span class="brand-mark">K<span>↗</span></span><span>KINETIC<br><b>MONSTERS</b></span></a>
+    <nav aria-label="Main"><button class="nav-item active" id="nav-arena">THE ARENA</button><button class="nav-item" id="nav-roster">FIGHTERS <span>08</span></button><button class="nav-item" id="nav-guide">HOW TO PLAY <span>↗</span></button></nav>
+    <div class="header-meta"><i class="live-dot"></i> SYSTEM ONLINE <span class="version">PROTOTYPE / V.01</span></div>
+    <button class="sound-toggle" id="sound-toggle" aria-label="Enable sound" title="Toggle synthesized game audio">♪ <span>SOUND OFF</span></button>
+  </header>
+
+  <main id="selection-screen">
+    <div class="section-kicker"><span><i class="tiny-square"></i> IRON FIST ARENA</span><span>01 — SELECT YOUR FIGHTER</span><span class="session">LOCAL SESSION <i class="live-dot"></i></span></div>
+    <section class="selection-heading"><div><p class="eyebrow">INSTINCT MEETS IMPACT.</p><h1>BUILT TO <em>BRAWL.</em></h1></div><p class="intro">No turns. No mercy.<br>Just you, your monster, and the next hit.</p></section>
+    <section class="select-layout" aria-label="Fighter selection">
+      <div class="roster-panel">
+        <div class="panel-label"><span><b class="lime">P1</b> CHOOSE YOUR FIGHTER</span><span>8 AVAILABLE</span></div>
+        <div class="roster-grid" id="roster-grid"></div>
+        <div class="roster-bottom"><span>↔ SELECT A FIGHTER</span><span>ALL INSTINCT. <b>ALL ORIGINAL.</b></span></div>
+      </div>
+      <div class="fighter-preview" id="fighter-preview">
+        <div class="preview-grid"></div><div class="preview-orbit orbit-one"></div><div class="preview-orbit orbit-two"></div>
+        <span class="preview-watermark" id="preview-watermark">01</span>
+        <div class="preview-top"><span class="element-tag" id="preview-element">◈ FIRE / BRAWLER</span><span class="preview-number" id="preview-number">KM—001</span></div>
+        <canvas id="hero-canvas" aria-label="Illustration of selected fighter"></canvas>
+        <div class="hero-caption"><span>THE MAGMA MENACE</span><span>ORIGINAL SPECIMEN / 001</span></div>
+        <div class="preview-bottom"><div><p class="eyebrow" id="preview-archetype">RUSHDOWN / BRAWLER</p><h2 id="preview-name">PYROJAW<span>↗</span></h2></div><span class="class-badge" id="class-badge">FIRE<br>CLASS</span></div>
+      </div>
+      <aside class="fighter-detail">
+        <div class="detail-top"><span class="eyebrow">FIGHTER INTEL</span><span class="crosshair">⌖</span></div>
+        <h3 id="detail-title">Pressure.<br>Then eruption.</h3><p id="detail-desc" class="detail-description"></p>
+        <div class="stats" id="fighter-stats"></div>
+        <div class="signature"><span class="eyebrow">SIGNATURE MOVE</span><h4 id="signature-name"></h4><div id="signature-keys" class="key-sequence"></div><p id="signature-desc"></p></div>
+        <div class="difficulty"><span>TECHNICAL DIFFICULTY</span><div id="difficulty-pips"></div></div>
+      </aside>
+    </section>
+    <section class="match-config">
+      <div class="opponent-config"><span class="config-icon">⌁</span><div><label for="opponent-select">YOUR OPPONENT <span>CPU</span></label><select id="opponent-select" aria-label="Choose AI opponent"></select></div><canvas id="opponent-avatar" width="100" height="90"></canvas></div>
+      <div class="arena-config"><span class="config-icon">⬡</span><div><label for="arena-select">BATTLEGROUND</label><select id="arena-select" aria-label="Choose arena"><option value="foundry">THE FOUNDRY</option><option value="glacier">GLACIER VAULT</option><option value="neon">NEON UNDERCITY</option></select><span class="config-sub">DESTRUCTIBLE OCTAGON / 2 TIERS</span></div></div>
+      <div class="rules-config"><span class="eyebrow">MATCH FORMAT</span><strong>BEST OF 3 <span>×</span> 60 SEC</strong><div class="difficulty-select"><label for="ai-level">CPU</label><select id="ai-level"><option value="normal">CONTENDER</option><option value="easy">ROOKIE</option><option value="hard">APEX</option></select></div></div>
+      <button class="fight-button" id="start-fight"><span>ENTER THE ARENA<small>MAKE YOUR FIRST HIT COUNT</small></span><span class="button-arrow">↗</span></button>
+    </section>
+    <section class="mechanic-strip"><div><span class="strip-icon">✳</span><span><b>REAL-TIME. REAL IMPACT.</b><small>Frame-driven combat. Every hit earned.</small></span></div><div><span class="strip-icon">◇</span><span><b>ELEMENTS CHANGE THE RULES.</b><small>Burn. Freeze. Stun. Break their rhythm.</small></span></div><button id="controls-button">LEARN THE CONTROLS <span>↗</span></button></section>
+    <footer><span>© 2026 KINETIC MONSTERS <b>·</b> AN ORIGINAL FIGHTING EXPERIENCE</span><span>8 FIGHTERS. ONE ARENA. <b>ZERO EXCUSES.</b></span></footer>
+  </main>
+
+  <main id="game-screen" hidden>
+    <div class="game-toolbar"><button id="back-select">← FIGHTER SELECT</button><span id="arena-name">THE FOUNDRY <i> / </i> TIER 01</span><div><button id="hitbox-toggle" aria-pressed="false">HITBOXES OFF</button><button id="pause-button">PAUSE <kbd>ESC</kbd></button></div></div>
+    <section class="battle-shell">
+      <canvas id="arena-canvas" aria-label="Live arena combat. Use WASD to move and J K L U I to attack."></canvas>
+      <div class="battle-hud"><div class="fighter-hud player-hud"><div class="hud-name"><span><b>P1</b> <strong id="player-name"></strong></span><span id="player-hp-number"></span></div><div class="hp-track"><div class="hp-ghost" id="player-hp-ghost"></div><div class="hp-fill" id="player-hp"></div></div><div class="sub-gauges"><div class="guard-track"><i id="player-guard"></i></div><span>GUARD</span><div class="round-pips" id="player-rounds"></div></div><div class="burst-track"><i id="player-burst"></i></div><span class="burst-label" id="player-burst-label">KINETIC GAUGE</span></div><div class="timer-box"><span id="round-label">ROUND 01</span><strong id="round-timer">60</strong><small>BEST OF 3</small></div><div class="fighter-hud enemy-hud"><div class="hud-name"><span id="enemy-hp-number"></span><span><strong id="enemy-name"></strong> <b>CPU</b></span></div><div class="hp-track"><div class="hp-ghost" id="enemy-hp-ghost"></div><div class="hp-fill" id="enemy-hp"></div></div><div class="sub-gauges"><div class="round-pips" id="enemy-rounds"></div><span>GUARD</span><div class="guard-track"><i id="enemy-guard"></i></div></div><div class="burst-track"><i id="enemy-burst"></i></div><span class="burst-label" id="enemy-burst-label">KINETIC GAUGE</span></div></div>
+      <div id="combo-display" class="combo-display" hidden><strong>2</strong><span>HIT COMBO</span><small>24 DAMAGE</small></div>
+      <div id="combat-callout" class="combat-callout"></div><div id="status-display" class="status-display"></div>
+      <div class="stage-watermark">KINETIC <b>MONSTERS</b></div>
+      <div id="round-overlay" class="round-overlay" hidden><span id="overlay-kicker">IRON FIST ARENA</span><h2 id="overlay-title">ROUND 1</h2><p id="overlay-subtitle">FIGHT WITH INSTINCT.</p><div id="overlay-buttons" hidden><button id="resume-button">RESUME FIGHT ↗</button><button id="rematch-button">RUN IT BACK ↗</button><button id="select-button">FIGHTER SELECT</button></div></div>
+    </section>
+    <div class="game-bottom"><div><i class="live-dot"></i><span id="combat-state">60 HZ COMBAT ENGINE</span></div><span id="frame-readout">READY</span><span>WALL INTEGRITY <b id="wall-integrity">100%</b></span></div>
+    <div class="game-controls"><div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><span>MOVE / HOLD A TO GUARD</span></div><div><kbd>J</kbd><span>LIGHT</span><kbd>K</kbd><span>HEAVY</span><kbd>L</kbd><span>ELEMENT</span><kbd>U</kbd><span>THROW / TECH</span><kbd>I</kbd><span>BURST</span></div><button id="battle-guide">MOVE LIST ↗</button></div>
+  </main>
+
+  <dialog id="guide-dialog"><button class="close-dialog" id="close-guide" aria-label="Close controls">×</button><p class="eyebrow">KNOW YOUR NEXT MOVE</p><h2>FIGHT WITH<br><em>INSTINCT.</em></h2><div class="guide-tabs"><button class="selected" data-tab="basics">THE BASICS</button><button data-tab="moves">FIGHTER MOVES</button></div><div id="guide-body"></div><p class="guide-foot">Keyboard required · Relative inputs follow your opponent · Escape to pause</p></dialog>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
