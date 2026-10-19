@@ -55,7 +55,7 @@ export function climbTo(g,x,y,max=2500){
     if(ledge){const approach=Math.max(ledge.x+24,Math.min(x,ledge.x+ledge.w-24));if(!climbTo(g,approach,ledge.y,max))return false;}
   }
   for(let i=0;i<max;i++){
-    const p=g.player;if(Math.abs(x-p.x)<23&&Math.abs(y-p.y)<5&&p.grounded){g.setInputs({});return true;}
+    const p=g.player;if(Math.abs(x-p.x)<13&&Math.abs(y-p.y)<5&&p.grounded){g.setInputs({});return true;}
     g.setInputs({right:p.x<x-12,left:p.x>x+12});
     if(p.grounded&&(p.y>y+5||g.platforms.some(b=>b.y===p.y&&b.x+b.w-p.x<80&&p.x<b.x+b.w)))g.input('jump');
     if(!p.grounded&&p.vy>-3&&p.y>y-40&&p.jumpCount<2)g.input('jump');

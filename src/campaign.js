@@ -58,8 +58,9 @@ export class CampaignEngine extends TrainingEngine{
     if(this.paused||this.phase!=='playing'||this.player.respawning)return false;
     const p=this.player;
     if(p.stagger&&['jump','special','grapple'].includes(action))return false;
-    if(['jump','special','grapple','heal'].includes(action))this.combat.releaseShield();
+    if(['jump','grapple','heal'].includes(action))this.combat.releaseShield();
     const combatAction=this.combat.input(action);if(combatAction!==null)return combatAction;
+    if(action==='special')return this.castSkill();
     if(action==='interact')return this.interact();
     if(action==='tool')return this.useTool();
     if(action==='toolCycle')return this.cycleTool();
@@ -213,6 +214,14 @@ export class CampaignEngine extends TrainingEngine{
   }
   finishEnding(choice){if(!this.finished||!['restore','release'].includes(choice))return false;this.ending=choice;this.save();this.emit('credits',{choice});return true;}
   castSkill(){
+    if(this.paused||this.player.respawning||this.combat.remaining('special'))return false;
+    const ok=this.performSkill();if(ok){this.cancelHeal();this.combat.releaseShield();this.combat.buffer=null;this.combat.commit('special');this.party[this.activeSlot].skillCooldown=Math.max(this.party[this.activeSlot].skillCooldown,COMBAT.reuse.special);}return ok;
+  }
+  releaseSpecial(){
+    const shots=this.projectiles.length,held=this.player.specialHeld;super.releaseSpecial();
+    if(held&&this.projectiles.length>shots){this.combat.commit('special');this.party[this.activeSlot].skillCooldown=Math.max(this.party[this.activeSlot].skillCooldown,COMBAT.reuse.special);}
+  }
+  performSkill(){
     if(!['mycora','lumivern','chronowl'].includes(this.data.id))return super.castSkill();
     const p=this.player,m=this.party[this.activeSlot];if(m.skillCooldown||p.spirit<25||p.attack)return false;
     m.skillCooldown=32;p.spirit-=25;this.cancelHeal();

@@ -6,7 +6,7 @@ The playable prototype includes:
 
 - **18 rooms across six biomes**, nine bosses, eleven companions, and fifteen wild species.
 - Three active companions that switch mid-fight, healing, crafting, equipment, and exploration tools.
-- Launchers, aerial combos, dash cancels, directional shields, timed parries, and boss posture breaks.
+- Launchers, aerial combos, dash cancels, directional shields, timed parries, boss posture breaks, and visible attack cooldowns.
 - **Twelve combat arts**, with ten unlocked through progression, optional bosses, and companion mastery.
 - Eight quest lines, three permanent covenants, talent trees, hidden history, and multiple endings.
 - Animated Canvas creature rigs, elemental particles, biome ambience, and reduced-motion controls.

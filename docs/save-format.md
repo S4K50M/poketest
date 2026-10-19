@@ -18,7 +18,7 @@ Progress belongs to a browser origin and profile. Changing protocol, domain, por
 | Inventory | Materials, flasks, tools, crafted charms and equipped charms |
 | RPG story | quests and objective progress, trackedQuest, faction, reputation, questFlags, revealed history, trueEnding, keepsakes |
 | Builds and rewards | talents, talentPoints, gear, loadout, lootSerial, companionXP, surge, dropArchive, eventCleared, shopStock |
-| Momentum | combat.powerSlots, combat.selectedPower, combat.settings.reducedMotion, combat.stats |
+| Momentum | combat.powerSlots, combat.selectedPower, combat.settings.reducedMotion, combat.stats, validated combat.cooldowns and combat.recovery |
 
 A quest record stores its state (`active`, `ready`, or `complete`) and an objective-progress array. Equipment instances have an instance ID and a template ID; loadout slots refer to instance IDs. Ground drops are archived by room so leaving and returning does not duplicate them. Optional guardians use defeatedBosses separately from the six main fragments.
 
@@ -26,7 +26,7 @@ Combat statistics include parries, guard breaks, perfect evades, launches, and p
 
 ## What a reload does
 
-Saving records the room and its checkpoint, not an exact mid-combo simulation snapshot. Reloading returns to the room checkpoint, reconstructs its geometry/enemies, and preserves completed progression and claimed rewards. A surviving guardian’s partial health, velocity, attack phase, projectiles, temporary fields, animation pose, Guard expenditure, Flow, and art cooldowns are not restored. Signature cooldowns are also rebuilt. An enemy saved as defeated remains defeated.
+Saving records the room and its checkpoint, not an exact mid-combo simulation snapshot. Reloading returns to the room checkpoint, reconstructs its geometry/enemies, and preserves completed progression and claimed rewards. A surviving guardian’s partial health, velocity, attack phase, projectiles, temporary fields, animation pose, Guard expenditure, and Flow are not restored. Shared J/K/L, art, Surge, and assist cooldowns plus offensive recovery are restored; rejected, unknown, or out-of-range timer values are filtered or clamped. The shared L timer still applies when per-companion signature state is rebuilt. An enemy saved as defeated remains defeated.
 
 Room changes clear local projectiles, hazards, attacks, grapple state, and combat fields. Party health/Focus and progression remain governed by their normal room/rest rules. A party wipe revives the party, returns to the checkpoint, resets living guardians, and removes 10% of Lumens. Injured saves must not heal merely because faction maximum-health bonuses are reapplied.
 

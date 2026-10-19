@@ -4,6 +4,12 @@
 
 This records major implemented milestones. It is not a list of planned features.
 
+## Combat cooldown update
+
+- Added shared-party J/K/L repeat cooldowns, a shared offensive recovery window, and a single expiring follow-up queue.
+- Increased individual art cooldowns; added shared art casting recovery, a Surge cooldown, and a limit on Overdrive swap pulses.
+- Added HUD/touch countdowns and saved cooldown state to prevent swap, equip, room, and reload bypasses.
+
 ## Mobile landscape update
 
 - Added a portrait rotate prompt that pauses play, releases held controls, and preserves open menus. Fullscreen/orientation locking is optional with manual rotation as the fallback.

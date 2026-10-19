@@ -56,6 +56,8 @@ Craft flasks and four charms at benches or the Mender’s Workbench. Equip two c
 
 The original campaign save records party health, progression, inventory, charms, discoveries, claimed rewards, defeated creatures, story notes, endings, and a room checkpoint. Reloading starts at that checkpoint; it does not preserve the exact midair position or a guardian’s partial health. Autosaves happen during play and at room changes, rewards, resting, crafting, and leaving. An older arena save is not used by the new campaign.
 
+J, K, and L have shared-party repeat cooldowns of 0.2s, 0.6s, and 1.5s. Arts have individual timers plus shared cast recovery; Surge requires its gauge and a 15s cooldown. Time your next input rather than repeatedly tapping. Cooldowns survive swaps and reloads; the HUD and touch controls show remaining time.
+
 ## RPG progression
 
 Bond XP improves party level, health, and damage. Two starting talent points let you begin a Fang, Heart, or Thread build. Additional points come from Bond levels, forbidden guardians, and cleared world events. Talents affect damage, execution, lifesteal, healing, inactive Focus recovery, survival, movement, loot collection, and synergy.

@@ -7,7 +7,7 @@ export const TALENTS={
   secondchance:{name:'Refuse the Silence',branch:'HEART',icon:'✧',cost:1,description:'Once per room, a lethal hit leaves your active companion at one heart.',requires:'reservoir'},
   fleet:{name:'Threadrunner',branch:'THREAD',icon:'»',cost:1,description:'+10% run speed. Dash recovery is 3 frames shorter.',requires:null},
   magnet:{name:'Echo Magnet',branch:'THREAD',icon:'◇',cost:1,description:'Collect loot from further away and gain 20% more Lumens from enemies.',requires:'fleet'},
-  overdrive:{name:'Threefold Overture',branch:'THREAD',icon:'⋈',cost:1,description:'Resonance Surge recharges 40% faster. Swapping adds a short damage pulse.',requires:'magnet'},
+  overdrive:{name:'Threefold Overture',branch:'THREAD',icon:'⋈',cost:1,description:'Resonance Surge recharges 40% faster. Swapping adds a damage pulse with a 2-second cooldown.',requires:'magnet'},
 };
 export const RARITIES={common:{name:'WORN',color:'#aebdb0',scale:1},rare:{name:'RESONANT',color:'#98d9eb',scale:1.3},legendary:{name:'MYTHIC',color:'#edc789',scale:1.8}};
 export const EQUIPMENT={

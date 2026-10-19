@@ -43,8 +43,8 @@ test('J J K branches into a launcher; up-heavy and aerial down-heavy choose dire
   g.input('light');frames(g,2);g.input('light');until(g,()=>p.attack?.move==='light2');
   frames(g,2);g.input('heavy');until(g,()=>p.attack?.move==='launcher');
   until(g,()=>!p.attack);assert(g.combat.stats.launches>0);
-  g.setInputs({up:true});assert(g.input('heavy'));assert.equal(p.attack.move,'launcher');assert.equal(p.attack.dir,'up');
-  until(g,()=>!p.attack);g.abilities.add('claw');g.setInputs({down:true});
+  until(g,()=>!g.combat.remaining('heavy'));g.setInputs({up:true});assert(g.input('heavy'));assert.equal(p.attack.move,'launcher');assert.equal(p.attack.dir,'up');
+  until(g,()=>!p.attack&&!g.combat.remaining('heavy'));g.abilities.add('claw');g.setInputs({down:true});
   Object.assign(p,{y:350,grounded:false,coyote:0,jumpCount:1});
   assert(g.input('heavy'));assert.equal(p.attack.move,'plunge');assert.equal(p.attack.dir,'down');assert(p.vy>0);
 });

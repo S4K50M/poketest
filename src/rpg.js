@@ -62,7 +62,7 @@ export class RPGCampaign extends CampaignEngine{
     if(action==='surge')return this.castSurge();
     const ok=super.input(action);if(ok&&action==='dash')this.player.dashCooldown=Math.max(8,this.player.dashCooldown-(this.talents.has('fleet')?3:0)-(this.faction==='unwritten'?3:0));return ok;
   }
-  switchTo(slot,forced=false){const ok=super.switchTo(slot,forced);if(ok)this.combat.releaseShield();if(ok&&this.rpgReady&&!forced&&this.talents.has('overdrive')){for(const e of this.enemies)if(e.hp>0&&Math.abs(e.x-this.player.x)<135)this.strike(e,10,this.player.face,{dot:true});this.worldEffects.push({type:'aurora',x:this.player.x,y:this.player.y-35,life:35,maxLife:35});}return ok;}
+  switchTo(slot,forced=false){const ok=super.switchTo(slot,forced);if(ok)this.combat.releaseShield();if(ok&&this.rpgReady&&!forced&&this.talents.has('overdrive')&&!this.combat.remaining('assist')){this.combat.commit('assist');for(const e of this.enemies)if(e.hp>0&&Math.abs(e.x-this.player.x)<135)this.strike(e,10,this.player.face,{dot:true});this.worldEffects.push({type:'aurora',x:this.player.x,y:this.player.y-35,life:35,maxLife:35});}return ok;}
   strike(e,damage,direction,options={}){
     if(e.boss==='nullheart'&&!this.nullheartReady()){this.say('THE NULLHEART WAITS · AWAKEN THE HOLLOW SOVEREIGN FIRST');return;}
     const hp=e.hp,owner=this.party[options.source??this.activeSlot]?.data.id;
@@ -168,8 +168,9 @@ export class RPGCampaign extends CampaignEngine{
   craft(id){const ok=super.craft(id);if(ok){this.recordObjective('craft',id);this.save();}return ok;}
   useTool(tool){const before=new Set([...this.shrines,...this.opened]),ok=super.useTool(tool);if(ok){for(const key of [...this.shrines,...this.opened])if(!before.has(key))this.recordObjective('tool',key);this.save();}return ok;}
   castSurge(){
+    if(this.combat.remaining('surge'))return false;
     if(this.paused||this.player.respawning||this.surge<100){this.say('RESONANCE SURGE · BUILD THE GAUGE BY LANDING HITS');return false;}
-    this.surge=0;this.cancelHeal();this.player.attack=null;this.player.invul=Math.max(this.player.invul,42);this.worldEffects.push({type:'eclipse',x:this.player.x,y:this.player.y-65,life:100,maxLife:100});
+    this.combat.commit('surge');this.combat.buffer=null;this.surge=0;this.cancelHeal();this.player.attack=null;this.player.invul=Math.max(this.player.invul,42);this.worldEffects.push({type:'eclipse',x:this.player.x,y:this.player.y-65,life:100,maxLife:100});
     for(const [i,m] of this.party.entries())if(m.hp>0){for(const e of this.enemies)if(e.hp>0&&Math.abs(e.x-this.player.x)<650)this.strike(e,20,this.player.face,{source:i,heavy:true});m.spirit=Math.min(100,m.spirit+15);}
     // Hits from the cinematic cannot instantly pay for another cinematic.
     this.surge=0;this.say('THREEFOLD RESONANCE · '+this.party.map(m=>m.data.name).join(' / ').toUpperCase());this.emit('surge');this.save();return true;

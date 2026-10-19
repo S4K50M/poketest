@@ -28,7 +28,24 @@ Power rushes share the finite aerial dash budget. Companion signature skills rem
 
 All eleven playable rigs now articulate anticipation, contact, recovery, running, airborne movement, shielding, casting and recoil. Every boss and minion receives state-based action/death animation; bosses add phase energy, ground runes and posture cues. Travelers breathe, look toward the player and animate books or accessories. Layered biome particles, elemental impact sparks, dash trails, camera impulses and animated interface feedback complete the presentation. **Reduced motion**, in the Arsenal, removes camera shake and softens flashes; the browser’s preference is used for a new journey.
 
-Version-4 saves retain the existing `kinetic-worldheart-v2` key and migrate both v2 and v3 progress. They add equipped arts, selected slot, motion preference and combat statistics. Midfight poses, fields, Flow and cooldowns are transient; loading returns to the saved room checkpoint as before.
+Version-4 saves retain the existing `kinetic-worldheart-v2` key and migrate both v2 and v3 progress. They add equipped arts, selected slot, motion preference and combat statistics. Action/art cooldowns and shared recovery now persist; midfight poses, fields and Flow are transient; loading returns to the saved room checkpoint as before.
+
+## Attack cadence and anti-spam rules
+
+| Action | Repeat cooldown |
+| --- | --- |
+| J light, aerial light, or dash strike | 12 frames / 0.2s |
+| K heavy, launcher, or plunge | 36 frames / 0.6s |
+| L signature, including neutral/directional variants | 90 frames / 1.5s |
+| X arts, shared across equipped choices | 60 frames / 1s, plus each art’s individual cooldown |
+| R Threefold Resonance | 900 frames / 15s, plus its full-gauge requirement |
+| Overdrive swap damage pulse | 120 frames / 2s |
+
+Successful offensive actions also apply an 8-frame shared recovery window. Alternating J/K/L/X/R cannot bypass that window. Movement and the existing dash/Guard rules remain available for defense.
+
+Only one J/K follow-up can be buffered, and only within the 12-frame input window. Repeated presses cannot refresh or overwrite that queue. The queued action must wait for both its cooldown and a valid cancel state; an input during a longer cooldown is rejected. Cooldowns start when the action actually executes, not when an input is rejected or queued. Terrakhan’s charged release restarts L’s cooldown so holding the stance cannot bank an immediate second attack.
+
+Cooldowns are shared across the active party and survive swapping, art cycling/equipping, room changes, and save/reload. Pauses and hitstop freeze their simulation frames. Existing saves without the new optional cooldown fields start with ready actions. The J/K/L HUD and touch buttons show remaining time, and the selected art display includes shared casting recovery. Surge shows its cooldown separately from its gauge.
 
 ## Art resource costs
 
@@ -36,18 +53,18 @@ These are the unmodified base costs and cooldowns from POWERS. Signature L coold
 
 | Art ID | Name | Focus | Cooldown (seconds at 60 Hz) |
 | --- | --- | --- | --- |
-| `arcbolt` | Kinetic Bolt | 16 | 0.53 |
-| `aegis` | Aegis Pulse | 24 | 3.5 |
-| `comet` | Comet Rush | 28 | 1.5 |
-| `cyclone` | Thread Cyclone | 30 | 2.5 |
-| `frostnova` | Tideglass Nova | 32 | 3.17 |
-| `thunderstep` | Thunderstep | 22 | 0.97 |
-| `riftcut` | Rift Sever | 30 | 1.53 |
-| `bloodmoon` | Worldheart Eclipse | 40 | 4.67 |
-| `timefracture` | Stolen Second | 34 | 6 |
-| `gravitywell` | Paper Moon | 34 | 4 |
-| `choir` | Kindred Choir | 38 | 3 |
-| `phoenix` | First Sunrise | 45 | 7 |
+| `arcbolt` | Kinetic Bolt | 16 | 1.5 |
+| `aegis` | Aegis Pulse | 24 | 4 |
+| `comet` | Comet Rush | 28 | 2.5 |
+| `cyclone` | Thread Cyclone | 30 | 4 |
+| `frostnova` | Tideglass Nova | 32 | 5 |
+| `thunderstep` | Thunderstep | 22 | 2.5 |
+| `riftcut` | Rift Sever | 30 | 3.5 |
+| `bloodmoon` | Worldheart Eclipse | 40 | 7 |
+| `timefracture` | Stolen Second | 34 | 8 |
+| `gravitywell` | Paper Moon | 34 | 6 |
+| `choir` | Kindred Choir | 38 | 6 |
+| `phoenix` | First Sunrise | 45 | 10 |
 
 ## Implemented frame data
 

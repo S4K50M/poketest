@@ -5,16 +5,22 @@ const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
  * Campaign geometry, creature resources and RPG rewards remain independent. */
 export class CombatDirector{
   constructor(game){
-    this.g=game;this.powerSlots=['arcbolt','aegis'];this.selectedPower=0;this.cooldowns={};this.flow=0;this.flowGrace=0;this.chain=0;this.chainLife=0;this.buffer=null;this.fields=[];this.settings={reducedMotion:false};
+    this.g=game;this.powerSlots=['arcbolt','aegis'];this.selectedPower=0;this.cooldowns={};this.recovery=0;this.flow=0;this.flowGrace=0;this.chain=0;this.chainLife=0;this.buffer=null;this.fields=[];this.settings={reducedMotion:false};
     this.stats={parries:0,guardBreaks:0,perfectDodges:0,launches:0,powers:0};this.reset();
   }
   reset(){
     Object.assign(this.g.player,{shielding:false,shieldHeld:false,shield:100,shieldDelay:0,guardBroken:0,parryFrames:0,parryLock:0,riposte:0,stagger:0,powerAura:0,dashElapsed:0,dashSpeed:0,lastDashTick:-999,evadeTick:-999});
     this.buffer=null;this.chain=0;this.chainLife=0;this.fields=[];
   }
-  serialize(){return {powerSlots:[...this.powerSlots],selectedPower:this.selectedPower,settings:{...this.settings},stats:{...this.stats}};}
+  remaining(action){return Math.max(this.cooldowns[action]||0,this.recovery,action==='special'?this.g.party[this.g.activeSlot].skillCooldown:0);}
+  powerRemaining(id=this.powerSlots[this.selectedPower]){return Math.max(this.cooldowns[id]||0,this.remaining('power'));}
+  commit(action,frames=COMBAT.reuse[action]){this.cooldowns[action]=Math.max(this.cooldowns[action]||0,frames);this.recovery=COMBAT.recovery;}
+  serialize(){return {cooldowns:{...this.cooldowns},recovery:this.recovery,powerSlots:[...this.powerSlots],selectedPower:this.selectedPower,settings:{...this.settings},stats:{...this.stats}};}
   load(s){
     if(!s||typeof s!=='object')return;
+    const limits={...COMBAT.reuse,...Object.fromEntries(Object.values(POWERS).map(d=>[d.id,d.cooldown]))};
+    this.cooldowns={};for(const [id,max] of Object.entries(limits))if(Number.isFinite(s.cooldowns?.[id]))this.cooldowns[id]=Math.floor(clamp(s.cooldowns[id],0,max));
+    this.recovery=Number.isFinite(s.recovery)?Math.floor(clamp(s.recovery,0,COMBAT.recovery)):0;
     const slots=Array.isArray(s.powerSlots)?s.powerSlots:[];
     this.powerSlots=[0,1].map(i=>powerUnlocked(this.g,slots[i])?slots[i]:i?'aegis':'arcbolt');
     if(this.powerSlots[0]===this.powerSlots[1])this.powerSlots[1]=this.powerSlots[0]==='aegis'?'arcbolt':'aegis';
@@ -43,12 +49,13 @@ export class CombatDirector{
     if(!['light','heavy','dash'].includes(action))return null;
     if(p.stagger||p.root>0&&action==='dash')return false;
     if(action==='dash')return this.dash();
+    const wait=this.remaining(action);if(wait>COMBAT.inputBuffer||this.buffer)return false;
     g.cancelHeal();this.releaseShield();
-    if(p.attack||p.dash){this.buffer={action,life:COMBAT.inputBuffer};return true;}
+    if(p.attack||p.dash||wait){this.buffer={action,life:COMBAT.inputBuffer};return true;}
     return this.attack(action);
   }
   attack(action){
-    const g=this.g,p=g.player;this.releaseShield();let id;
+    const g=this.g,p=g.player;if(this.remaining(action)||p.stagger||p.respawning)return false;this.releaseShield();let id;
     if(p.riposte){id='riposte';p.riposte=0;}
     else if(action==='light'&&g.tick-p.lastDashTick<14)id='dashstrike';
     else if(!p.grounded&&g.inputs.down&&action==='heavy'&&g.abilities.has('claw'))id='plunge';
@@ -62,7 +69,7 @@ export class CombatDirector{
     else if(p.grounded)p.vx+=p.face*(move.impulse||2);
     p.armor=action==='heavy'&&['pyrojaw','terrakhan','ferrodrake','glaciolith'].includes(g.data.id)?1:0;
     this.chainLife=COMBAT.chainWindow+move.start+move.active+move.recovery;
-    g.swingIndex=this.chain;g.emit('slash',{move:id,x:p.x+p.face*45,y:p.y-35,element:g.data.types[0]});return true;
+    this.commit(action);g.swingIndex=this.chain;g.emit('slash',{move:id,x:p.x+p.face*45,y:p.y-35,element:g.data.types[0]});return true;
   }
   dash(){
     const g=this.g,p=g.player;if(p.dashCooldown||p.dash||!p.grounded&&p.airDashes>=(g.data.id==='zephyrix'?2:1))return false;
@@ -80,6 +87,7 @@ export class CombatDirector{
   step(){
     const g=this.g,p=g.player;
     for(const key of ['guardBroken','parryFrames','parryLock','riposte','stagger','powerAura','shieldDelay'])if(p[key]>0)p[key]--;
+    if(this.recovery>0)this.recovery--;
     for(const id of Object.keys(this.cooldowns))if(this.cooldowns[id]>0)this.cooldowns[id]--;
     if(p.dash)p.dashElapsed++;else {p.dashElapsed=0;p.dashSpeed=0;}
     if(this.chainLife>0)this.chainLife--;else this.chain=0;
@@ -87,9 +95,12 @@ export class CombatDirector{
     if(p.shieldHeld&&!p.guardBroken&&!p.stagger&&!p.dash){
       p.shielding=true;g.cancelHeal();p.shield=Math.max(0,p.shield-COMBAT.guardDrain);p.shieldDelay=COMBAT.guardRegenDelay;if(p.shield<=0)this.breakGuard();
     }else {p.shielding=false;if(!p.shieldDelay&&!p.guardBroken)p.shield=Math.min(100,p.shield+COMBAT.guardRegen);}
-    if(this.buffer){if(--this.buffer.life<=0)this.buffer=null;else if(!p.dash&&(!p.attack||p.attack.frame>=p.attack.cancelAt)){
-      const action=this.buffer.action;this.buffer=null;p.attack=null;this.attack(action);
-    }}
+    if(this.buffer){
+      const action=this.buffer.action;
+      if(!this.remaining(action)&&!p.stagger&&!p.dash&&!p.shielding&&(!p.attack||p.attack.frame>=p.attack.cancelAt)){
+        this.buffer=null;p.attack=null;this.attack(action);
+      }else if(--this.buffer.life<0)this.buffer=null;
+    }
     for(const f of this.fields){
       f.life--;if(f.type==='time')for(const e of g.enemies)if(e.hp>0&&Math.hypot(e.x-f.x,e.y-40-f.y)<f.radius){e.timeSlowUntil=g.tick+2;e.timeScale=f.timeScale;}
       if(['gravity','cyclone'].includes(f.type))for(const e of g.enemies)if(e.hp>0&&Math.hypot(e.x-f.x,e.y-40-f.y)<f.radius){e.x+=(f.x-e.x)*(e.boss?.008:.055);if(f.life%f.interval===0)g.strike(e,f.damage,p.face,{source:f.owner,dot:true,element:f.type==='gravity'?'Shadow':'Wind'});}
@@ -152,9 +163,9 @@ export class CombatDirector{
   }
   castPower(){
     const g=this.g,p=g.player,id=this.powerSlots[this.selectedPower],d=POWERS[id];
-    if(!d||!powerUnlocked(g,id)||this.cooldowns[id]>0||p.spirit<d.cost||p.stagger||p.guardBroken||p.dash||p.attack&&p.attack.frame<p.attack.cancelAt)return false;
+    if(g.paused||g.phase!=='playing'||p.respawning||!d||!powerUnlocked(g,id)||this.powerRemaining(id)>0||p.spirit<d.cost||p.stagger||p.guardBroken||p.dash||p.attack&&p.attack.frame<p.attack.cancelAt)return false;
     if(['comet','thunderstep'].includes(id)&&!p.grounded&&p.airDashes>=(g.data.id==='zephyrix'?2:1))return false;
-    g.cancelHeal();this.releaseShield();this.buffer=null;p.attack=null;p.spirit-=d.cost;this.cooldowns[id]=d.cooldown;p.powerAura=40;this.stats.powers++;g.emit('power',{id,x:p.x,y:p.y-35,color:d.color,element:d.element});
+    g.cancelHeal();this.releaseShield();this.buffer=null;p.attack=null;p.spirit-=d.cost;this.cooldowns[id]=d.cooldown;this.commit('power');p.powerAura=40;this.stats.powers++;g.emit('power',{id,x:p.x,y:p.y-35,color:d.color,element:d.element});
     const nearby=(range=250)=>g.enemies.filter(e=>e.hp>0&&Math.hypot(e.x-p.x,e.y-p.y)<range);
     const pulse=(range,damage,options={})=>{for(const e of nearby(range))g.strike(e,damage,Math.sign(e.x-p.x)||p.face,{heavy:true,...options});};
     if(['comet','thunderstep'].includes(id)){
@@ -177,5 +188,5 @@ export class CombatDirector{
     if(id==='phoenix'){pulse(d.radius,d.damage,{element:'Fire',launch:d.launch});p.hp=Math.min(p.maxHp,p.hp+d.heal);p.invul=d.invul;p.armor=1;this.fields.push({type:'phoenix',x:p.x,y:p.y-40,life:120,radius:d.radius,color:d.color});}
     return true;
   }
-  snapshot(){const p=this.g.player;return {...this.serialize(),flow:this.flow,chain:this.chain,move:p.attack?.move||null,attackFrame:p.attack?.frame||0,shield:p.shield,shielding:p.shielding,parryFrames:p.parryFrames,riposte:p.riposte,guardBroken:p.guardBroken,cooldowns:{...this.cooldowns},available:availablePowers(this.g).map(d=>d.id)};}
+  snapshot(){const p=this.g.player;return {...this.serialize(),flow:this.flow,chain:this.chain,move:p.attack?.move||null,attackFrame:p.attack?.frame||0,shield:p.shield,shielding:p.shielding,parryFrames:p.parryFrames,riposte:p.riposte,guardBroken:p.guardBroken,cooldowns:{...this.cooldowns},actions:Object.fromEntries(Object.entries(COMBAT.reuse).map(([id,total])=>[id,{remaining:this.remaining(id),total}])),available:availablePowers(this.g).map(d=>d.id)};}
 }

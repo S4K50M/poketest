@@ -5,6 +5,7 @@ import {chromium} from 'playwright';
 import {RPGCampaign} from '../src/rpg.js';
 import {playChronicle} from './helpers/chronicle-route.js';
 import {SAVE_KEY} from '../src/world.js';
+import {COMBAT,POWERS} from '../src/combat-data.js';
 
 // Progression fixtures are earned by the same input controller as the story
 // suite. The browser receives a normal save, never a mutable gameplay hook.
@@ -49,7 +50,8 @@ try {
   page.on('response', response => { if (response.status() >= 400) errors.push(`${response.status()} ${response.url()}`); });
   await page.goto(base);
   await page.evaluate(() => document.fonts.ready);
-  await page.clock.install();
+  await page.clock.install({time:new Date('2026-01-01T00:00:00Z')});
+  await page.clock.pauseAt(new Date('2026-01-01T00:00:01Z'));
   const clock = ms => page.clock.runFor(ms);
   const snapshot = () => page.evaluate(() => window.kinetic.snapshot());
   const screenshot = async name => {
@@ -117,19 +119,21 @@ try {
   const beforeAegis = await snapshot();
   await page.keyboard.press('KeyX');
   s = await snapshot();
-  assert(s.combat.cooldowns.aegis > 200 && s.combat.cooldowns.aegis <= 210);
+  assert(s.combat.cooldowns.aegis > POWERS.aegis.cooldown-5 && s.combat.cooldowns.aegis <= POWERS.aegis.cooldown);
   assert(beforeAegis.player.spirit - s.player.spirit > 23.5 && beforeAegis.player.spirit - s.player.spirit <= 24);
   assert.equal(s.combat.shield, 100);
   await page.keyboard.press('KeyZ');
   assert.equal((await snapshot()).combat.selectedPower, 1);
+  const switchingFocus=(await snapshot()).player.spirit;await page.keyboard.press('KeyX');assert.equal((await snapshot()).player.spirit,switchingFocus);assert(!(await snapshot()).combat.cooldowns.arcbolt,'cycling cannot bypass shared power recovery');
+  await clock(1050);
   const beforeBolt = (await snapshot()).player.spirit;
   await page.keyboard.press('KeyX');
   s = await snapshot();
-  assert(s.combat.cooldowns.arcbolt > 25 && s.combat.cooldowns.arcbolt <= 32);
+  assert(s.combat.cooldowns.arcbolt > POWERS.arcbolt.cooldown-5 && s.combat.cooldowns.arcbolt <= POWERS.arcbolt.cooldown);
   assert(beforeBolt - s.player.spirit > 15.5 && beforeBolt - s.player.spirit <= 16);
   await clock(100);
   assert.match(await page.locator('#power-name').textContent(), /Kinetic Bolt/);
-  assert((await snapshot()).combat.cooldowns.arcbolt < 32);
+  assert((await snapshot()).combat.cooldowns.arcbolt < POWERS.arcbolt.cooldown);
   console.log('PASS: starter power locks and equipment, live shield/release, pause safety, Guard restoration, Focus costs, power cycling, and frame cooldowns.');
 
   // Queue the next J during recovery; observing each move through the public
@@ -161,6 +165,14 @@ try {
   assert((await snapshot()).player.grounded);
   console.log('PASS: keyboard-buffered three-hit chain, fast dash displacement, variable jump and landing in the live browser.');
 
+  await page.keyboard.press('KeyK');await clock(100);const heavyRemaining=(await snapshot()).combat.actions.heavy.remaining;
+  assert(heavyRemaining>COMBAT.inputBuffer);assert.match(await page.locator('[data-cooldown="heavy"] small').textContent(),/s/);
+  for(let i=0;i<15;i++)await page.keyboard.press('KeyK');assert.equal((await snapshot()).combat.actions.heavy.remaining,heavyRemaining);
+  await page.keyboard.press('Digit2');assert.equal((await snapshot()).combat.actions.heavy.remaining,heavyRemaining);
+  await clock(650);await page.keyboard.press('KeyL');assert((await snapshot()).combat.actions.special.remaining>80);
+  const signatureFocus=(await snapshot()).player.spirit;for(let i=0;i<12;i++)await page.keyboard.press('KeyL');assert.equal((await snapshot()).player.spirit,signatureFocus);
+  await page.keyboard.press('Digit3');assert((await snapshot()).combat.actions.special.remaining>80);const partnerFocus=(await snapshot()).player.spirit;await page.keyboard.press('KeyL');assert.equal((await snapshot()).player.spirit,partnerFocus);
+  await screenshot('cooldowns');console.log('PASS: cooldown HUD, repeated key rejection, shared art recovery and party-swap protection for K/L.');
   await page.click('#home-button');
   await page.click('[data-return-home]');
   const fixture = earned.save();

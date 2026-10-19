@@ -1720,6 +1720,8 @@
   var COMBAT = {
     fps: 60,
     inputBuffer: 12,
+    recovery: 8,
+    reuse: { light: 12, heavy: 36, special: 90, power: 60, surge: 900, assist: 120 },
     chainWindow: 24,
     comboTimer: 100,
     guardMax: 100,
@@ -1772,7 +1774,7 @@
       type: "arcbolt",
       description: "Fire a piercing bolt through the front line. A cheap ranged route into a dash combo.",
       cost: 16,
-      cooldown: 32,
+      cooldown: 90,
       damage: 18,
       speed: 17,
       life: 42,
@@ -1787,7 +1789,7 @@
       type: "aegis",
       description: "Blast nearby enemies away, restore Guard, and raise a temporary protective shell.",
       cost: 24,
-      cooldown: 210,
+      cooldown: 240,
       damage: 12,
       radius: 170,
       duration: 100,
@@ -1803,7 +1805,7 @@
       type: "comet",
       description: "Rocket forward in a burning charge that launches enemies. Works in the air.",
       cost: 28,
-      cooldown: 90,
+      cooldown: 150,
       damage: 32,
       speed: 29,
       duration: 10,
@@ -1819,7 +1821,7 @@
       type: "cyclone",
       description: "Weave a vortex around yourself. Pull enemies inward and shred them with repeated hits.",
       cost: 30,
-      cooldown: 150,
+      cooldown: 240,
       damage: 7,
       radius: 190,
       duration: 90,
@@ -1835,7 +1837,7 @@
       type: "frostnova",
       description: "Shatter a ring of frozen water, briefly freeze minions, and slow every surviving target.",
       cost: 32,
-      cooldown: 190,
+      cooldown: 300,
       damage: 24,
       radius: 250,
       freeze: 35,
@@ -1850,7 +1852,7 @@
       type: "thunderstep",
       description: "Blink through enemies in an electric streak. Reposition safely and extend aerial chains.",
       cost: 22,
-      cooldown: 58,
+      cooldown: 150,
       damage: 23,
       speed: 33,
       duration: 8,
@@ -1867,7 +1869,7 @@
       type: "riftcut",
       description: "Tear a long line through space. A fast punish with broad reach and an upward kick.",
       cost: 30,
-      cooldown: 92,
+      cooldown: 210,
       damage: 36,
       range: 330,
       reachY: 105,
@@ -1882,7 +1884,7 @@
       type: "bloodmoon",
       description: "Detonate a heart-shaped shockwave. Devour its echoes to restore two hearts.",
       cost: 40,
-      cooldown: 280,
+      cooldown: 420,
       damage: 48,
       radius: 260,
       heal: 2,
@@ -1897,7 +1899,7 @@
       type: "timefracture",
       description: "Break the bell of time. A slowing field leaves room for a heal, escape, or long combo.",
       cost: 34,
-      cooldown: 360,
+      cooldown: 480,
       damage: 10,
       radius: 410,
       duration: 180,
@@ -1913,7 +1915,7 @@
       type: "gravitywell",
       description: "Summon a singularity ahead of you. Drag foes into one place and crush them in pulses.",
       cost: 34,
-      cooldown: 240,
+      cooldown: 360,
       damage: 6,
       radius: 280,
       duration: 120,
@@ -1930,7 +1932,7 @@
       type: "choir",
       description: "Three spectral companions answer your bond with homing shots from different angles.",
       cost: 38,
-      cooldown: 180,
+      cooldown: 360,
       damage: 20,
       count: 3,
       speed: 11,
@@ -1946,7 +1948,7 @@
       type: "phoenix",
       description: "Become a blazing sunrise. Throw enemies upward and mend three hearts in the aftermath.",
       cost: 45,
-      cooldown: 420,
+      cooldown: 600,
       damage: 65,
       radius: 330,
       heal: 3,
@@ -1985,6 +1987,7 @@
       this.powerSlots = ["arcbolt", "aegis"];
       this.selectedPower = 0;
       this.cooldowns = {};
+      this.recovery = 0;
       this.flow = 0;
       this.flowGrace = 0;
       this.chain = 0;
@@ -2002,11 +2005,25 @@
       this.chainLife = 0;
       this.fields = [];
     }
+    remaining(action) {
+      return Math.max(this.cooldowns[action] || 0, this.recovery, action === "special" ? this.g.party[this.g.activeSlot].skillCooldown : 0);
+    }
+    powerRemaining(id = this.powerSlots[this.selectedPower]) {
+      return Math.max(this.cooldowns[id] || 0, this.remaining("power"));
+    }
+    commit(action, frames = COMBAT.reuse[action]) {
+      this.cooldowns[action] = Math.max(this.cooldowns[action] || 0, frames);
+      this.recovery = COMBAT.recovery;
+    }
     serialize() {
-      return { powerSlots: [...this.powerSlots], selectedPower: this.selectedPower, settings: { ...this.settings }, stats: { ...this.stats } };
+      return { cooldowns: { ...this.cooldowns }, recovery: this.recovery, powerSlots: [...this.powerSlots], selectedPower: this.selectedPower, settings: { ...this.settings }, stats: { ...this.stats } };
     }
     load(s) {
       if (!s || typeof s !== "object") return;
+      const limits = { ...COMBAT.reuse, ...Object.fromEntries(Object.values(POWERS).map((d) => [d.id, d.cooldown])) };
+      this.cooldowns = {};
+      for (const [id, max] of Object.entries(limits)) if (Number.isFinite(s.cooldowns?.[id])) this.cooldowns[id] = Math.floor(clamp3(s.cooldowns[id], 0, max));
+      this.recovery = Number.isFinite(s.recovery) ? Math.floor(clamp3(s.recovery, 0, COMBAT.recovery)) : 0;
       const slots = Array.isArray(s.powerSlots) ? s.powerSlots : [];
       this.powerSlots = [0, 1].map((i) => powerUnlocked(this.g, slots[i]) ? slots[i] : i ? "aegis" : "arcbolt");
       if (this.powerSlots[0] === this.powerSlots[1]) this.powerSlots[1] = this.powerSlots[0] === "aegis" ? "arcbolt" : "aegis";
@@ -2060,9 +2077,11 @@
       if (!["light", "heavy", "dash"].includes(action)) return null;
       if (p.stagger || p.root > 0 && action === "dash") return false;
       if (action === "dash") return this.dash();
+      const wait = this.remaining(action);
+      if (wait > COMBAT.inputBuffer || this.buffer) return false;
       g.cancelHeal();
       this.releaseShield();
-      if (p.attack || p.dash) {
+      if (p.attack || p.dash || wait) {
         this.buffer = { action, life: COMBAT.inputBuffer };
         return true;
       }
@@ -2070,6 +2089,7 @@
     }
     attack(action) {
       const g = this.g, p = g.player;
+      if (this.remaining(action) || p.stagger || p.respawning) return false;
       this.releaseShield();
       let id;
       if (p.riposte) {
@@ -2092,6 +2112,7 @@
       } else if (p.grounded) p.vx += p.face * (move.impulse || 2);
       p.armor = action === "heavy" && ["pyrojaw", "terrakhan", "ferrodrake", "glaciolith"].includes(g.data.id) ? 1 : 0;
       this.chainLife = COMBAT.chainWindow + move.start + move.active + move.recovery;
+      this.commit(action);
       g.swingIndex = this.chain;
       g.emit("slash", { move: id, x: p.x + p.face * 45, y: p.y - 35, element: g.data.types[0] });
       return true;
@@ -2131,6 +2152,7 @@
     step() {
       const g = this.g, p = g.player;
       for (const key of ["guardBroken", "parryFrames", "parryLock", "riposte", "stagger", "powerAura", "shieldDelay"]) if (p[key] > 0) p[key]--;
+      if (this.recovery > 0) this.recovery--;
       for (const id of Object.keys(this.cooldowns)) if (this.cooldowns[id] > 0) this.cooldowns[id]--;
       if (p.dash) p.dashElapsed++;
       else {
@@ -2152,13 +2174,12 @@
         if (!p.shieldDelay && !p.guardBroken) p.shield = Math.min(100, p.shield + COMBAT.guardRegen);
       }
       if (this.buffer) {
-        if (--this.buffer.life <= 0) this.buffer = null;
-        else if (!p.dash && (!p.attack || p.attack.frame >= p.attack.cancelAt)) {
-          const action = this.buffer.action;
+        const action = this.buffer.action;
+        if (!this.remaining(action) && !p.stagger && !p.dash && !p.shielding && (!p.attack || p.attack.frame >= p.attack.cancelAt)) {
           this.buffer = null;
           p.attack = null;
           this.attack(action);
-        }
+        } else if (--this.buffer.life < 0) this.buffer = null;
       }
       for (const f of this.fields) {
         f.life--;
@@ -2327,7 +2348,7 @@
     }
     castPower() {
       const g = this.g, p = g.player, id = this.powerSlots[this.selectedPower], d = POWERS[id];
-      if (!d || !powerUnlocked(g, id) || this.cooldowns[id] > 0 || p.spirit < d.cost || p.stagger || p.guardBroken || p.dash || p.attack && p.attack.frame < p.attack.cancelAt) return false;
+      if (g.paused || g.phase !== "playing" || p.respawning || !d || !powerUnlocked(g, id) || this.powerRemaining(id) > 0 || p.spirit < d.cost || p.stagger || p.guardBroken || p.dash || p.attack && p.attack.frame < p.attack.cancelAt) return false;
       if (["comet", "thunderstep"].includes(id) && !p.grounded && p.airDashes >= (g.data.id === "zephyrix" ? 2 : 1)) return false;
       g.cancelHeal();
       this.releaseShield();
@@ -2335,6 +2356,7 @@
       p.attack = null;
       p.spirit -= d.cost;
       this.cooldowns[id] = d.cooldown;
+      this.commit("power");
       p.powerAura = 40;
       this.stats.powers++;
       g.emit("power", { id, x: p.x, y: p.y - 35, color: d.color, element: d.element });
@@ -2398,7 +2420,7 @@
     }
     snapshot() {
       const p = this.g.player;
-      return { ...this.serialize(), flow: this.flow, chain: this.chain, move: p.attack?.move || null, attackFrame: p.attack?.frame || 0, shield: p.shield, shielding: p.shielding, parryFrames: p.parryFrames, riposte: p.riposte, guardBroken: p.guardBroken, cooldowns: { ...this.cooldowns }, available: availablePowers(this.g).map((d) => d.id) };
+      return { ...this.serialize(), flow: this.flow, chain: this.chain, move: p.attack?.move || null, attackFrame: p.attack?.frame || 0, shield: p.shield, shielding: p.shielding, parryFrames: p.parryFrames, riposte: p.riposte, guardBroken: p.guardBroken, cooldowns: { ...this.cooldowns }, actions: Object.fromEntries(Object.entries(COMBAT.reuse).map(([id, total]) => [id, { remaining: this.remaining(id), total }])), available: availablePowers(this.g).map((d) => d.id) };
     }
   };
 
@@ -2551,9 +2573,10 @@
       if (this.paused || this.phase !== "playing" || this.player.respawning) return false;
       const p = this.player;
       if (p.stagger && ["jump", "special", "grapple"].includes(action)) return false;
-      if (["jump", "special", "grapple", "heal"].includes(action)) this.combat.releaseShield();
+      if (["jump", "grapple", "heal"].includes(action)) this.combat.releaseShield();
       const combatAction = this.combat.input(action);
       if (combatAction !== null) return combatAction;
+      if (action === "special") return this.castSkill();
       if (action === "interact") return this.interact();
       if (action === "tool") return this.useTool();
       if (action === "toolCycle") return this.cycleTool();
@@ -3001,6 +3024,26 @@
       return true;
     }
     castSkill() {
+      if (this.paused || this.player.respawning || this.combat.remaining("special")) return false;
+      const ok = this.performSkill();
+      if (ok) {
+        this.cancelHeal();
+        this.combat.releaseShield();
+        this.combat.buffer = null;
+        this.combat.commit("special");
+        this.party[this.activeSlot].skillCooldown = Math.max(this.party[this.activeSlot].skillCooldown, COMBAT.reuse.special);
+      }
+      return ok;
+    }
+    releaseSpecial() {
+      const shots = this.projectiles.length, held2 = this.player.specialHeld;
+      super.releaseSpecial();
+      if (held2 && this.projectiles.length > shots) {
+        this.combat.commit("special");
+        this.party[this.activeSlot].skillCooldown = Math.max(this.party[this.activeSlot].skillCooldown, COMBAT.reuse.special);
+      }
+    }
+    performSkill() {
       if (!["mycora", "lumivern", "chronowl"].includes(this.data.id)) return super.castSkill();
       const p = this.player, m = this.party[this.activeSlot];
       if (m.skillCooldown || p.spirit < 25 || p.attack) return false;
@@ -3210,7 +3253,7 @@
     secondchance: { name: "Refuse the Silence", branch: "HEART", icon: "\u2727", cost: 1, description: "Once per room, a lethal hit leaves your active companion at one heart.", requires: "reservoir" },
     fleet: { name: "Threadrunner", branch: "THREAD", icon: "\xBB", cost: 1, description: "+10% run speed. Dash recovery is 3 frames shorter.", requires: null },
     magnet: { name: "Echo Magnet", branch: "THREAD", icon: "\u25C7", cost: 1, description: "Collect loot from further away and gain 20% more Lumens from enemies.", requires: "fleet" },
-    overdrive: { name: "Threefold Overture", branch: "THREAD", icon: "\u22C8", cost: 1, description: "Resonance Surge recharges 40% faster. Swapping adds a short damage pulse.", requires: "magnet" }
+    overdrive: { name: "Threefold Overture", branch: "THREAD", icon: "\u22C8", cost: 1, description: "Resonance Surge recharges 40% faster. Swapping adds a damage pulse with a 2-second cooldown.", requires: "magnet" }
   };
   var RARITIES = { common: { name: "WORN", color: "#aebdb0", scale: 1 }, rare: { name: "RESONANT", color: "#98d9eb", scale: 1.3 }, legendary: { name: "MYTHIC", color: "#edc789", scale: 1.8 } };
   var EQUIPMENT = {
@@ -3404,7 +3447,8 @@
     switchTo(slot, forced = false) {
       const ok = super.switchTo(slot, forced);
       if (ok) this.combat.releaseShield();
-      if (ok && this.rpgReady && !forced && this.talents.has("overdrive")) {
+      if (ok && this.rpgReady && !forced && this.talents.has("overdrive") && !this.combat.remaining("assist")) {
+        this.combat.commit("assist");
         for (const e of this.enemies) if (e.hp > 0 && Math.abs(e.x - this.player.x) < 135) this.strike(e, 10, this.player.face, { dot: true });
         this.worldEffects.push({ type: "aurora", x: this.player.x, y: this.player.y - 35, life: 35, maxLife: 35 });
       }
@@ -3782,10 +3826,13 @@
       return ok;
     }
     castSurge() {
+      if (this.combat.remaining("surge")) return false;
       if (this.paused || this.player.respawning || this.surge < 100) {
         this.say("RESONANCE SURGE \xB7 BUILD THE GAUGE BY LANDING HITS");
         return false;
       }
+      this.combat.commit("surge");
+      this.combat.buffer = null;
       this.surge = 0;
       this.cancelHeal();
       this.player.attack = null;
@@ -4041,11 +4088,11 @@
   var has = (g, id) => g.abilities instanceof Set ? g.abilities.has(id) : (g.abilities || []).includes(id);
   var keys = (value) => `<kbd>${escape(value)}</kbd>`;
   function powerSlotHTML(g, index, live) {
-    const combat = g.combat || {}, id = combat.powerSlots?.[index], power = POWERS[id], selected = (combat.selectedPower || 0) === index, cooldown = combat.cooldowns?.[id] || 0;
+    const combat = g.combat || {}, id = combat.powerSlots?.[index], power = POWERS[id], selected = (combat.selectedPower || 0) === index, cooldown = Math.max(combat.cooldowns?.[id] || 0, combat.cooldowns?.power || 0, combat.recovery || 0);
     return `<button class="combat-slot ${selected ? "selected" : ""}" data-power-select="${index}" aria-pressed="${selected}" ${!live ? "disabled" : ""} style="--power:${power?.color || "#a7beba"}"><span class="combat-slot-number">0${index + 1}</span><span class="combat-slot-symbol" aria-hidden="true">${power?.icon || "\u25C7"}</span><span class="combat-slot-copy"><small>${selected ? "X \xB7 SELECTED POWER" : "Z \xB7 CYCLE TO THIS SLOT"}</small><strong>${escape(power?.name || "Empty power slot")}</strong><span>${power ? `${power.cost} FOCUS \xB7 ${cooldown > 0 ? seconds(cooldown) + " RECOVERY" : "READY"}` : "Choose an unlocked power below"}</span></span><span class="combat-slot-check" aria-hidden="true">${selected ? "\u2726" : "\u25CB"}</span></button>`;
   }
   function powerCardHTML(g, power, index, live) {
-    const combat = g.combat || {}, unlocked = powerUnlocked(g, power.id), slots = combat.powerSlots || [], equipped = slots.includes(power.id), cooldown = combat.cooldowns?.[power.id] || 0, lock = powerLockReason(g, power.id);
+    const combat = g.combat || {}, unlocked = powerUnlocked(g, power.id), slots = combat.powerSlots || [], equipped = slots.includes(power.id), cooldown = Math.max(combat.cooldowns?.[power.id] || 0, combat.cooldowns?.power || 0, combat.recovery || 0), lock = powerLockReason(g, power.id);
     const status = !unlocked ? "SEALED" : equipped ? "EQUIPPED" : cooldown > 0 ? "RECOVERING" : "AWAKENED";
     return `<article class="combat-power-card ${!unlocked ? "locked" : ""} ${equipped ? "equipped" : ""} ${cooldown > 0 ? "cooling" : ""}" data-power-card="${power.id}" style="--power:${power.color}"><div class="combat-power-top"><span class="combat-power-number">${String(index + 1).padStart(2, "0")}</span><span class="combat-power-state">${status}</span></div><div class="combat-power-icon" aria-hidden="true">${power.icon}</div><h3>${escape(power.name)}</h3><p class="combat-power-description">${escape(power.description)}</p><div class="combat-power-cost"><span><b>${power.cost}</b> FOCUS</span><span><b>${seconds(power.cooldown)}</b> COOLDOWN</span></div><p class="combat-power-unlock ${unlocked ? "awakened" : ""}"><span aria-hidden="true">${unlocked ? "\u2713" : "\u25C7"}</span>${escape(unlocked ? power.unlock.kind === "starter" ? "Available from the first waylight" : power.unlock.label || "Power awakened" : lock)}</p>${cooldown > 0 ? `<p class="combat-power-recovery">${seconds(cooldown)} until ready</p>` : ""}<div class="combat-power-actions">${[0, 1].map((slot) => {
       const chosen = slots[slot] === power.id;
@@ -4067,7 +4114,7 @@
       { id: "air-dash", name: "Own every angle", input: ["AIR W / S + SHIFT"], description: "Aim a dash vertically in the air. Combine it with your second jump to change the approach.", unlocked: has(g, "wings"), lock: "STORM CONDUCTOR", icon: "\u22C8" },
       { id: "perfect-evade", name: "Rift precision", input: ["SHIFT THROUGH A HIT"], description: "Time your Rift Step through danger for a perfect evade and a burst of momentum.", unlocked: has(g, "blink"), lock: "HOURGLASS STAG", icon: "\u25C7" }
     ];
-    return `<div class="combat-arsenal"><div class="combat-masthead"><div class="combat-emblem" aria-hidden="true">\u03DF</div><div><p class="eyebrow">KINETIC COMBAT \xB7 THE MOMENTUM UPDATE</p><h2 id="overlay-title">Make every hit<br><em>a new possibility.</em></h2></div><div class="combat-counters"><strong>${unlocked}<small>/ ${Object.keys(POWERS).length} POWERS AWAKENED</small></strong><strong>${stats.parries || 0}<small>PERFECT PARRIES</small></strong></div></div><p class="combat-intro">Launch. Chase. Cancel. Switch. Two equipped powers share your Focus with healing and signature skills. Choose the opening you want to create.</p>${g.messageTime ? `<p class="chronicle-notice combat-notice" role="status">${escape(g.message)}</p>` : ""}<div class="combat-flow-strip"><span><b>${flow}</b> / 100 FLOW</span><div class="combat-flow-track" role="progressbar" aria-label="Combat flow" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${flow}"><i style="width:${flow}%"></i></div><p>Keep pressure. Chain your choices.</p><span>${stats.perfectDodges || 0} PERFECT EVADES</span></div><section class="combat-loadout" aria-label="Equipped powers"><div class="combat-section-heading"><div><p class="eyebrow">TWO SLOTS. YOUR FIGHT.</p><h3>Your active <em>arsenal.</em></h3></div><p>${keys("X")} cast selected power ${keys("Z")} cycle slots ${keys("L")} companion signature</p></div><div class="combat-slot-grid">${[0, 1].map((i) => powerSlotHTML(g, i, live)).join("")}</div></section><section aria-label="Power collection"><div class="combat-section-heading"><div><p class="eyebrow">POWER IS SOMETHING YOU EARN</p><h3>Twelve ways to<br><em>rewrite a battle.</em></h3></div><p>Guardians awaken new combat options. Forbidden bosses and deep companion bonds hold the rarest powers. Every seal shows the path to its unlock.</p></div><div class="combat-power-grid">${Object.values(POWERS).map((power, i) => powerCardHTML(g, power, i, live)).join("")}</div></section><section class="combat-field-guide" aria-label="Combat moves and movement unlocks"><div class="combat-section-heading"><div><p class="eyebrow">THE FIELD MANUAL \xB7 60 HZ COMBAT</p><h3>One opening.<br><em>Eight different answers.</em></h3></div><p>Buffer your next attack during the current strike. Ground chains, air routes, shield timing, and traversal unlocks share one responsive combat rhythm.</p></div><div class="combat-move-grid">${moves.map(moveCardHTML).join("")}</div><p class="combat-guard-note"><span aria-hidden="true">\u2B21</span><span><strong>A shield has limits.</strong> Holding G spends Guard and slows movement. Let it recover between attacks; a broken guard leaves you exposed.</span></p></section><div class="combat-motion-setting"><div><p class="eyebrow">PLAY AT YOUR COMFORT</p><h4>Screen shake &amp; flashes</h4><p>Reduced motion softens camera impacts and bright flashes. Combat timing stays the same.</p></div><button class="secondary" data-combat-motion aria-pressed="${reduced}" ${!live ? "disabled" : ""}>REDUCED MOTION \xB7 ${reduced ? "ON" : "OFF"}</button></div><div class="combat-bottom"><span>${stats.guardBreaks || 0} GUARD BREAKS \xB7 ${COMBAT.inputBuffer}F INPUT BUFFER \xB7 ${COMBAT.parryFrames}F PARRY WINDOW</span><button class="primary" data-resume>BACK TO THE FIGHT <span>\u2192</span></button><span>H / ESC TO CLOSE</span></div></div>`;
+    return `<div class="combat-arsenal"><div class="combat-masthead"><div class="combat-emblem" aria-hidden="true">\u03DF</div><div><p class="eyebrow">KINETIC COMBAT \xB7 THE MOMENTUM UPDATE</p><h2 id="overlay-title">Make every hit<br><em>a new possibility.</em></h2></div><div class="combat-counters"><strong>${unlocked}<small>/ ${Object.keys(POWERS).length} POWERS AWAKENED</small></strong><strong>${stats.parries || 0}<small>PERFECT PARRIES</small></strong></div></div><p class="combat-intro">Launch. Chase. Cancel. Switch. J 0.2s \xB7 K 0.6s \xB7 L 1.5s \xB7 Arts share a 1s casting cooldown and an 8-frame offensive recovery. Each art also has its own cooldown; switching never resets it. Choose the opening you want to create.</p>${g.messageTime ? `<p class="chronicle-notice combat-notice" role="status">${escape(g.message)}</p>` : ""}<div class="combat-flow-strip"><span><b>${flow}</b> / 100 FLOW</span><div class="combat-flow-track" role="progressbar" aria-label="Combat flow" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${flow}"><i style="width:${flow}%"></i></div><p>Keep pressure. Chain your choices.</p><span>${stats.perfectDodges || 0} PERFECT EVADES</span></div><section class="combat-loadout" aria-label="Equipped powers"><div class="combat-section-heading"><div><p class="eyebrow">TWO SLOTS. YOUR FIGHT.</p><h3>Your active <em>arsenal.</em></h3></div><p>${keys("X")} cast selected power ${keys("Z")} cycle slots ${keys("L")} companion signature</p></div><div class="combat-slot-grid">${[0, 1].map((i) => powerSlotHTML(g, i, live)).join("")}</div></section><section aria-label="Power collection"><div class="combat-section-heading"><div><p class="eyebrow">POWER IS SOMETHING YOU EARN</p><h3>Twelve ways to<br><em>rewrite a battle.</em></h3></div><p>Guardians awaken new combat options. Forbidden bosses and deep companion bonds hold the rarest powers. Every seal shows the path to its unlock.</p></div><div class="combat-power-grid">${Object.values(POWERS).map((power, i) => powerCardHTML(g, power, i, live)).join("")}</div></section><section class="combat-field-guide" aria-label="Combat moves and movement unlocks"><div class="combat-section-heading"><div><p class="eyebrow">THE FIELD MANUAL \xB7 60 HZ COMBAT</p><h3>One opening.<br><em>Eight different answers.</em></h3></div><p>Buffer your next attack during the current strike. Ground chains, air routes, shield timing, and traversal unlocks share one responsive combat rhythm.</p></div><div class="combat-move-grid">${moves.map(moveCardHTML).join("")}</div><p class="combat-guard-note"><span aria-hidden="true">\u2B21</span><span><strong>A shield has limits.</strong> Holding G spends Guard and slows movement. Let it recover between attacks; a broken guard leaves you exposed.</span></p></section><div class="combat-motion-setting"><div><p class="eyebrow">PLAY AT YOUR COMFORT</p><h4>Screen shake &amp; flashes</h4><p>Reduced motion softens camera impacts and bright flashes. Combat timing stays the same.</p></div><button class="secondary" data-combat-motion aria-pressed="${reduced}" ${!live ? "disabled" : ""}>REDUCED MOTION \xB7 ${reduced ? "ON" : "OFF"}</button></div><div class="combat-bottom"><span>${stats.guardBreaks || 0} GUARD BREAKS \xB7 ${COMBAT.inputBuffer}F INPUT BUFFER \xB7 ${COMBAT.parryFrames}F PARRY WINDOW</span><button class="primary" data-resume>BACK TO THE FIGHT <span>\u2192</span></button><span>H / ESC TO CLOSE</span></div></div>`;
   }
 
   // src/entity-animation.js
@@ -7400,7 +7447,7 @@
   }
   function guideHTML() {
     const rows = [["Shield / timed parry", "HOLD G \xB7 7-frame deflect"], ["Power / cycle / arsenal", "X / Z / H"], ["Uppercut launcher", "W + K \xB7 J J K branches"], ["Aerial plunge", "AIR S + K \xB7 unlock Claw"], ["Run / aim", "A D / W S"], ["Variable-height jump", "SPACE \xB7 release for short hop"], ["Dash / recovery cancel", "SHIFT"], ["Fast three-hit chain", "J \xB7 buffer your next strike"], ["Armor breaker", "K"], ["Directional elemental skill", "W A S D + L / neutral L"], ["Pogo bounce", "Air S + J"], ["Focus heal \xB7 hold still", "HOLD F \xB7 costs 33 FOCUS"], ["Drink a flask", "V \xB7 restores 3 hearts"], ["Switch companions", "1 / 2 / 3 \xB7 Q cycles"], ["Interact / rest / enter", "E"], ["Use / cycle tools", "T / C"], ["Grapple to golden anchor", "U \xB7 requires Ember Thread"], ["Map / inventory / journal", "M / I / N"], ["Threefold Resonance Surge", "R \xB7 full gauge required"], ["Chronicle / talents / equipment", "N"], ["Pause", "ESCAPE"]];
-    return heading("Learn the <em>rhythm.</em>", "Fast feet. Short commitments. Smart companions. Every hit refills Focus; every quiet moment can restore a heart.") + `<div class="controls-grid">${rows.map(([a, b]) => `<div class="control-row"><span>${a}</span><kbd>${b}</kbd></div>`).join("")}</div><p class="modal-note">Defeat the Briar Matron for wall jumps, Saint Bellows for grappling, the Leviathan for the Tideglass Seal, the Conductor for a double jump, and the Hourglass Stag for Rift Step. Two hidden branches reward returning with new abilities. Touch controls appear on small screens.</p><button class="secondary" data-overlay="arsenal">KINETIC ARSENAL \xB7 ALL POWERS & COMBAT ROUTES \u2197</button>`;
+    return heading("Learn the <em>rhythm.</em>", "J: 0.2s \xB7 K: 0.6s \xB7 L: 1.5s. Time your follow-ups; each power has its own cooldown. Every hit refills Focus; every quiet moment can restore a heart.") + `<div class="controls-grid">${rows.map(([a, b]) => `<div class="control-row"><span>${a}</span><kbd>${b}</kbd></div>`).join("")}</div><p class="modal-note">Defeat the Briar Matron for wall jumps, Saint Bellows for grappling, the Leviathan for the Tideglass Seal, the Conductor for a double jump, and the Hourglass Stag for Rift Step. Two hidden branches reward returning with new abilities. Touch controls appear on small screens.</p><button class="secondary" data-overlay="arsenal">KINETIC ARSENAL \xB7 ALL POWERS & COMBAT ROUTES \u2197</button>`;
   }
   function dialogueHTML() {
     const line6 = dialogue[dialogueIndex] || ["The Worldheart", "Listen."];
@@ -7465,14 +7512,31 @@
     $("surge-value").textContent = Math.floor(g.surge) + "%";
     $("surge-hud").classList.toggle("ready", g.surge >= 100);
     $("mastery-rank").textContent = BOND_RANKS[g.bondRank()].name;
-    const combat = g.combat, power = POWERS[combat.powerSlots[combat.selectedPower]], cd = combat.cooldowns[power.id] || 0;
+    const combat = g.combat, power = POWERS[combat.powerSlots[combat.selectedPower]], cd = combat.powerRemaining(power.id);
+    for (const action of ["light", "heavy", "special", "power"]) {
+      const left = action === "power" ? cd : combat.remaining(action), seconds2 = (Math.ceil(left / 6) / 10).toFixed(1) + "s";
+      for (const b of document.querySelectorAll(`.touch-controls [data-action="${action === "special" ? "special" : action}"]`)) {
+        b.classList.toggle("recharging", left > 0);
+        b.dataset.cooldownText = seconds2;
+        b.setAttribute("aria-disabled", String(left > 0));
+      }
+      const meter = document.querySelector(`[data-cooldown="${action}"]`);
+      if (meter) {
+        meter.classList.toggle("recharging", left > 0);
+        meter.querySelector("small").textContent = left ? seconds2 : "READY";
+      }
+    }
+    const surgeCD = combat.remaining("surge");
+    $("surge-button").disabled = g.surge < 100 || surgeCD > 0;
+    $("surge-value").textContent = surgeCD ? (Math.ceil(surgeCD / 6) / 10).toFixed(1) + "s" : Math.floor(g.surge) + "%";
+    $("surge-hud").classList.toggle("ready", g.surge >= 100 && !surgeCD);
     $("guard-fill").style.width = p.shield + "%";
     $("guard-label").textContent = p.guardBroken ? "GUARD BROKEN" : p.parryFrames ? "DEFLECT WINDOW" : "GUARD " + Math.round(p.shield);
     $("flow-fill").style.width = combat.flow + "%";
     $("flow-label").textContent = "FLOW " + Math.round(combat.flow) + (combat.flow >= 70 ? " \xB7 OVERDRIVE" : "");
     $("power-icon").textContent = power.icon;
     $("power-name").textContent = power.name;
-    $("power-status").textContent = cd ? (cd / 60).toFixed(1) + "s" : power.cost + " FOCUS \xB7 X";
+    $("power-status").textContent = cd ? (Math.ceil(cd / 6) / 10).toFixed(1) + "s" : power.cost + " FOCUS \xB7 X";
     $("power-button").style.setProperty("--power", power.color);
     $("power-button").disabled = cd > 0 || p.spirit < power.cost;
     $("combat-hud").classList.toggle("guard-broken", p.guardBroken > 0);
