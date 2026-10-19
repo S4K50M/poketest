@@ -197,7 +197,7 @@ try {
   assert.equal(s.trueEnding, 'unwritten');
   console.log('PASS: all twelve powers earned through the complete story; equipped powers, selected slot, motion setting, quests and ending persist through browser reload.');
 
-  await page.setViewportSize({width: 390, height: 844});
+  await page.setViewportSize({width: 844, height: 390});
   await clock(120);
   await noOverflow();
   await floorVisible();
@@ -222,7 +222,8 @@ try {
   await screenshot('mobile');
   await page.mouse.up();
   assert.equal((await snapshot()).combat.shielding, false);
-  await page.locator('.touch-tools [data-overlay="arsenal"]').click();
+  await page.locator('#mobile-menu-button').click();
+  await page.locator('.quick-menu [data-overlay="arsenal"]').click();
   await noOverflow();
   assert.equal(await page.locator('[data-power-card]').count(), 12);
   await screenshot('mobile-arsenal');
@@ -232,7 +233,7 @@ try {
   await page.keyboard.press('KeyH');
   await noOverflow();
   assert.deepEqual(errors, []);
-  console.log('PASS: mobile shield controls, complete responsive arsenal and reduced-motion UI at 390px. No JavaScript errors or failed assets.');
+  console.log('PASS: mobile shield controls, complete responsive arsenal and reduced-motion UI in mobile landscape. No JavaScript errors or failed assets.');
 } finally {
   if (browser) await browser.close();
   server.kill();

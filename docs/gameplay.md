@@ -34,7 +34,7 @@ Choose three distinct companions and begin at the Last Lantern. Move toward Prof
 | R | Threefold Resonance Surge, when its gauge reaches 100% |
 | Escape | Pause |
 
-Touch controls appear on narrow screens. Keyboard controls are also listed in the in-game guide. Sound effects are optional and start muted.
+Mobile gameplay is landscape-only. Portrait pauses the adventure and shows a rotate prompt; the home screen still supports portrait. Movement/aim is on the left; strike, jump, dash, Guard, heavy, special, and power are on the right. The left-pad SWAP button or party cards switch companions. Hold-to-heal and nearby interaction buttons sit beside movement; grapple appears after its unlock. The menu prioritizes recovery and loadouts, then exploration and tools. Keyboard controls are also listed in the in-game guide. Sound effects are optional and start muted.
 
 ## Party and survival
 

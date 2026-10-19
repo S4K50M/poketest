@@ -41,7 +41,7 @@ Choose three companions, begin the expedition, and walk right to Professor Vell.
 | E · M · I · N | Interact · atlas · inventory · RPG chronicle |
 | Escape / ? | Pause / full guide |
 
-Touch controls appear on narrow screens. Sound starts muted. Existing v2/v3 saves migrate to v4; progress is stored locally in the browser.
+Mobile gameplay runs in landscape with a portrait rotate prompt. Thumb controls prioritize movement, jump, strike, and dash; the menu groups recovery, loadouts, exploration, and tools. Sound starts muted. Existing v2/v3 saves migrate to v4; progress is stored locally in the browser.
 
 ## Documentation
 

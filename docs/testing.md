@@ -13,6 +13,7 @@ npm test
 npm run test:browser
 npm run test:rpg
 npm run test:combat
+npm run test:mobile
 ```
 
 | Command | What it verifies |
@@ -23,6 +24,7 @@ npm run test:combat
 | `npm run test:browser` | Real campaign controls, first guardian, rewards, recruitment, saves, menus, all biomes, mobile, nested hosting |
 | `npm run test:rpg` | Quest turn-ins, talents, gear, oath effects, merchant trades, optional bosses, history, endings, mobile RPG UI |
 | `npm run test:combat` | Buffered keyboard chains, shields, arts, unlocks, Focus/cooldowns, v4 reload, motion setting, mobile controls, camera visibility |
+| `npm run test:mobile` | Portrait gate, rotation pause/input release, preserved menus, thumb targets, priority menu, multitouch combat, phone/tablet landscape |
 
 The Momentum release passed 145 Node tests and all three browser suites. This is a release baseline, not a permanently fixed test-count requirement. Documentation-only edits need link/path checks and command review; they do not require rebuilding or rerunning combat routes.
 
@@ -39,6 +41,7 @@ npx playwright install chromium
 | Campaign | 3100 | `TEST_PORT` |
 | RPG | 3130 | `RPG_TEST_PORT` |
 | Combat | 3140 | `COMBAT_TEST_PORT` |
+| Mobile landscape | 3150 | `MOBILE_TEST_PORT` |
 
 Each suite starts and stops its own server. Choose a free override port if another task uses the default. Screenshots are written to ignored test-results/. Inspect screenshots after rendering or layout changes; a passing input test cannot prove visual quality by itself.
 
@@ -54,7 +57,7 @@ Unit tests can create narrow controlled fixtures for timing or geometry. End-to-
 
 ## Presentation checks
 
-The combat browser suite observes world-frame transforms to catch accidental camera scaling that moves standing actors or the floor offscreen. Mobile assertions check viewport overflow and HUD clearance from the actor and touch controls. Preserve these when changing camera, zoom, Canvas sizing, or HUD placement.
+The combat browser suite observes world-frame transforms to catch accidental camera scaling that moves standing actors or the floor offscreen. Mobile gameplay assertions run in landscape and check viewport overflow and HUD clearance from the actor and touch controls. The dedicated mobile suite also rotates during play and during an open menu, verifies frozen simulation and released inputs in portrait, and exercises simultaneous touch movement and attack. Preserve these when changing camera, zoom, Canvas sizing, or HUD placement.
 
 Also inspect readable attack telegraphs, foreground occlusion, particle density, posture cues, reduced motion, dialog scroll position, and touch hit targets. Capture the real gameplay view rather than only isolated art previews.
 

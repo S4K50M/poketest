@@ -66,11 +66,16 @@ The UI uses one dialog for menus, dialogue, rewards, and endings. Opening it pau
 
 | Tooling / entry | Responsibility |
 | --- | --- |
+| [src/mobile.css](../src/mobile.css) | Landscape thumb controls, rotation prompt and priority menu |
 | [index.html](../index.html) | Home, Canvas, HUD, touch controls, shared dialog |
 | [server.mjs](../server.mjs) | Static HTTP serving and local MIME types |
 | [scripts/build.mjs](../scripts/build.mjs) | esbuild bundle, watch mode, bundle comparison |
 | [scripts/check.mjs](../scripts/check.mjs) | Syntax checks and generated-bundle freshness |
 | [tests/](../tests/) | Simulation tests, route controllers, Chromium suites |
+
+## Mobile layout ownership
+
+main.js detects coarse-pointer devices and compact viewports, activates the mobile-game layout, and pauses active gameplay in portrait. The rotate prompt makes the game and any existing modal inert; returning to landscape restores the previous modal pause state. Resize transitions clear held actions. Fullscreen/orientation locking is attempted only from the explicit landscape button; manual rotation remains the fallback. src/mobile.css lays out larger combat/movement targets and the priority menu. The viewport remains unrotated so input coordinates, dialogs, and screen readers share the same coordinate space.
 
 ## Data registration and extension boundaries
 

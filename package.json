@@ -11,7 +11,8 @@
     "check": "node scripts/check.mjs",
     "build": "node scripts/build.mjs",
     "test:rpg": "node tests/rpg-browser.mjs",
-    "test:combat": "node tests/combat-browser.mjs"
+    "test:combat": "node tests/combat-browser.mjs",
+    "test:mobile": "node tests/mobile-browser.mjs"
   },
   "engines": {
     "node": ">=20"

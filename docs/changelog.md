@@ -4,6 +4,12 @@
 
 This records major implemented milestones. It is not a list of planned features.
 
+## Mobile landscape update
+
+- Added a portrait rotate prompt that pauses play, releases held controls, and preserves open menus. Fullscreen/orientation locking is optional with manual rotation as the fallback.
+- Reorganized thumb controls around movement, strike, jump, and dash; secondary recovery, loadout, exploration, and party actions live in a prioritized menu.
+- Added landscape phone/tablet layouts, safe-area spacing, contextual buttons, and a dedicated rotation/multitouch browser suite.
+
 ## 4.0.0 · Momentum
 
 [Implementation commit e3c2dd5](https://github.com/S4K50M/poketest/commit/e3c2dd509bcc308af4a7ce9a5b1b39e115d56578)

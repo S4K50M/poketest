@@ -7122,6 +7122,7 @@
     }
   };
   var rpgTab = "quests";
+  var orientationBlocked = false;
   var saved = readSave();
   var party = [...DEFAULT_PARTY];
   var game = null;
@@ -7181,6 +7182,48 @@
       osc.stop(audioContext.currentTime + 0.19);
     } catch {
     }
+  }
+  function mobileLayout() {
+    return window.matchMedia("(pointer: coarse)").matches || innerWidth <= 760 || innerWidth <= 1100 && innerHeight <= 600;
+  }
+  function syncMobileLayout() {
+    const active = view === "game" && !!game, mobile = mobileLayout(), blocked = active && mobile && innerHeight > innerWidth, changed = blocked !== orientationBlocked;
+    orientationBlocked = blocked;
+    document.body.classList.toggle("mobile-game", active && mobile);
+    document.body.classList.toggle("orientation-blocked", blocked);
+    const rotate = $("rotate-prompt");
+    rotate.hidden = !blocked;
+    if (blocked && !rotate.open) rotate.showModal();
+    else if (!blocked && rotate.open) rotate.close();
+    $("game-screen").inert = blocked;
+    modal.inert = blocked;
+    if (game) {
+      if (changed) clearInputs();
+      game.paused = blocked || modal.open;
+    }
+    if (changed) {
+      accumulator = 0;
+      if (blocked) $("landscape-button").focus({ preventScroll: true });
+      else if (active) (modal.open ? $("close-overlay") : canvas).focus({ preventScroll: true });
+    }
+  }
+  window.addEventListener("resize", syncMobileLayout);
+  window.matchMedia("(pointer: coarse)").addEventListener("change", syncMobileLayout);
+  $("rotate-prompt").addEventListener("cancel", (e) => e.preventDefault());
+  $("landscape-button").onclick = async () => {
+    try {
+      if (!document.fullscreenElement && document.documentElement.requestFullscreen) await document.documentElement.requestFullscreen();
+    } catch {
+    }
+    try {
+      await screen.orientation?.lock?.("landscape");
+    } catch {
+    }
+    syncMobileLayout();
+    if (orientationBlocked) $("rotate-help").textContent = "Rotate your device manually, and check that rotation lock is off.";
+  };
+  function quickMenuHTML() {
+    return heading("Your next <em>move.</em>", "Combat stays under your thumbs. Everything else is one tap away.") + `<div class="quick-menu"><button class="primary" data-resume>RESUME ADVENTURE \u2192</button><div class="quick-section"><p class="eyebrow">01 \xB7 RECOVER & PREPARE</p><div class="quick-grid"><button data-quick-action="potion">\u271A<strong>Drink flask</strong><small>${game?.inventory.flask || 0} available \xB7 +3 hearts</small></button><button data-quick-action="powerCycle">\u21C4<strong>Cycle power</strong><small>Change your selected art</small></button><button data-overlay="arsenal">\u03DF<strong>Combat arsenal</strong><small>Equip powers & motion options</small></button><button data-overlay="inventory">\u25C7<strong>Inventory</strong><small>Equipment, items & crafting</small></button></div></div><div class="quick-section"><p class="eyebrow">02 \xB7 EXPLORE & PROGRESS</p><div class="quick-grid"><button data-overlay="map">\u2301<strong>World map</strong><small>Routes & waylights</small></button><button data-overlay="chronicle">\u224B<strong>Chronicle</strong><small>Quests, talents & story</small></button><button data-quick-action="tool">\u2692<strong>Use tool</strong><small>Current: ${escapeHtml(game?.tools[game.toolIndex] || "pickaxe")}</small></button><button data-overlay="party">\u22C8<strong>Companions</strong><small>Change roster at a waylight</small></button></div></div><div class="quick-footer"><button data-overlay="guide">CONTROLS & HELP</button><button data-toggle-sound aria-pressed="${sound}">SOUND \xB7 ${sound ? "ON" : "OFF"}</button><button data-return-home>SAVE & RETURN TO CAMP</button></div></div>`;
   }
   function clearInputs() {
     held.clear();
@@ -7242,6 +7285,7 @@
     window.scrollTo(0, 0);
     if (game.trueEnding) openOverlay("trueending");
     else if (game.finished && !game.ending) openOverlay("ending");
+    syncMobileLayout();
   }
   function returnHome() {
     if (game) game.save();
@@ -7252,6 +7296,7 @@
     $("game-screen").hidden = true;
     document.body.classList.remove("playing");
     game = null;
+    syncMobileLayout();
     renderHomeParty();
     updateContinue();
     $("start-button").focus({ preventScroll: true });
@@ -7275,8 +7320,10 @@
     if (type === "map" && game) mapRegion = game.room.biome === "sanctuary" ? "moss" : game.room.biome;
     clearInputs();
     overlayType = type;
+    modal.dataset.view = type;
     if (game) game.paused = true;
     renderOverlay();
+    modal.scrollTop = 0;
     if (!modal.open) modal.showModal();
     $("close-overlay").focus({ preventScroll: true });
   }
@@ -7284,13 +7331,14 @@
     if (modal.open) modal.close();
     overlayType = "";
     if (game) {
-      game.paused = false;
-      canvas.focus({ preventScroll: true });
+      game.paused = orientationBlocked;
+      if (!orientationBlocked) canvas.focus({ preventScroll: true });
     }
     clearInputs();
   }
   modal.addEventListener("cancel", (e) => {
     e.preventDefault();
+    if (orientationBlocked) return;
     if (overlayType === "dialogue") nextDialogue();
     else if (overlayType === "reward") dismissReward();
     else closeOverlay();
@@ -7306,7 +7354,8 @@
     const g = state();
     $("overlay-kicker").textContent = { map: "ATLAS OF THE BROKEN WORLD", inventory: "THE TRAVELER\u2019S PACK", party: "BONDS ARE YOUR STRONGEST WEAPON", pause: "TAKE A BREATH", codex: "PROFESSOR VELL\u2019S FIELD JOURNAL", guide: "MOVE WITH INTENT", dialogue: "A VOICE IN THE QUIET", reward: "A MEMORY RETURNS", ending: "THE WORLDHEART REMEMBERS", credits: "YOUR BONDS CHANGED THE WORLD" }[overlayType] || "KINETIC MONSTERS";
     const content = $("overlay-content");
-    if (overlayType === "arsenal") content.innerHTML = arsenalHTML(g, !!game);
+    if (overlayType === "quick") content.innerHTML = quickMenuHTML();
+    else if (overlayType === "arsenal") content.innerHTML = arsenalHTML(g, !!game);
     else if (overlayType === "chronicle") content.innerHTML = chronicleHTML(g, rpgTab, !!game);
     else if (overlayType === "merchant") content.innerHTML = merchantHTML(g, !!game);
     else if (overlayType === "trueending") content.innerHTML = trueEndingHTML(g);
@@ -7432,6 +7481,9 @@
     document.querySelector(".party-slot.active")?.classList.toggle("taking-hit", p.flash > 0);
     $("combat-state").textContent = p.riposte ? "PERFECT DEFLECT \xB7 STRIKE TO RIPOSTE" : p.stagger ? "HIT STUN" : p.shielding ? "SHIELD RAISED" : p.attack ? (p.attack.move || "").replace(/([0-9])/g, " $1").toUpperCase() : combat.flow >= 70 ? "OVERDRIVE \xB7 +" + Math.round(combat.flow * 0.15) + "% DAMAGE" : "";
     document.body.classList.toggle("reduced-motion", combat.settings.reducedMotion);
+    const interact = document.querySelector('.touch-tools [data-action="interact"]');
+    interact.hidden = !g.room.objects.some((o) => Math.abs(o.x - p.x) < 100 && Math.abs((o.y || 520) - p.y) < 100);
+    document.querySelector('.touch-tools [data-action="grapple"]').hidden = !g.abilities.has("grapple");
     const event = g.worldEvent;
     $("world-event-hud").hidden = !event;
     if (event) $("world-event-hud").textContent = event.type.toUpperCase() + " FRACTURE \xB7 CLEAR THE ECHOES";
@@ -7459,6 +7511,10 @@
     game?.setInputs({ left: held.has("KeyA") || held.has("ArrowLeft"), right: held.has("KeyD") || held.has("ArrowRight"), up: held.has("KeyW") || held.has("ArrowUp"), down: held.has("KeyS") || held.has("ArrowDown") });
   }
   window.addEventListener("keydown", (e) => {
+    if (orientationBlocked) {
+      if (keyAction[e.code]) e.preventDefault();
+      return;
+    }
     if (modal.open) {
       if (overlayType === "dialogue" && ["Space", "Enter", "KeyE"].includes(e.code)) {
         e.preventDefault();
@@ -7502,6 +7558,20 @@
   document.addEventListener("click", (e) => {
     const b = e.target.closest("button");
     if (!b) return;
+    if (orientationBlocked) return;
+    if (b.hasAttribute("data-toggle-sound")) {
+      $("sound-button").click();
+      renderOverlay();
+      modal.querySelector("[data-toggle-sound]").focus();
+      return;
+    }
+    if (b.dataset.quickAction) {
+      const action = b.dataset.quickAction;
+      closeOverlay();
+      game?.input(action);
+      renderHud();
+      return;
+    }
     if (b.id === "power-button") {
       game?.input("power");
       canvas.focus({ preventScroll: true });
@@ -7636,7 +7706,7 @@
       if (h === "heal") game?.releaseHeal();
       else if (h === "shield") game?.releaseShield();
       else if (h) {
-        held.delete({ left: "KeyA", right: "KeyD", down: "KeyS" }[h]);
+        held.delete({ left: "KeyA", right: "KeyD", up: "KeyW", down: "KeyS" }[h]);
         syncMovement();
       }
       if (b.dataset.action === "jump") game?.releaseJump();
@@ -7644,12 +7714,13 @@
     };
     b.addEventListener("pointerdown", (e) => {
       e.preventDefault();
+      if (orientationBlocked || modal.open || !game) return;
       b.setPointerCapture(e.pointerId);
       const h = b.dataset.hold;
       if (h === "heal") game?.input("heal");
       else if (h === "shield") game?.input("shield");
       else if (h) {
-        held.add({ left: "KeyA", right: "KeyD", down: "KeyS" }[h]);
+        held.add({ left: "KeyA", right: "KeyD", up: "KeyW", down: "KeyS" }[h]);
         syncMovement();
       } else game?.input(b.dataset.action);
     });

@@ -22,6 +22,7 @@ Commit bundle/game.js with JavaScript source changes. The build is an ES2020-tar
 | bundle/game.js | Generated gameplay and UI bundle |
 | src/style.css | Main stylesheet and local font declarations |
 | src/combat-style.css | Arsenal and combat HUD styling |
+| src/mobile.css | Landscape controls, rotation prompt, and priority menu |
 | assets/ | Fonts and favicon referenced by the page/styles |
 
 Keeping the complete src/, assets/, and bundle/ folders is the simplest portable distribution. node_modules/, tests/, and development scripts are not runtime requirements. docs/ can accompany a repository release; its Markdown is primarily intended for repository viewers and is not a generated documentation site.
@@ -50,6 +51,6 @@ Ship index.html together with its asset, source stylesheet, and bundle directori
 
 ## Release checks
 
-Run build/check, unit tests, and the three browser suites for a gameplay release. Inspect representative desktop and mobile screenshots, reduced motion, save migration, and a nested hosting path. A documentation-only release needs no regenerated bundle. See [testing](testing.md).
+Run build/check, unit tests, and the four browser suites for a gameplay release. Inspect representative desktop and mobile screenshots, reduced motion, save migration, and a nested hosting path. A documentation-only release needs no regenerated bundle. See [testing](testing.md).
 
 Saves remain local to the browser origin. Moving a deployment from one domain, protocol, or port to another does not automatically move saved progress. Consult [save format](save-format.md) before changing where returning players load the game.

@@ -34,6 +34,7 @@ The PORT prefix shown here uses POSIX shell syntax; use your shell’s equivalen
 | `npm run test:browser` | Run campaign Chromium integration |
 | `npm run test:rpg` | Run RPG Chromium integration |
 | `npm run test:combat` | Run Momentum Chromium integration |
+| `npm run test:mobile` | Run landscape, rotation, menu, and multitouch integration |
 
 npm start does not build first. After editing JavaScript without a watcher, run npm run build before starting or refreshing the game. CSS and HTML are served directly; changing them does not require a JavaScript rebuild.
 
@@ -46,6 +47,10 @@ npm start does not build first. After editing JavaScript without a watcher, run 
 5. Rest at a waylight to restore the party and set a checkpoint. Open M for the atlas, I for inventory, and N for the chronicle.
 
 The [gameplay guide](gameplay.md) lists all controls and resources. The [combat guide](combat.md) explains unlocks and defensive timing. Sound starts muted; use the sound button to enable it. Reduced motion is available in the Arsenal.
+
+## Mobile landscape
+
+Start from either orientation; active mobile gameplay requires landscape. In portrait, the rotate prompt pauses the simulation and clears held controls. Physically rotate your device, or use Enter Landscape where fullscreen/orientation APIs are supported. If the browser cannot lock orientation, the prompt stays until you rotate manually. Open menus remain open after rotation; home and party selection can still be browsed in portrait.
 
 ## Direct-file play
 
