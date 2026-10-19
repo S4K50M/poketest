@@ -12,7 +12,7 @@
 <body>
   <header class="topbar">
     <a class="brand" href="./index.html" aria-label="Kinetic Monsters home"><span class="brand-mark">K<span>↗</span></span><span>KINETIC<br><b>MONSTERS</b></span></a>
-    <nav aria-label="Main"><button class="nav-item active" id="nav-arena">THE ARENA</button><button class="nav-item" id="nav-roster">FIGHTERS <span>08</span></button><button class="nav-item" id="nav-guide">HOW TO PLAY <span>↗</span></button></nav>
+    <nav aria-label="Main"><button class="nav-item active" id="nav-arena">THE ARENA</button><button class="nav-item path-nav" id="nav-path">THE PATH <span>NEW</span></button><button class="nav-item" id="nav-roster">FIGHTERS <span>08</span></button><button class="nav-item" id="nav-guide">HOW TO PLAY <span>↗</span></button></nav>
     <div class="header-meta"><i class="live-dot"></i> SYSTEM ONLINE <span class="version">PROTOTYPE / V.01</span></div>
     <button class="sound-toggle" id="sound-toggle" aria-label="Enable sound" title="Toggle synthesized game audio">♪ <span>SOUND OFF</span></button>
   </header>
@@ -20,6 +20,7 @@
   <main id="selection-screen">
     <div class="section-kicker"><span><i class="tiny-square"></i> IRON FIST ARENA</span><span>01 — SELECT YOUR FIGHTER</span><span class="session">LOCAL SESSION <i class="live-dot"></i></span></div>
     <section class="selection-heading"><div><p class="eyebrow">INSTINCT MEETS IMPACT.</p><h1>BUILT TO <em>BRAWL.</em></h1></div><p class="intro">No turns. No mercy.<br>Just you, your monster, and the next hit.</p></section>
+    <section class="path-launch"><div class="path-emblem" aria-hidden="true">◇</div><div><span class="eyebrow">NEW · A PLAYABLE FIELD LESSON</span><h2>THE HOLLOW FOUNDRY</h2><p>Learn to leap. Dash through danger. Let the walls become a path.</p></div><span class="path-launch-meta">6 CHAMBERS<br>ONE INSTINCT</span><button id="start-training">BEGIN THE PATH <span>↗</span></button></section>
     <section class="select-layout" aria-label="Fighter selection">
       <div class="roster-panel">
         <div class="panel-label"><span><b class="lime">P1</b> CHOOSE YOUR FIGHTER</span><span>8 AVAILABLE</span></div>
@@ -63,7 +64,21 @@
       <div id="round-overlay" class="round-overlay" hidden><span id="overlay-kicker">IRON FIST ARENA</span><h2 id="overlay-title">ROUND 1</h2><p id="overlay-subtitle">FIGHT WITH INSTINCT.</p><div id="overlay-buttons" hidden><button id="resume-button">RESUME FIGHT ↗</button><button id="rematch-button">RUN IT BACK ↗</button><button id="select-button">FIGHTER SELECT</button></div></div>
     </section>
     <div class="game-bottom"><div><i class="live-dot"></i><span id="combat-state">60 HZ COMBAT ENGINE</span></div><span id="frame-readout">READY</span><span>WALL INTEGRITY <b id="wall-integrity">100%</b></span></div>
-    <div class="game-controls"><div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><span>MOVE / HOLD A TO GUARD</span></div><div><kbd>J</kbd><span>LIGHT</span><kbd>K</kbd><span>HEAVY</span><kbd>L</kbd><span>ELEMENT</span><kbd>U</kbd><span>THROW / TECH</span><kbd>I</kbd><span>BURST</span></div><button id="battle-guide">MOVE LIST ↗</button></div>
+    <div class="game-controls"><div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><span>MOVE / A GUARDS</span><kbd>SPACE</kbd><span>JUMP</span><kbd>SHIFT</kbd><span>DASH</span></div><div><kbd>J</kbd><span>LIGHT</span><kbd>K</kbd><span>HEAVY</span><kbd>L</kbd><span>ELEMENT</span><kbd>U</kbd><span>THROW / TECH</span><kbd>I</kbd><span>BURST</span></div><button id="battle-guide">MOVE LIST ↗</button></div>
+  </main>
+
+  <main id="training-screen" hidden>
+    <div class="game-toolbar"><button id="path-exit">← FIGHTER SELECT</button><span>THE HOLLOW FOUNDRY <i> / </i> A FIELD LESSON</span><div><button id="path-retry">WAYLIGHT <kbd>R</kbd></button><button id="path-pause">PAUSE <kbd>ESC</kbd></button></div></div>
+    <section class="path-shell">
+      <canvas id="path-canvas" tabindex="0" aria-label="Side-view training level. A and D move, Space jumps, Shift dashes, J attacks. Follow the professor’s lessons."></canvas>
+      <div class="path-hud"><div><span id="path-fighter-name" class="eyebrow">PYROJAW / PILGRIM</span><div id="path-health" aria-label="Health"></div><div class="path-spirit"><i id="path-spirit-fill"></i></div><span class="path-spirit-label">FOCUS · L TO CHANNEL</span></div><div class="path-area"><span id="path-chapter">FIELD LESSON 01 / 06</span><strong id="path-zone">THE AWAKENING</strong><div id="path-progress"></div></div><div class="path-echoes"><span>◈</span> <strong id="path-shards">00</strong><small>/ 06 ECHO SHARDS</small></div></div>
+      <div class="path-toast" id="path-toast" role="status" aria-live="polite"></div>
+      <aside id="path-coach" class="path-coach"><div class="coach-heading"><span class="coach-avatar" aria-hidden="true">V</span><div><span>PROF. VELL</span><small>YOUR FIELD INSTRUCTOR</small></div><button id="path-coach-toggle" aria-expanded="true">HIDE −</button></div><div class="coach-content"><h2 id="path-lesson">Find your feet.</h2><p id="path-hint"></p><div class="path-lesson-keys" id="path-keys"></div><div class="path-goal" id="path-goal"></div></div></aside>
+      <div class="path-waymark"><span>↗</span><strong id="path-next">FOLLOW THE WAYLIGHT</strong><small>A PATH IS LEARNED ONE STEP AT A TIME.</small></div>
+      <div class="path-overlay" id="path-overlay" hidden><p class="eyebrow" id="path-overlay-kicker">TAKE A BREATH</p><h2 id="path-overlay-title">PAUSED</h2><p id="path-overlay-description">YOUR NEXT STEP IS WAITING.</p><div class="path-results" id="path-results" hidden></div><div class="path-overlay-buttons"><button id="path-resume">CONTINUE THE PATH ↗</button><button id="path-again" hidden>WALK IT AGAIN ↗</button><button id="path-to-arena" hidden>ENTER THE ARENA ↗</button><button id="path-overlay-exit">FIGHTER SELECT</button></div></div>
+    </section>
+    <div class="path-control-strip"><span><kbd>A</kbd><kbd>D</kbd> MOVE</span><span><kbd>SPACE</kbd> JUMP / DOUBLE-JUMP</span><span><kbd>SHIFT</kbd> DASH</span><span><kbd>J</kbd> STRIKE</span><span><kbd>S + J</kbd> DOWNSTRIKE</span><span><kbd>K</kbd> HEAVY</span><span><kbd>L</kbd> CAST</span><span><kbd>E</kbd> REST</span></div>
+    <div class="path-footnote"><span><i class="live-dot"></i> RESPONSIVE MOVEMENT · FORGIVING LANDINGS</span><span>ORIGINAL CREATURES. A NEW WAY TO MOVE.</span></div>
   </main>
 
   <dialog id="guide-dialog"><button class="close-dialog" id="close-guide" aria-label="Close controls">×</button><p class="eyebrow">KNOW YOUR NEXT MOVE</p><h2>FIGHT WITH<br><em>INSTINCT.</em></h2><div class="guide-tabs"><button class="selected" data-tab="basics">THE BASICS</button><button data-tab="moves">FIGHTER MOVES</button></div><div id="guide-body"></div><p class="guide-foot">Keyboard required · Relative inputs follow your opponent · Escape to pause</p></dialog>

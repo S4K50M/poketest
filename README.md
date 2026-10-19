@@ -2,6 +2,8 @@
 
 A playable, original 2.5D arena-fighting prototype. Eight illustrated creatures, real-time martial arts, frame-based combat, reactive CPU opponents, and destructible octagonal arenas. All art is drawn locally with Canvas; fonts are bundled. No external API, credentials, or runtime packages are required.
 
+**New: The Hollow Foundry.** Choose **Begin the Path** or **The Path** to enter a side-view movement adventure with your selected creature. Professor Vell guides six playable lessons through an original cavern: walking, jumps, air dashes, downward bounces, wall climbing, and a final combat encounter. The arena remains available separately.
+
 ## Run
 
 Download or clone the **whole repository**, keep its folder structure, and open `index.html` in a modern browser with a keyboard. The committed `bundle/game.js` lets combat run without a server or installation. Downloading the HTML file alone does not include its CSS, fonts, or game script.
@@ -31,6 +33,26 @@ Browser tests use `/usr/bin/chromium` when available. Otherwise set `CHROMIUM_PA
 
 ## Controls
 
+### The Hollow Foundry
+
+| Input | Action |
+| --- | --- |
+| A / D or left / right | Move horizontally; directions stay fixed in this mode |
+| Space (hold / tap) | Full-height jump / short hop; press again for a double-jump |
+| Push into wall + Space | Wall slide, then wall-jump |
+| Shift | Ground dash or one air dash; brief enemy-contact protection |
+| J / W+J | Side slash / upward slash |
+| Air S+J | Downstrike; bounce off a bell or enemy to restore height and air dash |
+| K | Heavy strike |
+| L | Element-colored bolt; costs 25 Focus; hits restore Focus |
+| E | Rest, heal, refill Focus and activate a previously lit waylight |
+| R | Return to the latest checkpoint |
+| Escape | Pause / resume |
+
+Jump inputs have **7 frames of coyote time** and **8 frames of buffering**. Releasing jump early cuts upward velocity. Running accelerates to full speed in five frames; direction changes retain immediate control. Air dashes pause gravity for 11 frames and recover after landing, a wall-jump or a successful bounce (normal dash cooldown still applies after a wall-jump). Pit falls return you quickly to a checkpoint, preserving lesson progress and defeated enemies. Thorns cannot be bypassed with dash invulnerability.
+
+### Iron Fist Arena
+
 All directions are **relative to your opponent**, including after a side switch. A is always back; D is always forward. Arrow keys are also supported.
 
 | Input | Action |
@@ -38,6 +60,7 @@ All directions are **relative to your opponent**, including after a side switch.
 | A / D | Retreat with automatic guard / advance |
 | W / S | Sidestep background / foreground; dodge narrow attacks |
 | A, A / D, D | Backdash / dash within a 15-frame double-tap window |
+| Shift | Instant dash; hold A to backdash instead |
 | A, A, S, A | Cancel a backdash with a sidestep and chain another backdash |
 | Space | Jump; press again for a lightweight air-dash or Zephyrix double-jump |
 | J | Jab; time subsequent J inputs on contact to cancel into a three-part string |
@@ -76,6 +99,25 @@ Movement units are world units per frame. Damage is multiplied by power, with ad
 - **Rounds.** First to two wins. 60 seconds of active simulation per round; pauses, cinematic freezes and impact hit-stop do not consume the clock. Timeout compares HP percentages, accounting for different maximum HP. Exact ties replay without awarding a win. Rematch resets the match and arena.
 - **Reactive CPU.** The CPU samples visible attack startup at a difficulty-dependent reaction interval; it does not inspect future player inputs. It aligns depth, advances or zones at range, pokes / throws up close, sidesteps linear startups, jumps ground waves, and uses the roster-specific clone, aerial, stance, parry and burst options. Rookie, Contender and Apex adjust reaction and throw-tech ability.
 
+Arena movement now advances **35% faster**, dashes **25% farther per frame**, and sidesteps **20% faster** than the original prototype. Jumps have stronger takeoff, Shift provides a direct dash input, and normal impact freezes are shorter. Move startup, guard retreat speed, and roster damage values remain consistent with the frame-data guide. The roster table lists base movement values; these arena multipliers apply at runtime.
+
+## The Hollow Foundry level design
+
+The 8,000-pixel route teaches one skill at a time, then combines them. Gates check performed actions and successful traversal, rather than advancing because the player read a prompt. Every new chamber lights a checkpoint and restores health; earlier chambers remain accessible for optional shard collection. There are six optional Echo Shards, no round timer, and a completion screen leading back to the arena.
+
+| Chamber | Teaching setup | Proof of learning |
+| --- | --- | --- |
+| The Awakening | Safe floor, visible waylight, optional stepping stones | Travel 250 pixels to open the first gate |
+| The Broken Stair | Raised ledges and a short broken bridge | Use a jump and reach the opposite bank |
+| The Windless Span | A wider, thorn-lined gap with a clear landing | Perform an air dash and cross the gap |
+| The Thorn Garden | A glowing training bell above a pit | Downstrike-bounce and reach the far side |
+| The Ascent | Two solid climbing pillars, elevated shard and exit ledges | Wall-jump and double-jump over the pillars |
+| The Warden’s Hall | Two husks and the Brass Warden with readable wind-ups | Defeat the encounter, then reach the exit arch |
+
+Husks telegraph a forward charge; the Warden alternates charges and jumpable ground shockwaves, each with a punishable recovery. Damage has temporary invulnerability. Defeated enemies remain defeated after a fall, while surviving enemies reset to their homes to keep checkpoint returns safe. The level uses parallax arches, drifting spores, readable stone edges, dash afterimages, directional slash arcs, impact pauses, and a camera that follows ahead of movement. The smaller viewport shifts the world upward to leave room for the coach.
+
+This is an original level inspired by the responsive traversal and atmospheric exploration of action platformers. It does not reuse Hollow Knight characters, art, map layouts, music, or story.
+
 ## Architecture
 
 | File | Responsibility |
@@ -84,13 +126,18 @@ Movement units are world units per frame. Damage is multiplied by power, with ad
 | `src/engine.js` | Pure headless fixed-step simulation, input history, attack states, collisions, elemental physics, AI, round state machine |
 | `src/render.js` | Original procedural creature rigs, portrait composition, projected 2.5D arena, walls, effects, hitbox inspection |
 | `src/main.js` | Selection, keyboard sampling, HUD, fixed-step accumulator, pause/focus handling, move manual and optional Web Audio |
+| `src/training.js` | Headless side-view movement, six authored chambers, solid platforms, verified lesson gates, checkpoints, enemies and pickups |
+| `src/training-render.js` | Scrolling cavern, parallax layers, platform surfaces, creatures, effects and adaptive camera |
+| `src/training-ui.js` | Training keyboard inputs, professor coaching, health/Focus, pause, results and arena transition |
 | `src/style.css` | Responsive tournament UI and locally bundled typography |
 | `server.mjs` | Dependency-free static development server |
 | `scripts/build.mjs` | esbuild packaging, watch mode, and committed-bundle freshness check |
 | `bundle/game.js` | Generated, committed browser entry that works without ES module fetches |
 | `tests/engine.test.js` | Deterministic gameplay regression tests using Node's built-in runner |
 | `tests/assets.test.js` | Relative file URL resolution and existence checks for HTML assets and fonts |
-| `tests/browser.mjs` | Chromium integration: eight selections, real keyboard combat, full match, pause, guide, rematch, responsive layout |
+| `tests/training.test.js` | Movement feel, grace windows, combat and input-only completion of the entire path with all eight creatures |
+| `tests/helpers/training-route.js` | Repeatable controller that clears the authored level without teleporting, overriding gates, or mocking damage |
+| `tests/browser.mjs` | Chromium integration: eight selections, real keyboard training traversal, coach/checkpoint controls, combat, full match, pause, guide, rematch, responsive layout and subpath hosting |
 
 The engine takes an optional seeded `random`, an `onEvent` callback, and an `ai: false` option for deterministic training or tests. `window.kinetic.snapshot()` exposes a read-only browser QA snapshot. No mutable game object is exposed. Effects and sound subscribe to events; they cannot affect combat outcomes.
 

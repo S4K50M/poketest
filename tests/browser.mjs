@@ -31,6 +31,26 @@ try{
     await page.locator('#back-select').click();
   }
   console.log('PASS: all eight fighters render and enter combat; opponent cannot be the selected fighter.');
+  await page.locator('#start-training').click();
+  assert.equal((await page.evaluate(()=>window.kinetic.snapshot())).mode,'training');
+  await page.keyboard.down('KeyD');await page.clock.runFor(700);
+  assert((await page.evaluate(()=>window.kinetic.snapshot())).player.x>350);
+  await page.keyboard.down('Space');await page.clock.runFor(120);
+  assert((await page.evaluate(()=>window.kinetic.snapshot())).player.y<500);
+  await page.keyboard.up('Space');await page.clock.runFor(500);
+  for(let i=0;i<75;i++){const s=await page.evaluate(()=>window.kinetic.snapshot());if(s.player.x>=1360)break;await page.clock.runFor(50);}
+  let path=await page.evaluate(()=>window.kinetic.snapshot());assert(path.completed[0]);assert.equal(path.lesson,1);assert(path.player.x>=1360&&path.player.x<1460);
+  await page.keyboard.down('Space');await page.clock.runFor(800);await page.keyboard.up('Space');await page.clock.runFor(150);await page.keyboard.up('KeyD');
+  path=await page.evaluate(()=>window.kinetic.snapshot());assert(path.completed[1],'real keyboard bridge jump did not satisfy the lesson');assert.equal(path.stats.falls,0);
+  await page.keyboard.press('ShiftLeft');await page.clock.runFor(70);path=await page.evaluate(()=>window.kinetic.snapshot());assert(path.player.dash>0);
+  await page.keyboard.press('Escape');const pausedPath=await page.evaluate(()=>window.kinetic.snapshot());await page.clock.runFor(500);assert.equal((await page.evaluate(()=>window.kinetic.snapshot())).tick,pausedPath.tick);
+  await page.locator('#path-resume').click();await page.locator('#nav-guide').click();assert((await page.evaluate(()=>window.kinetic.snapshot())).paused);assert((await page.locator('#guide-body').textContent()).includes('ledge grace'));
+  await page.locator('#close-guide').click();await page.clock.runFor(32);assert(!(await page.evaluate(()=>window.kinetic.snapshot())).paused);assert.equal(await page.evaluate(()=>document.activeElement.id),'path-canvas');
+  await page.locator('#sound-toggle').click();assert.equal(await page.evaluate(()=>document.activeElement.id),'path-canvas');await page.locator('#sound-toggle').click();
+  await page.locator('#path-coach-toggle').click();assert.equal(await page.locator('#path-coach-toggle').getAttribute('aria-expanded'),'false');await page.locator('#path-coach-toggle').click();
+  await page.keyboard.press('KeyR');await page.clock.runFor(35);assert.equal((await page.evaluate(()=>window.kinetic.snapshot())).player.x,1080);
+  await page.screenshot({path:'test-results/training.png',fullPage:true});await page.locator('#path-exit').click();assert.equal((await page.evaluate(()=>window.kinetic.snapshot())).phase,'selection');
+  console.log('PASS: training entry, faster movement, real jump traversal and lesson gates, dash, pause/manual, coach toggle, checkpoint retry, and mode exit.');
   await page.locator('[data-fighter="pyrojaw"]').click();await page.selectOption('#opponent-select','glaciolith');await page.selectOption('#ai-level','easy');
   await page.locator('#start-fight').click();await page.clock.runFor(2300);
   const initial=await page.evaluate(()=>window.kinetic.snapshot());
@@ -54,6 +74,7 @@ try{
   await page.locator('#back-select').click();await page.setViewportSize({width:390,height:844});await page.clock.runFor(200);
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth),390,'mobile layout overflows');await page.screenshot({path:'test-results/mobile.png',fullPage:true});
   await page.locator('#controls-button').click();assert(await page.locator('#guide-dialog').isVisible());await page.locator('#close-guide').click();
+  await page.clock.runFor(32);await page.locator('#start-training').click();await page.clock.runFor(200);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth),390,'training layout overflows');await page.screenshot({path:'test-results/training-mobile.png',fullPage:true});await page.locator('#path-exit').click();
   console.log('PASS: complete best-of-three, rematch, responsive selection, and local assets.');
   // A repository subpath catches leading-slash asset URLs that pass root-hosted QA.
   nestedServer=http.createServer(async(req,res)=>{

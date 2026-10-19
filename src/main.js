@@ -1,6 +1,7 @@
 import { ROSTER, findFighter, ARENAS, getMove } from './roster.js';
 import { CombatEngine } from './engine.js';
 import { paintPortrait, ArenaRenderer } from './render.js';
+import { TrainingUI, PATH_GUIDE } from './training-ui.js';
 
 const $=id=>document.getElementById(id);
 let selected='pyrojaw',opponent='voltantis',game=null,view='select',sound=false,audio=null,guideTab='basics';
@@ -11,6 +12,13 @@ const statNames=['POWER','MOBILITY','DEFENSE','TECHNIQUE'];
 function tone(freq=200,duration=.08,type='sine',volume=.05){
   if(!sound)return;try{audio??=new (window.AudioContext||window.webkitAudioContext)();if(audio.state==='suspended')audio.resume();const o=audio.createOscillator(),g=audio.createGain();o.type=type;o.frequency.setValueAtTime(freq,audio.currentTime);o.frequency.exponentialRampToValueAtTime(Math.max(30,freq*.3),audio.currentTime+duration);g.gain.setValueAtTime(volume,audio.currentTime);g.gain.exponentialRampToValueAtTime(.001,audio.currentTime+duration);o.connect(g);g.connect(audio.destination);o.start();o.stop(audio.currentTime+duration);}catch{/* Audio is optional. */}
 }
+const training=new TrainingUI({onExit:returnToSelect,onArena:()=>{training.stop();startMatch()},onSound:e=>{
+  if(['jump','dash','walljump'].includes(e.type))tone(e.type==='dash'?320:460,.07,'triangle',.02);
+  if(['hit','pogo','slam','hurt'].includes(e.type))tone(e.type==='hurt'?80:180,.12,'sawtooth',.035);
+  if(['learned','checkpoint','relic','complete'].includes(e.type))tone(700,.25,'sine',.035);
+}});
+function startTraining(){view='training';game=null;pressed.clear();training.start(selected);}
+$('start-training').addEventListener('click',startTraining);$('nav-path').addEventListener('click',startTraining);
 function buildRoster(){
   $('roster-grid').innerHTML=ROSTER.map((d,i)=>`<button class="fighter-card" data-fighter="${d.id}" style="--fighter-color:${d.color}" aria-label="Select ${d.name}, ${d.element} ${d.role}" aria-pressed="false"><span class="card-num">${String(i+1).padStart(2,'0')}</span><canvas aria-hidden="true"></canvas><span class="card-bottom"><span class="card-name">${d.name.toUpperCase()}</span><span class="card-element">${d.element.toUpperCase()}<i></i></span></span></button>`).join('');
   document.querySelectorAll('.fighter-card').forEach(card=>card.addEventListener('click',()=>selectFighter(card.dataset.fighter)));
@@ -37,7 +45,7 @@ function updateCards(){
   paintPortrait($('opponent-avatar'),findFighter(opponent),{face:-1});
 }
 $('opponent-select').addEventListener('change',e=>{opponent=e.target.value;updateCards();tone(400,.05)});
-$('sound-toggle').addEventListener('click',()=>{sound=!sound;$('sound-toggle').classList.toggle('on',sound);$('sound-toggle').setAttribute('aria-label',sound?'Disable sound':'Enable sound');$('sound-toggle').innerHTML=`♪ <span>SOUND ${sound?'ON':'OFF'}</span>`;tone(660,.2,'triangle')});
+$('sound-toggle').addEventListener('click',()=>{sound=!sound;$('sound-toggle').classList.toggle('on',sound);$('sound-toggle').setAttribute('aria-label',sound?'Disable sound':'Enable sound');$('sound-toggle').innerHTML=`♪ <span>SOUND ${sound?'ON':'OFF'}</span>`;tone(660,.2,'triangle');if(training.active)$('path-canvas').focus({preventScroll:true});else if(game)$('arena-canvas').focus({preventScroll:true});});
 
 let calloutUntil=0,lastComboSide=0;
 function onCombatEvent(e){
@@ -53,21 +61,23 @@ function onCombatEvent(e){
   if(e.type==='roundend')tone(440,.4,'triangle',.05);
 }
 function startMatch(){
+  training.stop();
   game=new CombatEngine(selected,opponent,{arena:$('arena-select').value,difficulty:$('ai-level').value,onEvent:onCombatEvent});
   view='game';pressed.clear();accumulator=0;renderer.effects=[];$('selection-screen').hidden=true;$('game-screen').hidden=false;
   $('player-name').textContent=findFighter(selected).name.toUpperCase();$('enemy-name').textContent=findFighter(opponent).name.toUpperCase();
   $('arena-canvas').tabIndex=0;$('arena-canvas').focus({preventScroll:true});$('round-overlay').hidden=false;window.scrollTo({top:0,behavior:'instant'});tone(170,.2,'sawtooth',.03);updateHUD();
 }
 function returnToSelect(){
+  training.stop();
   if($('guide-dialog').open)$('guide-dialog').close();view='select';game=null;pressed.clear();$('game-screen').hidden=true;$('selection-screen').hidden=false;$('start-fight').focus({preventScroll:true});updateCards();window.scrollTo({top:0,behavior:'smooth'});
 }
 function togglePause(value){
-  if(!game||game.phase==='matchover')return;game.paused=value??!game.paused;pressed.clear();game.setInputs(0,{});$('pause-button').innerHTML=`${game.paused?'RESUME':'PAUSE'} <kbd>ESC</kbd>`;updateHUD();
+  if(!game||game.phase==='matchover')return;game.paused=value??!game.paused;pressed.clear();game.setInputs(0,{});$('pause-button').innerHTML=`${game.paused?'RESUME':'PAUSE'} <kbd>ESC</kbd>`;updateHUD();if(!game.paused)$('arena-canvas').focus({preventScroll:true});
 }
 $('start-fight').addEventListener('click',startMatch);$('back-select').addEventListener('click',returnToSelect);$('select-button').addEventListener('click',returnToSelect);$('rematch-button').addEventListener('click',startMatch);$('resume-button').addEventListener('click',()=>togglePause(false));$('pause-button').addEventListener('click',()=>togglePause());
 $('hitbox-toggle').addEventListener('click',()=>{renderer.hitboxes=!renderer.hitboxes;$('hitbox-toggle').textContent=`HITBOXES ${renderer.hitboxes?'ON':'OFF'}`;$('hitbox-toggle').setAttribute('aria-pressed',renderer.hitboxes)});
-$('nav-arena').addEventListener('click',()=>{if(view==='game')returnToSelect();else $('start-fight').scrollIntoView({behavior:'smooth',block:'center'})});
-$('nav-roster').addEventListener('click',()=>{if(view==='game')returnToSelect();$('roster-grid').scrollIntoView({behavior:'smooth',block:'center'});document.querySelector('.fighter-card.selected').focus({preventScroll:true})});
+$('nav-arena').addEventListener('click',()=>{if(view!=='select')returnToSelect();else $('start-fight').scrollIntoView({behavior:'smooth',block:'center'})});
+$('nav-roster').addEventListener('click',()=>{if(view!=='select')returnToSelect();$('roster-grid').scrollIntoView({behavior:'smooth',block:'center'});document.querySelector('.fighter-card.selected').focus({preventScroll:true})});
 
 const basicGuide=`
 <div class="guide-row"><span><kbd>W</kbd> <kbd>S</kbd><br><kbd>A</kbd> <kbd>D</kbd></span><span><strong>Own your axis.</strong> W / S sidestep into the background / foreground. D advances toward your opponent. Hold A to retreat and automatically guard. Inputs stay relative when sides switch.</span></div>
@@ -78,7 +88,7 @@ const basicGuide=`
 <div class="guide-row"><span>WALLS & ROUNDS</span><span><strong>Take the fight downstairs.</strong> Launch into walls for a guaranteed follow-up window. Heavy impacts damage and break walls into a lower tier. Break a lower-tier wall for a ring-out. Win 2 rounds; each lasts 60 seconds. Timeout compares remaining HP percentage. Exact ties replay the round.</span></div>`;
 function updateGuide(){
   document.querySelectorAll('[data-tab]').forEach(b=>b.classList.toggle('selected',b.dataset.tab===guideTab));
-  if(guideTab==='basics'){$('guide-body').innerHTML=basicGuide;return;}
+  if(guideTab==='basics'){$('guide-body').innerHTML=training.active?PATH_GUIDE:basicGuide;return;}
   const d=findFighter(selected),f=game?.fighters[0]||{};
   const moves=[['J',getMove(d,'jab')],['K',getMove(d,'heavy')],['U',getMove(d,'grab')],...Object.entries(d.specials).map(([dir,m])=>[({neutral:'L',forward:'D + L',back:'A + L',up:'W + L',down:'S + L'})[dir],m])];
   if(d.id==='pyrojaw')moves.push(['D, S, D + K',getMove(d,'godfist')]);
@@ -88,15 +98,15 @@ function updateGuide(){
   $('guide-body').innerHTML=`<h3 class="guide-fighter-label">${d.name.toUpperCase()} <small> / ${d.hp} HP</small></h3><table class="move-table"><thead><tr><th>INPUT</th><th>TECHNIQUE</th><th>START / ACTIVE / REC.</th><th>BASE DMG</th></tr></thead><tbody>${moves.map(([key,m])=>`<tr><td>${key}</td><td>${m.name}</td><td>${m.startup} / ${m.active} / ${m.recovery}</td><td>${m.damage||'—'}</td></tr>`).join('')}</tbody></table><p class="move-notes">${d.signatureDesc}<br>Base damage scales with fighter power, counter-hits, and juggle decay. Specials cost 0–35 stamina and recover individually. Green outlines show hurtboxes; red shows an active attack’s horizontal reach. The engine also checks depth and height.</p>`;
 }
 let guideWasPaused=false;
-function showGuide(tab='basics'){guideTab=tab;guideWasPaused=game?.paused??false;if(game&&!game.paused)togglePause(true);updateGuide();$('guide-dialog').showModal();}
+function showGuide(tab='basics'){guideTab=tab;guideWasPaused=training.active?training.game.paused:game?.paused??false;if(training.active)training.pause(true);else if(game&&!game.paused)togglePause(true);updateGuide();$('guide-dialog').showModal();}
 function closeGuide(){ $('guide-dialog').close(); }
 for(const id of ['nav-guide','controls-button'])$(id).addEventListener('click',()=>showGuide());$('battle-guide').addEventListener('click',()=>showGuide('moves'));$('close-guide').addEventListener('click',closeGuide);
-$('guide-dialog').addEventListener('close',()=>{if(game&&!guideWasPaused)togglePause(false)});
+$('guide-dialog').addEventListener('close',()=>{if(training.active&&!guideWasPaused)training.pause(false);else if(game&&!guideWasPaused)togglePause(false)});
 $('guide-dialog').addEventListener('click',e=>{if(e.target===$('guide-dialog')){const r=$('guide-dialog').getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)closeGuide()}});
 document.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click',()=>{guideTab=b.dataset.tab;updateGuide()}));
 
 const movement={KeyW:'up',KeyS:'down',KeyA:'back',KeyD:'forward',ArrowUp:'up',ArrowDown:'down',ArrowLeft:'back',ArrowRight:'forward'};
-const attacks={KeyJ:'jab',KeyK:'heavy',KeyL:'special',KeyU:'grab',KeyI:'burst',Space:'jump'};
+const attacks={KeyJ:'jab',KeyK:'heavy',KeyL:'special',KeyU:'grab',KeyI:'burst',Space:'jump',ShiftLeft:'dash',ShiftRight:'dash'};
 function sampleInputs(){if(game)game.setInputs(0,{up:pressed.has('KeyW')||pressed.has('ArrowUp'),down:pressed.has('KeyS')||pressed.has('ArrowDown'),back:pressed.has('KeyA')||pressed.has('ArrowLeft'),forward:pressed.has('KeyD')||pressed.has('ArrowRight')});}
 window.addEventListener('keydown',e=>{
   if($('guide-dialog').open)return;
@@ -148,6 +158,8 @@ function animate(clock){
   const delta=Math.min(140,clock-last);last=clock;
   if(view==='select'){
     if(clock-heroLast>32){paintPortrait($('hero-canvas'),findFighter(selected),{hero:true,time:clock/1000});heroLast=clock;}
+  }else if(view==='training'){
+    training.frame(clock,delta);
   }else if(game){
     accumulator+=delta;let steps=0;while(accumulator>=1000/60&&steps<9){game.step();accumulator-=1000/60;steps++;}
     renderer.render(game,clock);updateHUD();if(clock>calloutUntil)$('combat-callout').textContent='';
@@ -158,4 +170,4 @@ let resizeTimer;window.addEventListener('resize',()=>{clearTimeout(resizeTimer);
 buildRoster();requestAnimationFrame(animate);
 
 // A read-only snapshot is convenient for browser QA and frame-data inspection.
-window.kinetic={snapshot:()=>game?{phase:game.phase,paused:game.paused,tick:game.tick,time:game.time,wins:[...game.wins],round:game.round,tier:game.tier,fighters:game.fighters.map(f=>({id:f.data.id,hp:f.hp,x:f.x,z:f.z,y:f.y,guard:f.guard,kinetic:f.kinetic,stamina:f.stamina,move:f.attack?.move.name||null}))}:{phase:'selection',player:selected,opponent}};
+window.kinetic={snapshot:()=>training.active?training.game.snapshot():game?{phase:game.phase,paused:game.paused,tick:game.tick,time:game.time,wins:[...game.wins],round:game.round,tier:game.tier,fighters:game.fighters.map(f=>({id:f.data.id,hp:f.hp,x:f.x,z:f.z,y:f.y,guard:f.guard,kinetic:f.kinetic,stamina:f.stamina,move:f.attack?.move.name||null}))}:{phase:'selection',player:selected,opponent}};

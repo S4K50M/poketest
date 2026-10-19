@@ -355,6 +355,12 @@
     input(side, key, direction) {
       if (this.phase !== "fighting" || this.paused || this.cinematic > 0) return false;
       const f = this.fighters[side], dir = direction || this.direction(f);
+      if (key === "dash" && this.canAct(f) && !f.attack) {
+        f.dash = 13;
+        f.dashDir = f.inputs.back ? -1 : 1;
+        this.emit("dash", { side });
+        return true;
+      }
       if (key === "grab" && f.techWindow > 0) {
         this.tech(f);
         return true;
@@ -377,7 +383,7 @@
       if (key === "jump") {
         if (!this.canAct(f)) return false;
         if (f.y <= 0.02) {
-          f.vy = f.data.weight > 1.5 ? 0.19 : 0.235;
+          f.vy = f.data.weight > 1.5 ? 0.22 : 0.265;
           f.airJumps = 1;
           this.emit("jump", { side });
           return true;
@@ -603,11 +609,11 @@
       if (this.canAct(f) && !f.attack) {
         const frost = f.frost > 0 ? 0.7 : 1, ix = Number(f.inputs.forward) - Number(f.inputs.back), iz = Number(f.inputs.down) - Number(f.inputs.up);
         if (f.dash > 0) {
-          f.x += f.face * f.data.dash * f.dashDir * frost;
+          f.x += f.face * f.data.dash * f.dashDir * frost * 1.25;
           f.dash--;
         } else {
-          f.x += ix * f.face * f.data.speed * (ix < 0 ? 0.4 : 1);
-          f.z += iz * f.data.speed * 0.9 * frost;
+          f.x += ix * f.face * f.data.speed * (ix < 0 ? 0.4 : 1.35);
+          f.z += iz * f.data.speed * 1.08 * frost;
         }
         if ((ix || iz) && f.y < 0.05) f.walkPhase += 0.2;
         if (f.data.id === "voltantis" && iz && this.tick % 9 === 0) f.z += iz * 0.11 * frost;
@@ -752,7 +758,7 @@
         }
         target.wallImpact = { damage, break: !!move.wallBreak, attacker: attacker.side };
       }
-      this.hitstop = move.type === "burst" ? 13 : move.type === "heavy" ? 5 : 3;
+      this.hitstop = move.type === "burst" ? 13 : move.type === "heavy" ? 4 : 2;
       this.emit(options.throw ? "throw" : "hit", { x: target.x, z: target.z, y: target.y + 0.9, side: attacker.side, damage, counter, move, armored, crossup: !!options.crossup });
       if (counter) this.emit("counter", { side: attacker.side, name: "COUNTER HIT" });
     }
@@ -1490,8 +1496,915 @@
     }
   };
 
-  // src/main.js
+  // src/training.js
+  var MOTOR = { run: 6.7, acceleration: 1.5, friction: 1.8, gravity: 0.62, jump: -13.5, doubleJump: -12.2, fall: 16, dash: 16, dashFrames: 11, dashCooldown: 32, coyote: 7, jumpBuffer: 8 };
+  var LESSONS = [
+    { name: "Find your feet", zone: "THE AWAKENING", start: 0, gate: 920, spawn: 150, keys: ["A", "D"], goal: "Move through the first chamber.", hint: "A / D move left and right. Turn quickly. Your feet should answer before you think.", test: (g) => g.stats.distance > 250 },
+    { name: "Trust the jump", zone: "THE BROKEN STAIR", start: 1e3, gate: 2150, spawn: 1080, keys: ["SPACE", "SPACE"], goal: "Jump across the broken bridge.", hint: "Hold Space for height; release for a short hop. Press again in the air to double-jump. A late jump still counts.", test: (g) => g.player.x > 1670 && g.stats.jumps > 0 },
+    { name: "Find the rhythm", zone: "THE WINDLESS SPAN", start: 2250, gate: 3420, spawn: 2340, keys: ["SPACE", "SHIFT"], goal: "Jump, then dash across the long gap.", hint: "Jump toward the gap, then Shift to dash through the air. Land to refresh your air dash. Never stop moving.", test: (g) => g.player.x > 3080 && g.stats.airDashes > 0 },
+    { name: "Make impact lift you", zone: "THE THORN GARDEN", start: 3500, gate: 4700, spawn: 3590, keys: ["SPACE", "S + J"], goal: "Bounce from the glowing training bell.", hint: "Get above the bell. Hold S and press J to strike downward. A clean hit bounces you up and restores your air dash.", test: (g) => g.player.x > 4430 && g.stats.pogos > 0 },
+    { name: "The walls are a path", zone: "THE ASCENT", start: 4800, gate: 6100, spawn: 4900, keys: ["D", "SPACE", "SPACE"], goal: "Wall-jump and double-jump over the pillar.", hint: "Push into a wall to slide. Press Space to kick away, steer back, then jump again. Keep your height, not your hesitation.", test: (g) => g.player.x > 5580 && g.stats.wallJumps > 0 && g.stats.doubleJumps > 0 },
+    { name: "Move with intent", zone: "THE WARDEN\u2019S HALL", start: 6200, gate: 7750, spawn: 6280, keys: ["J", "K", "L", "SHIFT"], goal: "Defeat the two husks and the Brass Warden.", hint: "Watch the gold wind-up. Dash through a charge, jump the shockwave, and punish the recovery. J strikes; K hits harder; L casts.", test: (g) => g.enemies.every((e) => e.hp <= 0) }
+  ];
+  var PLATFORMS = [
+    { x: 0, y: 520, w: 1460, h: 250 },
+    { x: 1620, y: 520, w: 1e3, h: 250 },
+    { x: 2940, y: 520, w: 990, h: 250 },
+    { x: 4320, y: 520, w: 3680, h: 250 },
+    { x: 540, y: 455, w: 155, h: 28 },
+    { x: 745, y: 405, w: 135, h: 28 },
+    { x: 1170, y: 445, w: 145, h: 30 },
+    { x: 1360, y: 380, w: 125, h: 28 },
+    { x: 1860, y: 420, w: 160, h: 30 },
+    { x: 3180, y: 420, w: 125, h: 28 },
+    { x: 3770, y: 430, w: 130, h: 28 },
+    { x: 4390, y: 410, w: 150, h: 28 },
+    { x: 4590, y: 325, w: 130, h: 28 },
+    { x: 5180, y: 260, w: 48, h: 260, solid: true },
+    { x: 5445, y: 145, w: 48, h: 275, solid: true },
+    { x: 5540, y: 365, w: 150, h: 28 },
+    { x: 5780, y: 425, w: 135, h: 28 },
+    { x: 6580, y: 405, w: 145, h: 30 },
+    { x: 7340, y: 405, w: 150, h: 30 }
+  ];
+  var THORNS = [{ x: 1460, w: 160, y: 605 }, { x: 2620, w: 320, y: 605 }, { x: 3930, w: 390, y: 575 }];
+  var clamp2 = (v, min, max) => Math.max(min, Math.min(max, v));
+  var approach = (a, b, amount) => a < b ? Math.min(b, a + amount) : Math.max(b, a - amount);
+  var TrainingEngine = class {
+    constructor(id = "pyrojaw", options = {}) {
+      this.data = findFighter(id);
+      this.onEvent = options.onEvent || (() => {
+      });
+      this.tick = 0;
+      this.phase = "playing";
+      this.paused = false;
+      this.lesson = 0;
+      this.completed = LESSONS.map(() => false);
+      this.hitstop = 0;
+      this.checkpoint = { x: 150, y: 520 };
+      this.player = { x: 150, y: 520, vx: 0, vy: 0, face: 1, hp: 6, maxHp: 6, spirit: 100, grounded: true, coyote: 7, jumpBuffer: 0, jumpHeld: false, jumpCount: 0, wall: 0, wallLock: 0, dash: 0, dashCooldown: 0, dashUsed: false, invul: 0, attack: null, walkPhase: 0, flash: 0, respawning: 0 };
+      this.inputs = { left: false, right: false, down: false, up: false };
+      this.stats = { distance: 0, jumps: 0, doubleJumps: 0, wallJumps: 0, dashes: 0, airDashes: 0, pogos: 0, hits: 0, falls: 0 };
+      this.bell = { x: 4115, y: 430, r: 24, flash: 0 };
+      this.enemies = [
+        { id: 0, kind: "husk", x: 6520, y: 520, home: 6520, hp: 28, maxHp: 28, face: -1, state: "patrol", timer: 35, flash: 0, stun: 0, vx: 0 },
+        { id: 1, kind: "husk", x: 6810, y: 520, home: 6810, hp: 28, maxHp: 28, face: -1, state: "patrol", timer: 60, flash: 0, stun: 0, vx: 0 },
+        { id: 2, kind: "warden", x: 7240, y: 520, home: 7240, hp: 130, maxHp: 130, face: -1, state: "patrol", timer: 70, flash: 0, stun: 0, vx: 0, pattern: 0 }
+      ];
+      this.relics = [{ x: 795, y: 365 }, { x: 1935, y: 380 }, { x: 3240, y: 380 }, { x: 4650, y: 285 }, { x: 5480, y: 90 }, { x: 7410, y: 365 }].map((r, i) => ({ ...r, id: i, collected: false }));
+      this.projectiles = [];
+      this.waves = [];
+      this.effects = [];
+      this.message = "";
+      this.messageTime = 0;
+    }
+    emit(type, props = {}) {
+      this.onEvent({ type, ...props });
+    }
+    setInputs(inputs) {
+      this.inputs = { left: false, right: false, down: false, up: false, ...inputs };
+    }
+    input(action) {
+      if (this.paused || this.phase !== "playing" || this.player.respawning) return false;
+      const p = this.player;
+      if (action === "jump") {
+        p.jumpBuffer = MOTOR.jumpBuffer;
+        p.jumpHeld = true;
+        return true;
+      }
+      if (action === "dash") {
+        if (p.dashCooldown || !p.grounded && p.dashUsed) return false;
+        if (p.attack && p.attack.frame < p.attack.start + p.attack.active) return false;
+        p.attack = null;
+        p.dash = MOTOR.dashFrames;
+        p.dashCooldown = MOTOR.dashCooldown;
+        p.dashUsed = true;
+        p.vy = 0;
+        p.invul = Math.max(p.invul, 9);
+        this.stats.dashes++;
+        if (!p.grounded) this.stats.airDashes++;
+        this.emit("dash");
+        return true;
+      }
+      if (action === "light" || action === "heavy") {
+        if (p.attack || p.dash) return false;
+        p.attack = { type: action, frame: 0, start: action === "light" ? 4 : 9, active: 6, recovery: action === "light" ? 9 : 16, dir: this.inputs.down && !p.grounded ? "down" : this.inputs.up ? "up" : "side", hit: /* @__PURE__ */ new Set() };
+        this.emit("slash");
+        return true;
+      }
+      if (action === "special") {
+        if (p.spirit < 25 || p.attack) return false;
+        p.spirit -= 25;
+        this.projectiles.push({ x: p.x + p.face * 22, y: p.y - 36, vx: p.face * 12, life: 65, hit: /* @__PURE__ */ new Set() });
+        this.emit("cast");
+        return true;
+      }
+      if (action === "interact") {
+        const waylight = LESSONS.slice(0, this.lesson + 1).find((l) => Math.abs(p.x - l.spawn) < 95);
+        if (waylight && p.grounded) {
+          this.checkpoint = { x: waylight.spawn, y: 520 };
+          p.hp = p.maxHp;
+          p.spirit = 100;
+          this.say("RESTORED AT THE WAYLIGHT");
+          this.emit("rest");
+          return true;
+        }
+      }
+      if (action === "retry") {
+        this.respawn();
+        return true;
+      }
+      return false;
+    }
+    releaseJump() {
+      const p = this.player;
+      p.jumpHeld = false;
+      if (p.vy < -4.5) p.vy *= 0.48;
+    }
+    say(text) {
+      this.message = text;
+      this.messageTime = 150;
+    }
+    respawn() {
+      const p = this.player;
+      this.stats.falls++;
+      p.hp--;
+      if (p.hp <= 0) p.hp = p.maxHp;
+      Object.assign(p, { x: this.checkpoint.x, y: this.checkpoint.y, vx: 0, vy: 0, dash: 0, dashUsed: false, dashCooldown: 0, attack: null, wall: 0, wallLock: 0, jumpCount: 0, jumpBuffer: 0, coyote: 7, grounded: true, invul: 90, respawning: 18 });
+      for (const e of this.enemies) if (e.hp > 0) {
+        e.x = e.home;
+        e.state = "patrol";
+        e.timer = 55;
+        e.stun = 0;
+        e.vx = 0;
+      }
+      this.waves = [];
+      this.projectiles = [];
+      this.say("BREATHE. THE WAYLIGHT IS STILL HERE.");
+      this.emit("respawn");
+    }
+    hurt(direction = 0) {
+      const p = this.player;
+      if (p.invul || p.respawning) return;
+      p.hp--;
+      p.invul = 80;
+      p.flash = 10;
+      p.vx = direction * 6;
+      p.vy = -5;
+      this.emit("hurt");
+      if (p.hp <= 0) {
+        p.hp = 1;
+        this.respawn();
+      }
+    }
+    jump() {
+      const p = this.player;
+      if (!p.jumpBuffer) return;
+      if (p.grounded || p.coyote > 0) {
+        p.vy = MOTOR.jump;
+        p.jumpCount = 1;
+        p.coyote = 0;
+        this.stats.jumps++;
+      } else if (p.wall) {
+        p.vy = -13;
+        p.vx = -p.wall * 9;
+        p.face = -p.wall;
+        p.wallLock = 9;
+        p.jumpCount = 1;
+        p.dashUsed = false;
+        this.stats.wallJumps++;
+        this.emit("walljump");
+      } else if (p.jumpCount < 2) {
+        p.vy = MOTOR.doubleJump;
+        p.jumpCount = 2;
+        this.stats.doubleJumps++;
+        this.emit("doublejump");
+      } else return;
+      if (!p.jumpHeld) p.vy *= 0.55;
+      p.dash = 0;
+      p.grounded = false;
+      p.jumpBuffer = 0;
+      this.emit("jump");
+    }
+    step() {
+      if (this.paused || this.phase !== "playing") return;
+      this.tick++;
+      if (this.hitstop > 0) {
+        this.hitstop--;
+        return;
+      }
+      const p = this.player;
+      for (const key of ["dashCooldown", "invul", "flash", "respawning", "wallLock"]) if (p[key] > 0) p[key]--;
+      if (this.messageTime > 0) this.messageTime--;
+      if (this.bell.flash > 0) this.bell.flash--;
+      this.effects = this.effects.filter((e) => --e.life > 0);
+      if (p.respawning) return;
+      p.spirit = Math.min(100, p.spirit + 0.06);
+      if (p.grounded) {
+        p.coyote = MOTOR.coyote;
+        p.dashUsed = false;
+      } else p.coyote = Math.max(0, p.coyote - 1);
+      this.jump();
+      if (p.jumpBuffer > 0) p.jumpBuffer--;
+      const direction = Number(this.inputs.right) - Number(this.inputs.left), oldX = p.x, oldY = p.y;
+      if (p.dash > 0) {
+        p.vx = p.face * MOTOR.dash;
+        p.vy = 0;
+        p.dash--;
+        this.effects.push({ type: "trail", x: p.x, y: p.y, face: p.face, life: 13 });
+      } else {
+        if (!p.wallLock) {
+          const speed = MOTOR.run * clamp2(0.96 + (this.data.speed - 0.059) * 2, 0.9, 1.08);
+          p.vx = approach(p.vx, direction * speed, direction ? MOTOR.acceleration : MOTOR.friction);
+          if (direction) p.face = direction;
+        }
+        p.vy = Math.min(MOTOR.fall, p.vy + MOTOR.gravity);
+        if (p.wall && direction === p.wall && p.vy > 2) p.vy = 2;
+      }
+      p.x = clamp2(p.x + p.vx, 24, 7960);
+      p.wall = 0;
+      for (const block of PLATFORMS.filter((b) => b.solid)) {
+        if (p.y <= block.y + 2 || p.y - 66 >= block.y + block.h - 2) continue;
+        if (oldX + 15 <= block.x && p.x + 15 > block.x) {
+          p.x = block.x - 15;
+          p.wall = 1;
+          p.vx = 0;
+        } else if (oldX - 15 >= block.x + block.w && p.x - 15 < block.x + block.w) {
+          p.x = block.x + block.w + 15;
+          p.wall = -1;
+          p.vx = 0;
+        } else if (Math.abs(p.x + 15 - block.x) < 2) p.wall = 1;
+        else if (Math.abs(p.x - 15 - block.x - block.w) < 2) p.wall = -1;
+      }
+      const gate = LESSONS[this.lesson];
+      if (!this.completed[this.lesson] && p.x + 15 > gate.gate && oldX < gate.gate) {
+        p.x = gate.gate - 15;
+        p.vx = 0;
+      }
+      p.y += p.vy;
+      p.grounded = false;
+      for (const platform of PLATFORMS) {
+        if (p.x + 13 <= platform.x || p.x - 13 >= platform.x + platform.w) continue;
+        if (p.vy >= 0 && oldY <= platform.y + 1 && p.y >= platform.y) {
+          p.y = platform.y;
+          p.vy = 0;
+          p.grounded = true;
+          p.jumpCount = 0;
+          p.wall = 0;
+          p.dashUsed = false;
+        } else if (platform.solid && p.vy < 0 && oldY - 66 >= platform.y + platform.h && p.y - 66 <= platform.y + platform.h) {
+          p.y = platform.y + platform.h + 66;
+          p.vy = 0;
+        }
+      }
+      this.stats.distance += Math.abs(p.x - oldX);
+      if (Math.abs(p.vx) > 0.5) p.walkPhase += Math.abs(p.vx) * 0.055;
+      if (p.y > 720 || THORNS.some((t) => p.x > t.x && p.x < t.x + t.w && p.y > t.y)) {
+        this.respawn();
+        return;
+      }
+      this.updateAttack();
+      this.updateEnemies();
+      this.updateProjectiles();
+      for (const wave of this.waves) {
+        wave.x += wave.vx;
+        wave.life--;
+        if (Math.abs(p.x - wave.x) < 28 && p.y > 485) this.hurt(Math.sign(p.x - wave.x));
+      }
+      this.waves = this.waves.filter((w) => w.life > 0);
+      for (const r of this.relics) if (!r.collected && Math.hypot(p.x - r.x, p.y - 35 - r.y) < 42) {
+        r.collected = true;
+        this.say("ECHO SHARD FOUND");
+        this.emit("relic");
+      }
+      this.updateLesson();
+    }
+    updateLesson() {
+      const p = this.player, lesson = LESSONS[this.lesson];
+      if (!this.completed[this.lesson] && lesson.test(this)) {
+        this.completed[this.lesson] = true;
+        this.say("LESSON LEARNED \xB7 " + lesson.name.toUpperCase());
+        this.emit("learned", { lesson: this.lesson });
+      }
+      if (this.lesson < LESSONS.length - 1 && this.completed[this.lesson] && p.x > LESSONS[this.lesson + 1].start) {
+        this.lesson++;
+        this.checkpoint = { x: LESSONS[this.lesson].spawn, y: 520 };
+        p.hp = p.maxHp;
+        p.spirit = 100;
+        this.say("WAYLIGHT LIT \xB7 " + LESSONS[this.lesson].zone);
+        this.emit("checkpoint");
+      }
+      if (this.lesson === 5 && this.completed[5] && p.x > 7870) {
+        this.phase = "complete";
+        this.emit("complete");
+      }
+    }
+    updateAttack() {
+      const p = this.player, a = p.attack;
+      if (!a) return;
+      a.frame++;
+      if (a.frame >= a.start + a.active + a.recovery) {
+        p.attack = null;
+        return;
+      }
+      if (a.frame < a.start || a.frame >= a.start + a.active) return;
+      const b = this.bell;
+      if (a.dir === "down" && p.y < b.y && b.y - p.y < 94 && Math.abs(p.x - b.x) < 62 && !a.hit.has("bell")) {
+        a.hit.add("bell");
+        b.flash = 20;
+        this.pogo();
+      }
+      for (const e of this.enemies) {
+        if (e.hp <= 0 || a.hit.has(e.id)) continue;
+        const radius = e.kind === "warden" ? 40 : 24, dx = e.x - p.x, dy = e.y - (e.kind === "warden" ? 58 : 26) - (p.y - 30);
+        const contact = a.dir === "down" ? p.y < e.y - 10 && e.y - p.y < 120 && Math.abs(dx) < 55 : a.dir === "up" ? dy < 0 && dy > -130 && Math.abs(dx) < 65 : dx * p.face > -15 && dx * p.face < 85 + radius && Math.abs(dy) < 75;
+        if (contact) {
+          a.hit.add(e.id);
+          this.strike(e, a.type === "heavy" ? 25 : 12, p.face);
+          if (a.dir === "down") this.pogo();
+        }
+      }
+    }
+    pogo() {
+      const p = this.player;
+      p.vy = -13.6;
+      p.jumpCount = 1;
+      p.dashUsed = false;
+      p.dashCooldown = 0;
+      this.stats.pogos++;
+      this.hitstop = 3;
+      this.emit("pogo");
+      this.effects.push({ type: "spark", x: p.x, y: p.y + 25, life: 20 });
+    }
+    strike(e, damage, direction) {
+      e.hp = Math.max(0, e.hp - damage);
+      e.flash = 8;
+      e.stun = e.kind === "warden" ? 6 : 13;
+      e.vx = direction * (e.kind === "warden" ? 2 : 5);
+      this.player.spirit = Math.min(100, this.player.spirit + 9);
+      this.stats.hits++;
+      this.hitstop = 3;
+      this.effects.push({ type: "spark", x: e.x, y: e.y - 40, life: 20 });
+      this.emit("hit");
+      if (!e.hp) {
+        this.emit("kill");
+        this.effects.push({ type: "burst", x: e.x, y: e.y - 40, life: 40 });
+      }
+    }
+    updateProjectiles() {
+      for (const b of this.projectiles) {
+        b.x += b.vx;
+        b.life--;
+        for (const e of this.enemies) if (e.hp > 0 && !b.hit.has(e.id) && Math.abs(b.x - e.x) < (e.kind === "warden" ? 50 : 30) && Math.abs(b.y - (e.y - 40)) < 70) {
+          b.hit.add(e.id);
+          this.strike(e, 20, Math.sign(b.vx));
+        }
+      }
+      this.projectiles = this.projectiles.filter((b) => b.life > 0);
+    }
+    updateEnemies() {
+      const p = this.player;
+      for (const e of this.enemies) {
+        if (e.hp <= 0) continue;
+        if (e.flash) e.flash--;
+        if (e.stun > 0) {
+          e.stun--;
+          e.x += e.vx;
+          e.vx *= 0.8;
+          continue;
+        }
+        if (Math.abs(p.x - e.x) > 950) continue;
+        const dist = Math.abs(p.x - e.x);
+        e.timer--;
+        if (e.state === "patrol") {
+          e.face = p.x > e.x ? 1 : -1;
+          if (dist < 550) {
+            e.x += e.face * (e.kind === "warden" ? 1.15 : 1.45);
+            if (e.timer <= 0 && dist < 350) {
+              e.state = "windup";
+              e.timer = e.kind === "warden" ? 38 : 27;
+              this.emit("warning");
+            }
+          }
+        } else if (e.state === "windup" && e.timer <= 0) {
+          if (e.kind === "warden" && e.pattern++ % 2 === 1) {
+            this.waves.push({ x: e.x, y: 520, vx: e.face * 7, life: 130 });
+            e.state = "recover";
+            e.timer = 45;
+            this.emit("slam");
+          } else {
+            e.state = "charge";
+            e.timer = e.kind === "warden" ? 29 : 22;
+          }
+        } else if (e.state === "charge") {
+          e.x += e.face * (e.kind === "warden" ? 10 : 7);
+          if (e.timer <= 0) {
+            e.state = "recover";
+            e.timer = e.kind === "warden" ? 45 : 36;
+          }
+        } else if (e.state === "recover" && e.timer <= 0) {
+          e.state = "patrol";
+          e.timer = 45;
+        }
+        e.x = clamp2(e.x, e.kind === "warden" ? 6970 : 6320, e.kind === "warden" ? 7630 : 6920);
+        if (dist < (e.kind === "warden" ? 52 : 32) && Math.abs(p.y - e.y) < (e.kind === "warden" ? 100 : 50)) this.hurt(Math.sign(p.x - e.x));
+      }
+    }
+    snapshot() {
+      const p = this.player;
+      return { mode: "training", phase: this.phase, paused: this.paused, tick: this.tick, lesson: this.lesson, completed: [...this.completed], player: { id: this.data.id, x: p.x, y: p.y, vx: p.vx, vy: p.vy, hp: p.hp, grounded: p.grounded, dash: p.dash, wall: p.wall }, stats: { ...this.stats }, shards: this.relics.filter((r) => r.collected).length, enemies: this.enemies.map((e) => ({ id: e.id, hp: e.hp, state: e.state })) };
+    }
+  };
+
+  // src/training-render.js
+  var TAU2 = Math.PI * 2;
+  function polygon(c, points, fill, stroke) {
+    c.beginPath();
+    points.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y));
+    c.closePath();
+    if (fill) {
+      c.fillStyle = fill;
+      c.fill();
+    }
+    if (stroke) {
+      c.strokeStyle = stroke;
+      c.lineWidth = 1.5;
+      c.stroke();
+    }
+  }
+  function ellipse2(c, x, y, rx, ry, color) {
+    c.beginPath();
+    c.ellipse(x, y, rx, ry, 0, 0, TAU2);
+    c.fillStyle = color;
+    c.fill();
+  }
+  function path(c, points, color, width = 2) {
+    c.beginPath();
+    points.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y));
+    c.strokeStyle = color;
+    c.lineWidth = width;
+    c.lineCap = "round";
+    c.stroke();
+  }
+  function halo(c, x, y, r, color) {
+    const a = c.createRadialGradient(x, y, 0, x, y, r);
+    a.addColorStop(0, color);
+    a.addColorStop(1, "transparent");
+    ellipse2(c, x, y, r, r, a);
+  }
+  var TrainingRenderer = class {
+    constructor(canvas) {
+      this.canvas = canvas;
+      this.camera = 0;
+      this.cameraY = 0;
+      this.shake = 0;
+      this.lastTick = -1;
+      this.clock = 0;
+    }
+    reset() {
+      this.camera = 0;
+      this.cameraY = 0;
+      this.lastTick = -1;
+    }
+    event(e) {
+      if (["hit", "pogo", "slam", "hurt"].includes(e.type)) this.shake = e.type === "slam" ? 7 : 4;
+    }
+    render(g, clock) {
+      const { c, w, h } = fitCanvas(this.canvas);
+      if (!w || !h) return;
+      const scale = h / 660, viewWidth = w / scale, p = g.player;
+      if (this.lastTick !== g.tick) {
+        const mobile = viewWidth < 700, targetY = Math.min(mobile ? 130 : 0, p.y - (mobile ? 300 : 240));
+        if (this.lastTick === -1) this.cameraY = targetY;
+        this.camera += (Math.max(0, Math.min(8e3 - viewWidth, p.x - viewWidth * 0.36 + p.vx * 7)) - this.camera) * 0.11;
+        this.cameraY += (targetY - this.cameraY) * 0.08;
+        this.lastTick = g.tick;
+        this.clock = clock;
+      }
+      const t = this.clock / 1e3, x0 = this.camera, x1 = this.camera + viewWidth;
+      c.clearRect(0, 0, w, h);
+      const sky = c.createLinearGradient(0, 0, 0, h);
+      sky.addColorStop(0, "#091515");
+      sky.addColorStop(0.52, "#142c2b");
+      sky.addColorStop(1, "#0a1818");
+      c.fillStyle = sky;
+      c.fillRect(0, 0, w, h);
+      c.save();
+      c.scale(scale, scale);
+      for (let layer = 0; layer < 3; layer++) {
+        c.save();
+        c.translate(-this.camera * (0.12 + layer * 0.16), -this.cameraY * 0.12);
+        const period = layer === 0 ? 650 : 420, start = Math.floor(this.camera * (0.12 + layer * 0.16) / period) * period;
+        for (let x = start - period; x < start + viewWidth + period; x += period) {
+          const offset = Math.sin(x * 0.013 + layer) * 35;
+          c.fillStyle = ["#0d2022", "#102727", "#102321"][layer];
+          c.beginPath();
+          c.moveTo(x - 40, -80);
+          c.lineTo(x + 65, -80);
+          c.lineTo(x + 45, 510);
+          c.lineTo(x - 50, 600);
+          c.closePath();
+          c.fill();
+          c.beginPath();
+          c.arc(x + period / 2, 320 + offset, period / 2 - 50, Math.PI, 0);
+          c.lineTo(x + period - 50, 600);
+          c.lineTo(x + 50, 600);
+          c.closePath();
+          c.strokeStyle = ["#1c3637", "#1c3834", "#244239"][layer];
+          c.lineWidth = layer === 0 ? 18 : 9;
+          c.stroke();
+          if (layer === 0) {
+            halo(c, x + period * 0.5, 210 + offset, 190, "#6ec7b310");
+            polygon(c, [[x + period * 0.5 - 12, 0], [x + period * 0.5 + 12, 0], [x + period * 0.5 + 135, 580], [x + period * 0.5 - 135, 580]], "#a5e0bd05");
+          }
+          if (layer === 1) {
+            for (let k = 0; k < 4; k++) {
+              const xx = x + 96 + k * 48;
+              path(c, [[xx, 250], [xx - 8, 390], [xx + 8, 470]], "#36554a33", 2);
+            }
+          }
+        }
+        c.restore();
+      }
+      for (let i = 0; i < 40; i++) {
+        const x = ((i * 131.3 - this.camera * 0.2 + t * (i % 3 + 1) * 2) % (viewWidth + 60) + viewWidth + 60) % (viewWidth + 60) - 30;
+        const y = (i * 71.7 + Math.sin(t * 0.4 + i) * 16) % 640;
+        ellipse2(c, x, y, i % 3 === 0 ? 1.6 : 0.8, i % 3 === 0 ? 1.6 : 0.8, i % 3 === 0 ? "#c7efba44" : "#b7e5d022");
+      }
+      c.save();
+      if (this.shake > 0.2 && !g.paused) {
+        c.translate(Math.sin(clock * 0.13) * this.shake, Math.cos(clock * 0.11) * this.shake * 0.5);
+        this.shake *= 0.8;
+      }
+      c.translate(-this.camera, -this.cameraY);
+      for (let i = 0; i < LESSONS.length; i++) {
+        const room = LESSONS[i];
+        if (room.start > x1 + 300 || room.start + 1200 < x0) continue;
+        c.textAlign = "center";
+        c.font = "700 13px Barlow";
+        c.fillStyle = "#88b7a755";
+        c.fillText(String(i + 1).padStart(2, "0") + "  /  PILGRIM\u2019S PATH", room.start + 490, 155);
+        c.font = '600 48px "Barlow Condensed",sans-serif';
+        c.fillStyle = "#a8d9ba17";
+        c.fillText(room.zone, room.start + 490, 207);
+        for (let k = 0; k < 4; k++) {
+          const xx = room.start + 140 + k * 240;
+          path(c, [[xx, -20], [xx + 3, 80 + k * 14]], "#54756b44", 2);
+          ellipse2(c, xx + 3, 90 + k * 14, 9, 15, "#3b675a");
+          halo(c, xx + 3, 90 + k * 14, 75, "#a0e6c514");
+        }
+      }
+      for (const b of PLATFORMS) {
+        if (b.x + b.w < x0 - 80 || b.x > x1 + 80) continue;
+        const fill = c.createLinearGradient(0, b.y, 0, b.y + Math.min(b.h, 140));
+        fill.addColorStop(0, "#263f37");
+        fill.addColorStop(0.22, "#142923");
+        fill.addColorStop(1, "#0b1b18");
+        c.fillStyle = fill;
+        c.fillRect(b.x, b.y, b.w, b.h);
+        path(c, [[b.x, b.y + 2], [b.x + b.w, b.y + 2]], "#86b598", 3);
+        path(c, [[b.x, b.y + 6], [b.x + b.w, b.y + 6]], "#c8e6b02a", 1);
+        for (let xx = b.x + 12; xx < b.x + b.w; xx += 55) {
+          if (xx < x0 - 60 || xx > x1 + 60) continue;
+          path(c, [[xx, b.y + 12], [xx + 13, b.y + 28], [xx + 9, b.y + 49]], "#3f5d4a66", 1);
+          if (xx % 3 < 1.4) path(c, [[xx, b.y], [xx + 5, b.y - 7], [xx + 8, b.y]], "#93ba7355", 1.5);
+        }
+        if (b.h < 100) {
+          polygon(c, [[b.x, b.y + b.h], [b.x + 18, b.y + b.h + 18], [b.x + 31, b.y + b.h], [b.x + 48, b.y + b.h + 7], [b.x + b.w - 15, b.y + b.h + 5], [b.x + b.w, b.y + b.h]], "#0e231e");
+        }
+        if (b.solid) {
+          for (let yy = b.y + 20; yy < b.y + b.h; yy += 28) path(c, [[b.x + 8, yy], [b.x + b.w - 8, yy + 2]], "#8bb59b33", 1);
+          halo(c, b.x + b.w / 2, b.y, 75, "#a7e7c91c");
+        }
+      }
+      for (const th of THORNS) {
+        if (th.x > x1 || th.x + th.w < x0) continue;
+        halo(c, th.x + th.w / 2, th.y + 18, th.w * 0.6, "#a45b4c17");
+        for (let xx = th.x; xx < th.x + th.w; xx += 21) polygon(c, [[xx, th.y + 28], [xx + 9, th.y - 10 - Math.sin(xx) * 8], [xx + 21, th.y + 28]], "#694f48", "#ba8c6b66");
+      }
+      for (let i = 0; i < LESSONS.length; i++) {
+        const room = LESSONS[i], x = room.gate;
+        if (x < x0 - 60 || x > x1 + 60) continue;
+        if (!g.completed[i]) {
+          halo(c, x, 360, 140, "#b4e3a518");
+          path(c, [[x, 205], [x, 520]], "#b5dc9b88", 3);
+          for (let yy = 230; yy < 515; yy += 31) {
+            polygon(c, [[x - 10, yy], [x, yy - 9], [x + 10, yy], [x, yy + 9]], "#b5dc9b55");
+          }
+          c.font = "600 11px Barlow";
+          c.textAlign = "center";
+          c.fillStyle = "#b2d0a9";
+          c.fillText("PROVE THE LESSON", x, 185);
+        } else {
+          path(c, [[x - 12, 505], [x - 12, 520], [x + 12, 520], [x + 12, 505]], "#92c89288", 2);
+        }
+      }
+      for (let i = 0; i < LESSONS.length; i++) {
+        const x = LESSONS[i].spawn;
+        if (x < x0 - 100 || x > x1 + 100) continue;
+        const lit = i <= g.lesson;
+        halo(c, x, 478, 115, lit ? "#a9df9c22" : "#a9df9c08");
+        path(c, [[x - 27, 519], [x - 27, 496], [x + 27, 496], [x + 27, 519]], "#6d8870", 3);
+        path(c, [[x - 34, 492], [x + 34, 492]], lit ? "#c6e5ac" : "#66836c", 3);
+        path(c, [[x, 495], [x, 450]], "#7e9979", 3);
+        polygon(c, [[x, 429], [x + 12, 447], [x, 464], [x - 12, 447]], lit ? "#d9f2b2" : "#365444");
+        if (lit) {
+          halo(c, x, 447, 42, "#c8f79a33");
+          c.fillStyle = "#cee8b7";
+          c.font = "600 8px Barlow";
+          c.textAlign = "center";
+          c.fillText("E  /  REST", x, 414);
+        }
+      }
+      for (const r of g.relics) {
+        if (r.collected || r.x < x0 - 30 || r.x > x1 + 30) continue;
+        const y = r.y + Math.sin(t * 2 + r.id) * 5;
+        halo(c, r.x, y, 40, "#d4fcb82a");
+        polygon(c, [[r.x, y - 14], [r.x + 7, y], [r.x, y + 14], [r.x - 7, y]], "#deffc3", "#a7cb90");
+      }
+      const bell = g.bell;
+      if (bell.x > x0 - 100 && bell.x < x1 + 100) {
+        path(c, [[bell.x, 120], [bell.x, bell.y - 30]], "#597466", 2);
+        halo(c, bell.x, bell.y, 80, bell.flash ? "#e6ffbd66" : "#b5e7a529");
+        ellipse2(c, bell.x, bell.y, 25, 25, "#2e5141");
+        c.strokeStyle = "#d1eaa7";
+        c.lineWidth = 2;
+        c.beginPath();
+        c.arc(bell.x, bell.y, 22, 0, TAU2);
+        c.stroke();
+        polygon(c, [[bell.x, bell.y - 14], [bell.x + 9, bell.y], [bell.x, bell.y + 14], [bell.x - 9, bell.y]], "#d0f49b");
+        c.textAlign = "center";
+        c.font = "600 10px Barlow";
+        c.fillStyle = "#b7d59a";
+        c.fillText("STRIKE DOWN \xB7 S + J", bell.x, bell.y + 54);
+      }
+      for (const enemy of g.enemies) if (enemy.x > x0 - 130 && enemy.x < x1 + 130 && enemy.hp > 0) this.enemy(c, enemy, t);
+      for (const wave of g.waves) {
+        halo(c, wave.x, 510, 50, "#f5b37644");
+        polygon(c, [[wave.x - 25, 520], [wave.x - 10, 485], [wave.x, 506], [wave.x + 13, 478], [wave.x + 28, 520]], "#e5bd86");
+      }
+      for (const bolt of g.projectiles) {
+        halo(c, bolt.x, bolt.y, 40, g.data.color + "55");
+        ellipse2(c, bolt.x, bolt.y, 24, 7, g.data.accent);
+        path(c, [[bolt.x - Math.sign(bolt.vx) * 40, bolt.y], [bolt.x, bolt.y]], g.data.color, 4);
+      }
+      for (const e of g.effects) {
+        if (e.type === "trail") {
+          c.save();
+          c.globalAlpha = e.life / 50;
+          drawCreature(c, g.data, e.x, e.y, 0.25, e.face, {}, t, { shadow: false });
+          c.restore();
+        } else {
+          c.save();
+          c.globalAlpha = Math.min(1, e.life / 15);
+          const r = (24 - e.life) * 3;
+          for (let i = 0; i < 8; i++) {
+            const a = i * TAU2 / 8;
+            path(c, [[e.x + Math.cos(a) * r * 0.4, e.y + Math.sin(a) * r * 0.4], [e.x + Math.cos(a) * (r + 12), e.y + Math.sin(a) * (r + 12)]], g.data.accent, 2);
+          }
+          c.restore();
+        }
+      }
+      c.save();
+      if (p.invul > 0 && g.tick % 8 < 3) c.globalAlpha = 0.45;
+      if (p.dash > 0) {
+        halo(c, p.x, p.y - 30, 60, g.data.color + "22");
+      }
+      drawCreature(c, g.data, p.x, p.y, 0.25, p.face, { attack: p.attack ? Math.sin(Math.min(1, p.attack.frame / 14) * Math.PI) : 0, hit: p.flash > 0, air: !p.grounded, walk: p.walkPhase }, t, { shadow: false });
+      c.restore();
+      const attack = p.attack;
+      if (attack && attack.frame >= attack.start && attack.frame < attack.start + attack.active) {
+        c.save();
+        c.translate(p.x, p.y - 32);
+        c.scale(p.face, 1);
+        c.strokeStyle = g.data.accent;
+        c.shadowColor = g.data.color;
+        c.shadowBlur = 12;
+        c.lineWidth = attack.type === "heavy" ? 8 : 4;
+        c.beginPath();
+        if (attack.dir === "down") c.arc(0, 30, 57, 0.12, Math.PI - 0.12);
+        else if (attack.dir === "up") c.arc(0, -25, 64, Math.PI + 0.15, TAU2 - 0.15);
+        else c.arc(8, -8, 66, -1.2, 1.15);
+        c.stroke();
+        c.restore();
+      }
+      if (x1 > 7630) {
+        halo(c, 7900, 380, 180, "#c5efb429");
+        path(c, [[7835, 520], [7835, 350]], "#5a8068", 12);
+        path(c, [[7965, 350], [7965, 520]], "#5a8068", 12);
+        c.strokeStyle = "#9fc294";
+        c.lineWidth = 10;
+        c.beginPath();
+        c.arc(7900, 350, 65, Math.PI, 0);
+        c.stroke();
+        c.fillStyle = "#d8edb5";
+        c.font = "600 13px Barlow";
+        c.textAlign = "center";
+        c.fillText("THE ARENA AWAITS", 7900, 267);
+      }
+      c.restore();
+      for (let i = 0; i < Math.ceil(viewWidth / 120) + 1; i++) {
+        const xx = i * 120 - this.camera * 0.7 % 120, hh = 25 + Math.sin(i * 13) * 16;
+        polygon(c, [[xx - 30, 660], [xx - 8, 660 - hh], [xx + 10, 648], [xx + 31, 660 - hh * 0.7], [xx + 50, 660]], "#071210");
+      }
+      c.restore();
+      const vignette = c.createRadialGradient(w * 0.5, h * 0.5, h * 0.2, w * 0.5, h * 0.5, w * 0.7);
+      vignette.addColorStop(0, "transparent");
+      vignette.addColorStop(1, "#030b0b99");
+      c.fillStyle = vignette;
+      c.fillRect(0, 0, w, h);
+    }
+    enemy(c, e, t) {
+      const boss = e.kind === "warden", s = boss ? 1.65 : 0.85, x = e.x, y = e.y;
+      c.save();
+      c.translate(x, y);
+      c.scale(s * e.face, s);
+      if (e.state === "windup") {
+        halo(c, 0, -35, 80, "#ffc7882a");
+        c.strokeStyle = "#eab47d";
+        c.lineWidth = 2;
+        c.setLineDash([3, 5]);
+        c.beginPath();
+        c.arc(0, -35, 62, -1.3, 1.3);
+        c.stroke();
+        c.setLineDash([]);
+      }
+      ellipse2(c, 0, 0, 25, 6, "#030c0a99");
+      for (const side of [-1, 1]) {
+        path(c, [[side * 15, -18], [side * 27, -10], [side * 31, 0]], "#647465", 6);
+        path(c, [[side * 15, -31], [side * 35, -24], [side * 38, -13]], "#7d8971", 4);
+      }
+      polygon(c, [[-26, -26], [-30, -55], [-15, -75], [12, -76], [32, -55], [25, -24], [0, -13]], e.flash ? "#fff9d3" : boss ? "#5b6551" : "#344e44", "#8d9f7e");
+      polygon(c, [[-26, -56], [-6, -66], [10, -61], [23, -52], [10, -36], [-13, -37]], e.flash ? "#fff9d3" : "#142d28", "#7e9d7c");
+      path(c, [[-14, -52], [-6, -49]], "#f5daa0", 3);
+      path(c, [[8, -49], [17, -54]], "#f5daa0", 3);
+      polygon(c, [[-18, -70], [-23, -93], [-4, -78], [6, -101], [13, -76], [30, -90], [23, -67]], boss ? "#b5b68d" : "#77917b", "#344b3d");
+      path(c, [[25, -41], [43, -21], [51, -39]], "#a1a687", 5);
+      if (boss) {
+        polygon(c, [[-29, -43], [-44, -15], [-35, -4], [-13, -18], [12, -11], [34, -6], [25, -39]], "#314137", "#8d9877");
+        polygon(c, [[0, -34], [8, -25], [0, -16], [-8, -25]], "#d6dda2");
+      }
+      c.restore();
+      const width = boss ? 122 : 60;
+      c.fillStyle = "#0a1915";
+      c.fillRect(x - width / 2, y - (boss ? 180 : 98), width, 4);
+      c.fillStyle = boss ? "#d4cc91" : "#9ac4a1";
+      c.fillRect(x - width / 2, y - (boss ? 180 : 98), width * e.hp / e.maxHp, 4);
+      if (boss) {
+        c.fillStyle = "#c1c8a1";
+        c.textAlign = "center";
+        c.font = "600 9px Barlow";
+        c.fillText("THE BRASS WARDEN", x, y - 191);
+      }
+      if (e.state === "windup") {
+        c.fillStyle = "#e4c48f";
+        c.textAlign = "center";
+        c.font = "700 16px Barlow";
+        c.fillText("!", x, y - (boss ? 215 : 120));
+      }
+    }
+  };
+
+  // src/training-ui.js
   var $ = (id) => document.getElementById(id);
+  var PATH_GUIDE = `<div class="guide-row"><span>A / D</span><span>Move left and right. Unlike the arena, directions stay fixed in the side-view level.</span></div><div class="guide-row"><span>SPACE</span><span>Hold for a high jump, tap for a short hop. Press again for a double-jump. You have 7 frames of ledge grace and an 8-frame jump buffer. Push into a wall and jump to kick off it.</span></div><div class="guide-row"><span>SHIFT</span><span>Dash on the ground or once in the air. Landing, wall-jumping, and bouncing restore your air dash. A dash briefly protects you from enemy contact; thorns still require clearance.</span></div><div class="guide-row"><span>J / S + J / K</span><span>J slashes. Hold S while airborne and press J to strike down. Bounce off the glowing bell or an enemy to gain height. K hits harder with a longer recovery.</span></div><div class="guide-row"><span>L / E / R</span><span>L casts an elemental bolt using Focus. Landing hits restores Focus. E rests at the current waylight. R returns to your checkpoint. Lessons heal you and activate the next waylight automatically.</span></div><div class="guide-row"><span>THE PATH</span><span>Six gates verify movement skills. Collect six optional Echo Shards, then defeat the husks and Brass Warden. Watch enemy wind-ups and attack during recovery. Escape pauses.</span></div>`;
+  var TrainingUI = class {
+    constructor({ onExit, onArena, onSound }) {
+      this.active = false;
+      this.game = null;
+      this.pressed = /* @__PURE__ */ new Set();
+      this.accumulator = 0;
+      this.last = 0;
+      this.renderer = new TrainingRenderer($("path-canvas"));
+      this.onExit = onExit;
+      this.onArena = onArena;
+      this.onSound = onSound;
+      $("path-exit").addEventListener("click", onExit);
+      $("path-overlay-exit").addEventListener("click", onExit);
+      $("path-pause").addEventListener("click", () => this.pause());
+      $("path-resume").addEventListener("click", () => {
+        this.pause(false);
+        $("path-canvas").focus();
+      });
+      $("path-retry").addEventListener("click", () => {
+        this.game.input("retry");
+        $("path-canvas").focus();
+      });
+      $("path-again").addEventListener("click", () => this.start(this.game.data.id));
+      $("path-to-arena").addEventListener("click", onArena);
+      $("path-coach-toggle").addEventListener("click", () => {
+        const collapsed = $("path-coach").classList.toggle("collapsed");
+        $("path-coach-toggle").textContent = collapsed ? "SHOW +" : "HIDE \u2212";
+        $("path-coach-toggle").setAttribute("aria-expanded", !collapsed);
+        $("path-canvas").focus();
+      });
+      window.addEventListener("keydown", (e) => this.keydown(e));
+      window.addEventListener("keyup", (e) => {
+        this.pressed.delete(e.code);
+        if (this.active) {
+          this.sample();
+          if (e.code === "Space") this.game.releaseJump();
+        }
+      });
+      window.addEventListener("blur", () => {
+        if (this.active) this.pause(true);
+      });
+      document.addEventListener("visibilitychange", () => {
+        if (document.hidden && this.active) this.pause(true);
+      });
+    }
+    start(id) {
+      this.active = true;
+      this.game = new TrainingEngine(id, { onEvent: (e) => {
+        this.renderer.event(e);
+        this.onSound(e);
+      } });
+      this.renderer.reset();
+      this.pressed.clear();
+      this.accumulator = 0;
+      $("training-screen").hidden = false;
+      $("selection-screen").hidden = true;
+      $("game-screen").hidden = true;
+      $("path-canvas").focus({ preventScroll: true });
+      window.scrollTo({ top: 0, behavior: "instant" });
+      this.update();
+    }
+    stop() {
+      this.active = false;
+      this.pressed.clear();
+      $("training-screen").hidden = true;
+    }
+    pause(value) {
+      if (!this.active || this.game.phase === "complete") return;
+      this.game.paused = value ?? !this.game.paused;
+      this.pressed.clear();
+      this.sample();
+      this.update();
+      if (!this.game.paused) $("path-canvas").focus({ preventScroll: true });
+    }
+    sample() {
+      this.game.setInputs({ left: this.pressed.has("KeyA") || this.pressed.has("ArrowLeft"), right: this.pressed.has("KeyD") || this.pressed.has("ArrowRight"), down: this.pressed.has("KeyS") || this.pressed.has("ArrowDown"), up: this.pressed.has("KeyW") || this.pressed.has("ArrowUp") });
+    }
+    keydown(e) {
+      if (!this.active || $("guide-dialog").open) return;
+      const actions = { Space: "jump", ShiftLeft: "dash", ShiftRight: "dash", KeyJ: "light", KeyK: "heavy", KeyL: "special", KeyE: "interact", KeyR: "retry" };
+      if (!actions[e.code] && !["KeyA", "KeyD", "KeyW", "KeyS", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Escape"].includes(e.code)) return;
+      if (e.code === "Space" && e.target instanceof HTMLButtonElement) return;
+      e.preventDefault();
+      if (e.repeat) return;
+      if (e.code === "Escape") {
+        this.pause();
+        return;
+      }
+      this.pressed.add(e.code);
+      this.sample();
+      if (actions[e.code]) this.game.input(actions[e.code]);
+    }
+    frame(clock, delta) {
+      if (!this.active) return;
+      this.accumulator += delta;
+      let steps = 0;
+      while (this.accumulator >= 1e3 / 60 && steps++ < 9) {
+        this.game.step();
+        this.accumulator -= 1e3 / 60;
+      }
+      this.renderer.render(this.game, clock);
+      this.update();
+    }
+    update() {
+      const g = this.game, p = g.player, lesson = LESSONS[g.lesson], complete = g.phase === "complete";
+      $("path-fighter-name").textContent = g.data.name.toUpperCase() + " / PILGRIM";
+      const masks = Array.from({ length: p.maxHp }, (_, i) => `<i class="${i < p.hp ? "filled" : ""}"></i>`).join("");
+      if ($("path-health").innerHTML !== masks) $("path-health").innerHTML = masks;
+      $("path-health").setAttribute("aria-label", `${p.hp} of ${p.maxHp} health`);
+      $("path-spirit-fill").style.width = p.spirit + "%";
+      $("path-shards").textContent = String(g.relics.filter((r) => r.collected).length).padStart(2, "0");
+      $("path-chapter").textContent = `FIELD LESSON ${String(g.lesson + 1).padStart(2, "0")} / 06`;
+      $("path-zone").textContent = lesson.zone;
+      const progress = LESSONS.map((l, i) => `<i class="${g.completed[i] ? "done" : i === g.lesson ? "current" : ""}" title="${l.name}"></i>`).join("");
+      if ($("path-progress").innerHTML !== progress) $("path-progress").innerHTML = progress;
+      $("path-lesson").textContent = lesson.name + ".";
+      $("path-hint").textContent = lesson.hint;
+      $("path-keys").innerHTML = lesson.keys.map((k) => `<kbd>${k}</kbd>`).join("<span>\u2192</span>");
+      $("path-goal").textContent = g.completed[g.lesson] ? "\u2713 LESSON LEARNED \u2014 FOLLOW THE PATH" : lesson.goal;
+      $("path-goal").classList.toggle("done", g.completed[g.lesson]);
+      $("path-next").textContent = g.completed[g.lesson] ? "THE WAY IS OPEN" : "FOLLOW THE WAYLIGHT";
+      $("path-toast").textContent = g.messageTime > 0 ? g.message : "";
+      $("path-pause").innerHTML = `${g.paused ? "RESUME" : "PAUSE"} <kbd>ESC</kbd>`;
+      $("path-overlay").hidden = !g.paused && !complete;
+      $("path-overlay-kicker").textContent = complete ? "THE HOLLOW FOUNDRY / COMPLETE" : "TAKE A BREATH";
+      $("path-overlay-title").textContent = complete ? "INSTINCT AWAKENED." : "PAUSED";
+      $("path-overlay-description").textContent = complete ? "\u201CYOU DID NOT LEARN TO MOVE. YOU LEARNED TO TRUST YOURSELF.\u201D \u2014 PROF. VELL" : "YOUR NEXT STEP IS WAITING.";
+      $("path-resume").hidden = complete;
+      $("path-again").hidden = !complete;
+      $("path-to-arena").hidden = !complete;
+      $("path-results").hidden = !complete;
+      if (complete) $("path-results").innerHTML = `<span><b>${g.relics.filter((r) => r.collected).length}/6</b>ECHO SHARDS</span><span><b>${g.stats.falls}</b>RETURNS</span><span><b>${Math.floor(g.tick / 3600)}:${String(Math.floor(g.tick / 60) % 60).padStart(2, "0")}</b>TIME ON THE PATH</span>`;
+    }
+  };
+
+  // src/main.js
+  var $2 = (id) => document.getElementById(id);
   var selected = "pyrojaw";
   var opponent = "voltantis";
   var game = null;
@@ -1503,7 +2416,7 @@
   var accumulator = 0;
   var last = performance.now();
   var heroLast = 0;
-  var renderer = new ArenaRenderer($("arena-canvas"));
+  var renderer = new ArenaRenderer($2("arena-canvas"));
   var statNames = ["POWER", "MOBILITY", "DEFENSE", "TECHNIQUE"];
   function tone(freq = 200, duration = 0.08, type = "sine", volume = 0.05) {
     if (!sound) return;
@@ -1523,8 +2436,24 @@
     } catch {
     }
   }
+  var training = new TrainingUI({ onExit: returnToSelect, onArena: () => {
+    training.stop();
+    startMatch();
+  }, onSound: (e) => {
+    if (["jump", "dash", "walljump"].includes(e.type)) tone(e.type === "dash" ? 320 : 460, 0.07, "triangle", 0.02);
+    if (["hit", "pogo", "slam", "hurt"].includes(e.type)) tone(e.type === "hurt" ? 80 : 180, 0.12, "sawtooth", 0.035);
+    if (["learned", "checkpoint", "relic", "complete"].includes(e.type)) tone(700, 0.25, "sine", 0.035);
+  } });
+  function startTraining() {
+    view = "training";
+    game = null;
+    pressed.clear();
+    training.start(selected);
+  }
+  $2("start-training").addEventListener("click", startTraining);
+  $2("nav-path").addEventListener("click", startTraining);
   function buildRoster() {
-    $("roster-grid").innerHTML = ROSTER.map((d, i) => `<button class="fighter-card" data-fighter="${d.id}" style="--fighter-color:${d.color}" aria-label="Select ${d.name}, ${d.element} ${d.role}" aria-pressed="false"><span class="card-num">${String(i + 1).padStart(2, "0")}</span><canvas aria-hidden="true"></canvas><span class="card-bottom"><span class="card-name">${d.name.toUpperCase()}</span><span class="card-element">${d.element.toUpperCase()}<i></i></span></span></button>`).join("");
+    $2("roster-grid").innerHTML = ROSTER.map((d, i) => `<button class="fighter-card" data-fighter="${d.id}" style="--fighter-color:${d.color}" aria-label="Select ${d.name}, ${d.element} ${d.role}" aria-pressed="false"><span class="card-num">${String(i + 1).padStart(2, "0")}</span><canvas aria-hidden="true"></canvas><span class="card-bottom"><span class="card-name">${d.name.toUpperCase()}</span><span class="card-element">${d.element.toUpperCase()}<i></i></span></span></button>`).join("");
     document.querySelectorAll(".fighter-card").forEach((card) => card.addEventListener("click", () => selectFighter(card.dataset.fighter)));
     selectFighter(selected);
   }
@@ -1532,23 +2461,23 @@
     selected = id;
     const d = findFighter(id), i = ROSTER.indexOf(d);
     if (opponent === selected) opponent = ROSTER[(i + 1) % ROSTER.length].id;
-    $("preview-element").textContent = `\u25C8 ${d.element.toUpperCase()} / ${d.role.toUpperCase()}`;
-    $("fighter-preview").style.setProperty("--accent", d.color);
-    $("preview-watermark").textContent = String(i + 1).padStart(2, "0");
-    $("preview-number").textContent = `KM\u2014${String(i + 1).padStart(3, "0")}`;
-    $("preview-archetype").textContent = d.archetype.toUpperCase();
-    $("preview-name").innerHTML = d.name.toUpperCase() + "<span>\u2197</span>";
-    $("class-badge").innerHTML = d.element.toUpperCase() + "<br>CLASS";
-    $("detail-title").innerHTML = d.title;
-    $("detail-desc").textContent = d.description;
-    $("fighter-stats").innerHTML = d.stats.map((s, i2) => `<div class="stat"><span>${statNames[i2]}</span><div class="stat-bars" aria-label="${s} of 5">${Array.from({ length: 5 }, (_, n) => `<i class="${n < s ? "filled" : ""}"></i>`).join("")}</div></div>`).join("");
-    $("signature-name").textContent = d.signature;
-    $("signature-desc").textContent = d.signatureDesc;
-    $("signature-keys").innerHTML = d.keys.map((k) => k === "+" ? "<b>+</b>" : `<kbd>${k}</kbd>`).join("<b>\u203A</b>");
-    $("difficulty-pips").innerHTML = Array.from({ length: 5 }, (_, n) => `<i class="${n < d.difficulty ? "filled" : ""}"></i>`).join("");
+    $2("preview-element").textContent = `\u25C8 ${d.element.toUpperCase()} / ${d.role.toUpperCase()}`;
+    $2("fighter-preview").style.setProperty("--accent", d.color);
+    $2("preview-watermark").textContent = String(i + 1).padStart(2, "0");
+    $2("preview-number").textContent = `KM\u2014${String(i + 1).padStart(3, "0")}`;
+    $2("preview-archetype").textContent = d.archetype.toUpperCase();
+    $2("preview-name").innerHTML = d.name.toUpperCase() + "<span>\u2197</span>";
+    $2("class-badge").innerHTML = d.element.toUpperCase() + "<br>CLASS";
+    $2("detail-title").innerHTML = d.title;
+    $2("detail-desc").textContent = d.description;
+    $2("fighter-stats").innerHTML = d.stats.map((s, i2) => `<div class="stat"><span>${statNames[i2]}</span><div class="stat-bars" aria-label="${s} of 5">${Array.from({ length: 5 }, (_, n) => `<i class="${n < s ? "filled" : ""}"></i>`).join("")}</div></div>`).join("");
+    $2("signature-name").textContent = d.signature;
+    $2("signature-desc").textContent = d.signatureDesc;
+    $2("signature-keys").innerHTML = d.keys.map((k) => k === "+" ? "<b>+</b>" : `<kbd>${k}</kbd>`).join("<b>\u203A</b>");
+    $2("difficulty-pips").innerHTML = Array.from({ length: 5 }, (_, n) => `<i class="${n < d.difficulty ? "filled" : ""}"></i>`).join("");
     document.querySelector(".hero-caption").innerHTML = `<span>${d.epithet.toUpperCase()}</span><span>ORIGINAL SPECIMEN / ${String(i + 1).padStart(3, "0")}</span>`;
-    $("hero-canvas").setAttribute("aria-label", `Original illustration of ${d.name}, ${d.description}`);
-    $("opponent-select").innerHTML = ROSTER.filter((d2) => d2.id !== selected).map((d2) => `<option value="${d2.id}" ${d2.id === opponent ? "selected" : ""}>${d2.name.toUpperCase()}</option>`).join("");
+    $2("hero-canvas").setAttribute("aria-label", `Original illustration of ${d.name}, ${d.description}`);
+    $2("opponent-select").innerHTML = ROSTER.filter((d2) => d2.id !== selected).map((d2) => `<option value="${d2.id}" ${d2.id === opponent ? "selected" : ""}>${d2.name.toUpperCase()}</option>`).join("");
     updateCards();
     tone(500, 0.05, "triangle", 0.025);
   }
@@ -1560,19 +2489,21 @@
       card.setAttribute("aria-pressed", d.id === selected);
       paintPortrait(card.querySelector("canvas"), d);
     });
-    paintPortrait($("opponent-avatar"), findFighter(opponent), { face: -1 });
+    paintPortrait($2("opponent-avatar"), findFighter(opponent), { face: -1 });
   }
-  $("opponent-select").addEventListener("change", (e) => {
+  $2("opponent-select").addEventListener("change", (e) => {
     opponent = e.target.value;
     updateCards();
     tone(400, 0.05);
   });
-  $("sound-toggle").addEventListener("click", () => {
+  $2("sound-toggle").addEventListener("click", () => {
     sound = !sound;
-    $("sound-toggle").classList.toggle("on", sound);
-    $("sound-toggle").setAttribute("aria-label", sound ? "Disable sound" : "Enable sound");
-    $("sound-toggle").innerHTML = `\u266A <span>SOUND ${sound ? "ON" : "OFF"}</span>`;
+    $2("sound-toggle").classList.toggle("on", sound);
+    $2("sound-toggle").setAttribute("aria-label", sound ? "Disable sound" : "Enable sound");
+    $2("sound-toggle").innerHTML = `\u266A <span>SOUND ${sound ? "ON" : "OFF"}</span>`;
     tone(660, 0.2, "triangle");
+    if (training.active) $2("path-canvas").focus({ preventScroll: true });
+    else if (game) $2("arena-canvas").focus({ preventScroll: true });
   });
   var calloutUntil = 0;
   var lastComboSide = 0;
@@ -1580,11 +2511,11 @@
     renderer.event(e);
     const messages = { fight: "FIGHT!", counter: "COUNTER HIT", wall: "WALL SPLAT", break: "WALL BREAK \xB7 LOWER TIER", ringout: "RING OUT", tech: "THROW ESCAPE", guardbreak: "GUARD SHATTERED", parry: e.name, stance: e.name, install: "DRAGON INSTALL", clone: e.name, armor: "SUPER ARMOR" };
     if (messages[e.type]) {
-      $("combat-callout").textContent = messages[e.type];
+      $2("combat-callout").textContent = messages[e.type];
       calloutUntil = performance.now() + 1300;
     }
     if (e.type === "unavailable" && e.side === 0) {
-      $("combat-callout").textContent = e.name;
+      $2("combat-callout").textContent = e.name;
       calloutUntil = performance.now() + 1e3;
     }
     if (e.type === "hit" || e.type === "throw") {
@@ -1598,30 +2529,32 @@
     if (e.type === "roundend") tone(440, 0.4, "triangle", 0.05);
   }
   function startMatch() {
-    game = new CombatEngine(selected, opponent, { arena: $("arena-select").value, difficulty: $("ai-level").value, onEvent: onCombatEvent });
+    training.stop();
+    game = new CombatEngine(selected, opponent, { arena: $2("arena-select").value, difficulty: $2("ai-level").value, onEvent: onCombatEvent });
     view = "game";
     pressed.clear();
     accumulator = 0;
     renderer.effects = [];
-    $("selection-screen").hidden = true;
-    $("game-screen").hidden = false;
-    $("player-name").textContent = findFighter(selected).name.toUpperCase();
-    $("enemy-name").textContent = findFighter(opponent).name.toUpperCase();
-    $("arena-canvas").tabIndex = 0;
-    $("arena-canvas").focus({ preventScroll: true });
-    $("round-overlay").hidden = false;
+    $2("selection-screen").hidden = true;
+    $2("game-screen").hidden = false;
+    $2("player-name").textContent = findFighter(selected).name.toUpperCase();
+    $2("enemy-name").textContent = findFighter(opponent).name.toUpperCase();
+    $2("arena-canvas").tabIndex = 0;
+    $2("arena-canvas").focus({ preventScroll: true });
+    $2("round-overlay").hidden = false;
     window.scrollTo({ top: 0, behavior: "instant" });
     tone(170, 0.2, "sawtooth", 0.03);
     updateHUD();
   }
   function returnToSelect() {
-    if ($("guide-dialog").open) $("guide-dialog").close();
+    training.stop();
+    if ($2("guide-dialog").open) $2("guide-dialog").close();
     view = "select";
     game = null;
     pressed.clear();
-    $("game-screen").hidden = true;
-    $("selection-screen").hidden = false;
-    $("start-fight").focus({ preventScroll: true });
+    $2("game-screen").hidden = true;
+    $2("selection-screen").hidden = false;
+    $2("start-fight").focus({ preventScroll: true });
     updateCards();
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -1630,27 +2563,28 @@
     game.paused = value ?? !game.paused;
     pressed.clear();
     game.setInputs(0, {});
-    $("pause-button").innerHTML = `${game.paused ? "RESUME" : "PAUSE"} <kbd>ESC</kbd>`;
+    $2("pause-button").innerHTML = `${game.paused ? "RESUME" : "PAUSE"} <kbd>ESC</kbd>`;
     updateHUD();
+    if (!game.paused) $2("arena-canvas").focus({ preventScroll: true });
   }
-  $("start-fight").addEventListener("click", startMatch);
-  $("back-select").addEventListener("click", returnToSelect);
-  $("select-button").addEventListener("click", returnToSelect);
-  $("rematch-button").addEventListener("click", startMatch);
-  $("resume-button").addEventListener("click", () => togglePause(false));
-  $("pause-button").addEventListener("click", () => togglePause());
-  $("hitbox-toggle").addEventListener("click", () => {
+  $2("start-fight").addEventListener("click", startMatch);
+  $2("back-select").addEventListener("click", returnToSelect);
+  $2("select-button").addEventListener("click", returnToSelect);
+  $2("rematch-button").addEventListener("click", startMatch);
+  $2("resume-button").addEventListener("click", () => togglePause(false));
+  $2("pause-button").addEventListener("click", () => togglePause());
+  $2("hitbox-toggle").addEventListener("click", () => {
     renderer.hitboxes = !renderer.hitboxes;
-    $("hitbox-toggle").textContent = `HITBOXES ${renderer.hitboxes ? "ON" : "OFF"}`;
-    $("hitbox-toggle").setAttribute("aria-pressed", renderer.hitboxes);
+    $2("hitbox-toggle").textContent = `HITBOXES ${renderer.hitboxes ? "ON" : "OFF"}`;
+    $2("hitbox-toggle").setAttribute("aria-pressed", renderer.hitboxes);
   });
-  $("nav-arena").addEventListener("click", () => {
-    if (view === "game") returnToSelect();
-    else $("start-fight").scrollIntoView({ behavior: "smooth", block: "center" });
+  $2("nav-arena").addEventListener("click", () => {
+    if (view !== "select") returnToSelect();
+    else $2("start-fight").scrollIntoView({ behavior: "smooth", block: "center" });
   });
-  $("nav-roster").addEventListener("click", () => {
-    if (view === "game") returnToSelect();
-    $("roster-grid").scrollIntoView({ behavior: "smooth", block: "center" });
+  $2("nav-roster").addEventListener("click", () => {
+    if (view !== "select") returnToSelect();
+    $2("roster-grid").scrollIntoView({ behavior: "smooth", block: "center" });
     document.querySelector(".fighter-card.selected").focus({ preventScroll: true });
   });
   var basicGuide = `
@@ -1663,7 +2597,7 @@
   function updateGuide() {
     document.querySelectorAll("[data-tab]").forEach((b) => b.classList.toggle("selected", b.dataset.tab === guideTab));
     if (guideTab === "basics") {
-      $("guide-body").innerHTML = basicGuide;
+      $2("guide-body").innerHTML = training.active ? PATH_GUIDE : basicGuide;
       return;
     }
     const d = findFighter(selected), f = game?.fighters[0] || {};
@@ -1672,28 +2606,30 @@
     if (d.id === "ferrodrake") moves.push(["A + K", getMove(d, "heavy", "back")]);
     if (d.id === "zephyrix") moves.push(["AIR S + K", getMove(d, "heavy", "down", { y: 1 })]);
     moves.push(["I", getMove(d, "burst")]);
-    $("guide-body").innerHTML = `<h3 class="guide-fighter-label">${d.name.toUpperCase()} <small> / ${d.hp} HP</small></h3><table class="move-table"><thead><tr><th>INPUT</th><th>TECHNIQUE</th><th>START / ACTIVE / REC.</th><th>BASE DMG</th></tr></thead><tbody>${moves.map(([key, m]) => `<tr><td>${key}</td><td>${m.name}</td><td>${m.startup} / ${m.active} / ${m.recovery}</td><td>${m.damage || "\u2014"}</td></tr>`).join("")}</tbody></table><p class="move-notes">${d.signatureDesc}<br>Base damage scales with fighter power, counter-hits, and juggle decay. Specials cost 0\u201335 stamina and recover individually. Green outlines show hurtboxes; red shows an active attack\u2019s horizontal reach. The engine also checks depth and height.</p>`;
+    $2("guide-body").innerHTML = `<h3 class="guide-fighter-label">${d.name.toUpperCase()} <small> / ${d.hp} HP</small></h3><table class="move-table"><thead><tr><th>INPUT</th><th>TECHNIQUE</th><th>START / ACTIVE / REC.</th><th>BASE DMG</th></tr></thead><tbody>${moves.map(([key, m]) => `<tr><td>${key}</td><td>${m.name}</td><td>${m.startup} / ${m.active} / ${m.recovery}</td><td>${m.damage || "\u2014"}</td></tr>`).join("")}</tbody></table><p class="move-notes">${d.signatureDesc}<br>Base damage scales with fighter power, counter-hits, and juggle decay. Specials cost 0\u201335 stamina and recover individually. Green outlines show hurtboxes; red shows an active attack\u2019s horizontal reach. The engine also checks depth and height.</p>`;
   }
   var guideWasPaused = false;
   function showGuide(tab = "basics") {
     guideTab = tab;
-    guideWasPaused = game?.paused ?? false;
-    if (game && !game.paused) togglePause(true);
+    guideWasPaused = training.active ? training.game.paused : game?.paused ?? false;
+    if (training.active) training.pause(true);
+    else if (game && !game.paused) togglePause(true);
     updateGuide();
-    $("guide-dialog").showModal();
+    $2("guide-dialog").showModal();
   }
   function closeGuide() {
-    $("guide-dialog").close();
+    $2("guide-dialog").close();
   }
-  for (const id of ["nav-guide", "controls-button"]) $(id).addEventListener("click", () => showGuide());
-  $("battle-guide").addEventListener("click", () => showGuide("moves"));
-  $("close-guide").addEventListener("click", closeGuide);
-  $("guide-dialog").addEventListener("close", () => {
-    if (game && !guideWasPaused) togglePause(false);
+  for (const id of ["nav-guide", "controls-button"]) $2(id).addEventListener("click", () => showGuide());
+  $2("battle-guide").addEventListener("click", () => showGuide("moves"));
+  $2("close-guide").addEventListener("click", closeGuide);
+  $2("guide-dialog").addEventListener("close", () => {
+    if (training.active && !guideWasPaused) training.pause(false);
+    else if (game && !guideWasPaused) togglePause(false);
   });
-  $("guide-dialog").addEventListener("click", (e) => {
-    if (e.target === $("guide-dialog")) {
-      const r = $("guide-dialog").getBoundingClientRect();
+  $2("guide-dialog").addEventListener("click", (e) => {
+    if (e.target === $2("guide-dialog")) {
+      const r = $2("guide-dialog").getBoundingClientRect();
       if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) closeGuide();
     }
   });
@@ -1702,12 +2638,12 @@
     updateGuide();
   }));
   var movement = { KeyW: "up", KeyS: "down", KeyA: "back", KeyD: "forward", ArrowUp: "up", ArrowDown: "down", ArrowLeft: "back", ArrowRight: "forward" };
-  var attacks = { KeyJ: "jab", KeyK: "heavy", KeyL: "special", KeyU: "grab", KeyI: "burst", Space: "jump" };
+  var attacks = { KeyJ: "jab", KeyK: "heavy", KeyL: "special", KeyU: "grab", KeyI: "burst", Space: "jump", ShiftLeft: "dash", ShiftRight: "dash" };
   function sampleInputs() {
     if (game) game.setInputs(0, { up: pressed.has("KeyW") || pressed.has("ArrowUp"), down: pressed.has("KeyS") || pressed.has("ArrowDown"), back: pressed.has("KeyA") || pressed.has("ArrowLeft"), forward: pressed.has("KeyD") || pressed.has("ArrowRight") });
   }
   window.addEventListener("keydown", (e) => {
-    if ($("guide-dialog").open) return;
+    if ($2("guide-dialog").open) return;
     if (view !== "game") return;
     if (e.code === "Escape") {
       e.preventDefault();
@@ -1742,26 +2678,26 @@
     const [p, e] = game.fighters;
     for (const [f, prefix] of [[p, "player"], [e, "enemy"]]) {
       const hp = `${Math.max(0, f.hp / f.data.hp * 100)}%`;
-      $(prefix + "-hp").style.width = hp;
-      $(prefix + "-hp-ghost").style.width = hp;
-      $(prefix + "-hp-number").textContent = `${Math.ceil(f.hp)} / ${f.data.hp}`;
-      $(prefix + "-guard").style.width = f.guard + "%";
-      $(prefix + "-burst").style.width = f.kinetic + "%";
+      $2(prefix + "-hp").style.width = hp;
+      $2(prefix + "-hp-ghost").style.width = hp;
+      $2(prefix + "-hp-number").textContent = `${Math.ceil(f.hp)} / ${f.data.hp}`;
+      $2(prefix + "-guard").style.width = f.guard + "%";
+      $2(prefix + "-burst").style.width = f.kinetic + "%";
       const ready = !f.burstUsed && (f.rage || f.kinetic >= 100);
-      $(prefix + "-burst-label").textContent = f.burstUsed ? "BURST EXPENDED" : ready ? prefix === "player" ? "SYNERGY READY \xB7 PRESS I" : "SYNERGY BURST READY" : "KINETIC GAUGE";
-      $(prefix + "-burst-label").classList.toggle("ready", ready);
+      $2(prefix + "-burst-label").textContent = f.burstUsed ? "BURST EXPENDED" : ready ? prefix === "player" ? "SYNERGY READY \xB7 PRESS I" : "SYNERGY BURST READY" : "KINETIC GAUGE";
+      $2(prefix + "-burst-label").classList.toggle("ready", ready);
       const wins = game.wins[f.side];
       const html = [0, 1].map((n) => `<i class="${n < wins ? "won" : ""}"></i>`).join("");
-      if ($(prefix + "-rounds").innerHTML !== html) $(prefix + "-rounds").innerHTML = html;
+      if ($2(prefix + "-rounds").innerHTML !== html) $2(prefix + "-rounds").innerHTML = html;
     }
-    $("round-timer").textContent = String(Math.max(0, Math.ceil(game.time / 60))).padStart(2, "0");
-    $("round-label").textContent = `ROUND ${String(game.round).padStart(2, "0")}`;
+    $2("round-timer").textContent = String(Math.max(0, Math.ceil(game.time / 60))).padStart(2, "0");
+    $2("round-label").textContent = `ROUND ${String(game.round).padStart(2, "0")}`;
     document.querySelector(".timer-box").classList.toggle("urgent", game.time < 600);
-    $("arena-name").innerHTML = `${ARENAS[game.arena].name}<i> / </i>TIER 0${game.tier + 1}`;
+    $2("arena-name").innerHTML = `${ARENAS[game.arena].name}<i> / </i>TIER 0${game.tier + 1}`;
     const combo = game.fighters[lastComboSide];
-    $("combo-display").hidden = combo.combo < 2 || combo.comboTime <= 0;
-    $("combo-display").classList.toggle("enemy", lastComboSide === 1);
-    $("combo-display").innerHTML = `<strong>${combo.combo}</strong><span>HIT COMBO</span><small>${combo.comboDamage} DAMAGE</small>`;
+    $2("combo-display").hidden = combo.combo < 2 || combo.comboTime <= 0;
+    $2("combo-display").classList.toggle("enemy", lastComboSide === 1);
+    $2("combo-display").innerHTML = `<strong>${combo.combo}</strong><span>HIT COMBO</span><small>${combo.comboDamage} DAMAGE</small>`;
     const statuses = [`STAMINA ${Math.floor(p.stamina)}%`];
     if (p.frost > 0) statuses.push("FROSTBITE \u221230%");
     if (p.burn > 0) statuses.push("BURN");
@@ -1771,31 +2707,31 @@
     if (p.attack?.move.type === "parry") statuses.push("COUNTER READY");
     const cooldowns = Object.entries(p.cooldowns).filter(([, v]) => v > 0).map(([d, v]) => `${{ neutral: "L", up: "W+L", down: "S+L", forward: "D+L", back: "A+L" }[d]} ${(v / 60).toFixed(1)}s`);
     if (cooldowns.length) statuses.push(cooldowns.join(" \xB7 "));
-    $("status-display").innerHTML = statuses.map((s) => `<span>${s}</span>`).join("");
-    $("wall-integrity").textContent = `${Math.round(game.walls.reduce((s, v) => s + v, 0) / 8)}%`;
+    $2("status-display").innerHTML = statuses.map((s) => `<span>${s}</span>`).join("");
+    $2("wall-integrity").textContent = `${Math.round(game.walls.reduce((s, v) => s + v, 0) / 8)}%`;
     if (p.attack) {
       const a = p.attack, m = a.move, phase = a.frame < m.startup ? "STARTUP" : a.frame < m.startup + m.active ? "ACTIVE" : "RECOVERY";
-      $("frame-readout").textContent = `${m.name.toUpperCase()} / ${phase} ${a.frame}F`;
-    } else $("frame-readout").textContent = p.stun ? "HIT STUN" : p.blocking ? "GUARDING" : p.y > 0.1 ? "AIRBORNE" : "NEUTRAL";
-    $("combat-state").textContent = game.paused ? "SIMULATION PAUSED" : "60 HZ COMBAT ENGINE";
+      $2("frame-readout").textContent = `${m.name.toUpperCase()} / ${phase} ${a.frame}F`;
+    } else $2("frame-readout").textContent = p.stun ? "HIT STUN" : p.blocking ? "GUARDING" : p.y > 0.1 ? "AIRBORNE" : "NEUTRAL";
+    $2("combat-state").textContent = game.paused ? "SIMULATION PAUSED" : "60 HZ COMBAT ENGINE";
     const show = game.paused || game.phase !== "fighting";
-    $("round-overlay").hidden = !show;
-    $("overlay-buttons").hidden = !(game.paused || game.phase === "matchover");
-    $("resume-button").hidden = !game.paused || game.phase === "matchover";
-    $("rematch-button").hidden = game.phase !== "matchover";
+    $2("round-overlay").hidden = !show;
+    $2("overlay-buttons").hidden = !(game.paused || game.phase === "matchover");
+    $2("resume-button").hidden = !game.paused || game.phase === "matchover";
+    $2("rematch-button").hidden = game.phase !== "matchover";
     if (show) {
       if (game.paused) {
-        $("overlay-kicker").textContent = "TAKE A BREATH";
-        $("overlay-title").textContent = "PAUSED";
-        $("overlay-subtitle").textContent = "ESC TO GET BACK IN THE FIGHT";
+        $2("overlay-kicker").textContent = "TAKE A BREATH";
+        $2("overlay-title").textContent = "PAUSED";
+        $2("overlay-subtitle").textContent = "ESC TO GET BACK IN THE FIGHT";
       } else if (game.phase === "intro") {
-        $("overlay-kicker").textContent = game.round === 1 ? "IRON FIST ARENA" : "KEEP THE PRESSURE ON";
-        $("overlay-title").textContent = game.phaseTime < 45 ? "READY?" : `ROUND ${game.round}`;
-        $("overlay-subtitle").textContent = `${p.data.name.toUpperCase()}  VS  ${e.data.name.toUpperCase()}`;
+        $2("overlay-kicker").textContent = game.round === 1 ? "IRON FIST ARENA" : "KEEP THE PRESSURE ON";
+        $2("overlay-title").textContent = game.phaseTime < 45 ? "READY?" : `ROUND ${game.round}`;
+        $2("overlay-subtitle").textContent = `${p.data.name.toUpperCase()}  VS  ${e.data.name.toUpperCase()}`;
       } else if (game.phase === "roundover" || game.phase === "matchover") {
-        $("overlay-kicker").textContent = game.phase === "matchover" ? "MATCH COMPLETE" : game.time <= 0 ? "TIME UP" : "KNOCKOUT";
-        $("overlay-title").textContent = game.roundWinner === null ? "DRAW" : game.phase === "matchover" ? game.roundWinner === 0 ? "YOU WIN" : "DEFEATED" : game.roundWinner === 0 ? "ROUND WON" : "ROUND LOST";
-        $("overlay-subtitle").textContent = game.roundWinner === null ? "DEAD EVEN. RUN IT AGAIN." : `${game.fighters[game.roundWinner].data.name.toUpperCase()} TAKES IT \xB7 ${game.wins[0]} \u2014 ${game.wins[1]}`;
+        $2("overlay-kicker").textContent = game.phase === "matchover" ? "MATCH COMPLETE" : game.time <= 0 ? "TIME UP" : "KNOCKOUT";
+        $2("overlay-title").textContent = game.roundWinner === null ? "DRAW" : game.phase === "matchover" ? game.roundWinner === 0 ? "YOU WIN" : "DEFEATED" : game.roundWinner === 0 ? "ROUND WON" : "ROUND LOST";
+        $2("overlay-subtitle").textContent = game.roundWinner === null ? "DEAD EVEN. RUN IT AGAIN." : `${game.fighters[game.roundWinner].data.name.toUpperCase()} TAKES IT \xB7 ${game.wins[0]} \u2014 ${game.wins[1]}`;
       }
     }
   }
@@ -1804,9 +2740,11 @@
     last = clock;
     if (view === "select") {
       if (clock - heroLast > 32) {
-        paintPortrait($("hero-canvas"), findFighter(selected), { hero: true, time: clock / 1e3 });
+        paintPortrait($2("hero-canvas"), findFighter(selected), { hero: true, time: clock / 1e3 });
         heroLast = clock;
       }
+    } else if (view === "training") {
+      training.frame(clock, delta);
     } else if (game) {
       accumulator += delta;
       let steps = 0;
@@ -1817,7 +2755,7 @@
       }
       renderer.render(game, clock);
       updateHUD();
-      if (clock > calloutUntil) $("combat-callout").textContent = "";
+      if (clock > calloutUntil) $2("combat-callout").textContent = "";
     }
     requestAnimationFrame(animate);
   }
@@ -1830,5 +2768,5 @@
   });
   buildRoster();
   requestAnimationFrame(animate);
-  window.kinetic = { snapshot: () => game ? { phase: game.phase, paused: game.paused, tick: game.tick, time: game.time, wins: [...game.wins], round: game.round, tier: game.tier, fighters: game.fighters.map((f) => ({ id: f.data.id, hp: f.hp, x: f.x, z: f.z, y: f.y, guard: f.guard, kinetic: f.kinetic, stamina: f.stamina, move: f.attack?.move.name || null })) } : { phase: "selection", player: selected, opponent } };
+  window.kinetic = { snapshot: () => training.active ? training.game.snapshot() : game ? { phase: game.phase, paused: game.paused, tick: game.tick, time: game.time, wins: [...game.wins], round: game.round, tier: game.tier, fighters: game.fighters.map((f) => ({ id: f.data.id, hp: f.hp, x: f.x, z: f.z, y: f.y, guard: f.guard, kinetic: f.kinetic, stamina: f.stamina, move: f.attack?.move.name || null })) } : { phase: "selection", player: selected, opponent } };
 })();

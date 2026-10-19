@@ -29,6 +29,7 @@ export class CombatEngine{
   input(side,key,direction){
     if(this.phase!=='fighting'||this.paused||this.cinematic>0)return false;
     const f=this.fighters[side],dir=direction||this.direction(f);
+    if(key==='dash'&&this.canAct(f)&&!f.attack){f.dash=13;f.dashDir=f.inputs.back?-1:1;this.emit('dash',{side});return true;}
     if(key==='grab'&&f.techWindow>0){this.tech(f);return true;}
     if(['forward','back','up','down'].includes(key)){
       f.history.push({key,tick:this.tick});f.history=f.history.filter(h=>this.tick-h.tick<35);
@@ -42,7 +43,7 @@ export class CombatEngine{
     }
     if(key==='jump'){
       if(!this.canAct(f))return false;
-      if(f.y<=.02){f.vy=f.data.weight>1.5?.19:.235;f.airJumps=1;this.emit('jump',{side});return true;}
+      if(f.y<=.02){f.vy=f.data.weight>1.5?.22:.265;f.airJumps=1;this.emit('jump',{side});return true;}
       if(f.data.id==='zephyrix'&&f.airJumps===1){f.vy=.23;f.airJumps++;this.emit('jump',{side});return true;}
       if(f.data.weight<1&&f.airJumps===1){f.vx=f.face*f.data.dash*1.6;f.vy=.05;f.airJumps++;f.dash=9;this.emit('dash',{side});return true;}
       return false;
@@ -148,8 +149,8 @@ export class CombatEngine{
     if(!f.attack&&this.canAct(f)&&f.buffer){const b=f.buffer;f.buffer=null;this.startAttack(f,b.key,b.dir);}
     if(this.canAct(f)&&!f.attack){
       const frost=f.frost>0?.7:1,ix=Number(f.inputs.forward)-Number(f.inputs.back),iz=Number(f.inputs.down)-Number(f.inputs.up);
-      if(f.dash>0){f.x+=f.face*f.data.dash*f.dashDir*frost;f.dash--;}
-      else{f.x+=ix*f.face*f.data.speed*(ix<0?.4:1);f.z+=iz*f.data.speed*.9*frost;}
+      if(f.dash>0){f.x+=f.face*f.data.dash*f.dashDir*frost*1.25;f.dash--;}
+      else{f.x+=ix*f.face*f.data.speed*(ix<0?.4:1.35);f.z+=iz*f.data.speed*1.08*frost;}
       if((ix||iz)&&f.y<.05)f.walkPhase+=.20;
       if(f.data.id==='voltantis'&&iz&&this.tick%9===0)f.z+=iz*.11*frost;
     }
@@ -212,7 +213,7 @@ export class CombatEngine{
       if(move.launch||target.y>.05){const launch=(move.launch||.13)*Math.max(.42,1-target.juggles*.13);target.vy=launch;target.y=Math.max(.04,target.y);target.juggles++;}
       target.wallImpact={damage,break:!!move.wallBreak,attacker:attacker.side};
     }
-    this.hitstop=move.type==='burst'?13:move.type==='heavy'?5:3;
+    this.hitstop=move.type==='burst'?13:move.type==='heavy'?4:2;
     this.emit(options.throw?'throw':'hit',{x:target.x,z:target.z,y:target.y+.9,side:attacker.side,damage,counter,move,armored,crossup:!!options.crossup});
     if(counter)this.emit('counter',{side:attacker.side,name:'COUNTER HIT'});
   }
