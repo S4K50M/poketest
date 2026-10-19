@@ -83,7 +83,7 @@ export class CampaignEngine extends TrainingEngine{
   }
   step(){
     if(this.paused||this.phase!=='playing')return;
-    this.playtime++;this.roomTime++;this.motor.run=CAMPAIGN_MOTOR.run*(this.equipped.includes('feather')?1.12:1);this.motor.dashCooldown=this.abilities.has('blink')?14:21;
+    this.playtime++;this.roomTime++;this.motor.run=CAMPAIGN_MOTOR.run*(this.equipped.includes('feather')?1.12:1)*(this.runMultiplier?.()||1);this.motor.dashCooldown=this.abilities.has('blink')?14:21;
     if(this.transition>0)this.transition--;if(this.comboTimer>0)this.comboTimer--;else this.combo=0;if(this.landing>0)this.landing--;
     if(this.attackBuffer){if(--this.attackBuffer.life<=0)this.attackBuffer=null;else if(!this.player.attack&&!this.player.dash){const a=this.attackBuffer.action;this.attackBuffer=null;this.input(a);}}
     const wasGrounded=this.player.grounded,vy=this.player.vy;
@@ -106,7 +106,7 @@ export class CampaignEngine extends TrainingEngine{
     const p=this.player;
     if(this.roomId==='sanctuary'&&this.storyStage===0&&p.x>330){this.storyStage=1;this.showDialogue(DIALOGUES.vell);}
     const boss=this.enemies.find(e=>e.boss&&e.hp>0);
-    if(boss&&p.x>760&&!boss.introduced){boss.introduced=true;this.emit('bossintro',{boss:boss.boss});}
+    if(boss&&p.x>(boss.introX??760)&&!boss.introduced){boss.introduced=true;this.emit('bossintro',{boss:boss.boss});}
     if(p.x<650&&this.roomId==='moss-path'&&this.tutorial<1){this.tutorial=1;this.say('J QUICK STRIKE · K HEAVY · SHIFT DASH · HOLD F TO HEAL');}
   }
   updateAttack(){

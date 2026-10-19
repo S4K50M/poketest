@@ -1,3 +1,5 @@
+import {drawChronicleEntity,drawChronicleBoss} from './chronicle-art.js';
+import {drawRPGObject,drawRPGWorld,drawRPGAuras} from './rpg-render.js';
 import { fitCanvas } from './render.js';
 import { drawCreature, drawMinion } from './creatures.js';
 import { findFighter } from './roster.js';
@@ -29,16 +31,18 @@ export class WorldRenderer{
       for(let i=0;i<pit.w;i+=23)poly(c,[[pit.x+i,pit.y+12],[pit.x+i+12,pit.y-20-noise(i)*14],[pit.x+i+23,pit.y+12]],b.color+'55');
       if(g.room.biome==='reef'){c.fillStyle='#61c5d128';c.fillRect(pit.x,570,pit.w,100);line(c,[[pit.x,570],[pit.x+pit.w,570]],'#a0edeb55',2);}
     }
+    drawRPGWorld(c,g,t);
     for(const o of g.room.objects)this.object(c,o,g,t);
     for(const a of g.room.anchors){line(c,[[a.x,a.y-36],[a.x,a.y]],'#d6b87866',1);glow(c,a.x,a.y,25,'#ffdd932a');poly(c,[[a.x,a.y-9],[a.x+8,a.y],[a.x,a.y+9],[a.x-8,a.y]],'#f8d895');}
     for(const r of g.relics)if(!r.collected){const yy=r.y+Math.sin(t*3+r.x)*6;glow(c,r.x,yy,35,b.color+'30');poly(c,[[r.x,yy-13],[r.x+8,yy],[r.x,yy+13],[r.x-8,yy]],b.color,'#efffe6');}
     for(const z of g.zones){glow(c,z.x,z.y-25,z.radius,z.type==='fire'?'#ff9b3833':z.type==='wind'?'#bfffe128':'#e2d6ff33');for(let i=0;i<9;i++){const xx=z.x+Math.sin(t*4+i)*z.radius*.8;line(c,[[xx,z.y],[xx+10,z.y-18-Math.sin(i+t*6)*10]],z.type==='fire'?'#ffb96d88':'#d0f7ed77',2);}}
-    for(const e of g.enemies)if(e.hp>0){if(e.boss)this.boss(c,e,t);else this.minion(c,e,t);if(e.hp<e.maxHp){c.fillStyle='#0c1729';c.fillRect(e.x-24,e.y-(e.boss?180:70),48,3);c.fillStyle=e.boss?BOSSES[e.boss].color:MINIONS[e.kind].color;c.fillRect(e.x-24,e.y-(e.boss?180:70),48*e.hp/e.maxHp,3);}}
+    for(const e of g.enemies)if(e.hp<=0&&e.deathTimer>0){if(e.boss)drawChronicleBoss(c,e,t);else drawChronicleEntity(c,e,t);}else if(e.hp>0){if(e.boss)this.boss(c,e,t);else this.minion(c,e,t);if(e.hp<e.maxHp){c.fillStyle='#0c1729';c.fillRect(e.x-24,e.y-(e.boss?180:70),48,3);c.fillStyle=e.boss?BOSSES[e.boss].color:MINIONS[e.kind].color;c.fillRect(e.x-24,e.y-(e.boss?180:70),48*e.hp/e.maxHp,3);}}
     if(g.decoy){c.save();c.globalAlpha=.35;drawCreature(c,findFighter('noxshade'),g.decoy.x,g.decoy.y,.36,1,{walk:t},t);c.restore();}
     for(const e of g.effects)if(e.type==='trail'){c.save();c.globalAlpha=e.life/32;drawCreature(c,findFighter(e.creature),e.x,e.y,.38,e.face,{air:true},t,{shadow:false});c.restore();}
     const p=g.player,a=p.attack,af=a?Math.sin(Math.PI*Math.min(1,a.frame/(a.start+a.active))):0;
     c.save();if(p.invul&&Math.floor(g.tick/4)%2)c.globalAlpha=.5;
     drawCreature(c,g.data,p.x,p.y,.38,p.face,{walk:p.walkPhase,attack:af,heavy:a?.type==='heavy',air:!p.grounded,land:g.landing/10,hit:p.flash>0},t);c.restore();
+    drawRPGAuras(c,g,t);
     if(p.healing){glow(c,p.x,p.y-30,80,'#abf2ce38');for(let i=0;i<6;i++){const ang=t*3+i*TAU/6;oval(c,p.x+Math.cos(ang)*32,p.y-35+Math.sin(ang)*35,2,2,'#dcffe0');}}
     if(p.guard||p.fortress){c.strokeStyle='#dce7a4';c.lineWidth=3;c.beginPath();c.arc(p.x,p.y-35,48,-Math.PI*.5,Math.PI*.5);c.stroke();}
     if(g.grapple)line(c,[[p.x,p.y-30],[g.grapple.x,g.grapple.y]],'#ffe2a7',2);
@@ -106,6 +110,7 @@ export class WorldRenderer{
     else if(b.kind==='frost')poly(c,[[p.x,p.y],[p.x+p.w,p.y],[p.x+p.w-14,p.y+10],[p.x+20,p.y+8]],'#cce8e788');
   }
   object(c,o,g,t){
+    if(drawRPGObject(c,o,g,t))return;
     const x=o.x,y=o.y||520,col=BIOMES[g.room.biome].color,key=g.roomId+':'+o.id,used=g.opened.has(key);
     if(o.kind==='bench'){
       glow(c,x,y-62,100,'#f4dea92a');line(c,[[x-32,y-14],[x-32,y],[x+30,y],[x+30,y-14]],'#6a7264',7);line(c,[[x-42,y-23],[x+42,y-23]],'#9b9f83',7);line(c,[[x+50,y],[x+50,y-105],[x+28,y-105]],'#a4a78a',3);oval(c,x+27,y-89,8,14,'#fae4b5');glow(c,x+27,y-89,35,'#ffe2a550');
@@ -136,6 +141,7 @@ export class WorldRenderer{
     }
   }
   minion(c,e,t){
+    if(drawChronicleEntity(c,e,t))return;
     if(['sinder','voltlet','pebbleback','dewdrop','sproutlet'].includes(e.kind)){drawMinion(c,e,t);return;}
     const col=MINIONS[e.kind].color;c.save();c.translate(e.x,e.y);c.scale(e.face,1);if(e.flash)c.globalAlpha=.5;
     if(e.kind==='thornling'){for(const side of [-1,1])poly(c,[[0,-20],[side*34,-65],[side*30,-15]],'#66896a',col+'99');oval(c,0,-28,19,23,'#647e61');poly(c,[[-20,-35],[0,-65],[19,-35]],col);}
@@ -145,6 +151,7 @@ export class WorldRenderer{
     oval(c,5,-32,3,4,'#fff0cd');oval(c,15,-32,3,4,'#fff0cd');if(e.state==='windup')text(c,'!',0,-83,'#ffce91',22);c.restore();
   }
   boss(c,e,t){
+    if(drawChronicleBoss(c,e,t))return;
     const b=BOSSES[e.boss],col=b.color;c.save();c.translate(e.x,e.y);c.scale(e.face,1);if(e.flash)c.globalAlpha=.55;
     const breathe=Math.sin(t*2)*3,wind=e.state==='windup',rage=e.phase===2;c.translate(0,breathe+(e.state==='recover'?8:0));c.rotate(e.state==='charge'?.1:wind?-.045:0);glow(c,0,-70,160,col+(rage?'22':'10'));
     if(e.boss==='briar'||e.boss==='hourglass'){

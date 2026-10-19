@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#0d1824"><meta name="description" content="An original creature action RPG. Three companions. Six forgotten biomes. One shattered Worldheart.">
-  <title>Kinetic Monsters — Echoes of the Rift</title>
+  <title>Kinetic Monsters — The Ninth Memory</title>
   <link rel="preload" href="./assets/fonts/barlow-condensed-latin-500-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="icon" href="./assets/favicon.svg"><link rel="stylesheet" href="./src/style.css">
   <script defer src="./bundle/game.js"></script>
@@ -11,26 +11,28 @@
 <body>
   <header class="topbar">
     <button class="brand" id="home-button" aria-label="Kinetic Monsters home"><span class="brand-sigil">✧</span><span>KINETIC<br><b>MONSTERS</b></span></button>
-    <nav aria-label="Main navigation"><button class="nav active" id="nav-campaign">THE EXPEDITION</button><button class="nav" id="nav-map">WORLD ATLAS</button><button class="nav" id="nav-codex">FIELD JOURNAL</button></nav>
+    <nav aria-label="Main navigation"><button class="nav active" id="nav-campaign">THE EXPEDITION</button><button class="nav" id="nav-map">WORLD ATLAS</button><button class="nav" id="nav-codex">THE CHRONICLE</button></nav>
     <div class="header-end"><span class="edition"><i></i> A WORLD WAITING TO WAKE</span><button class="icon-button" id="sound-button" aria-label="Toggle sound" aria-pressed="false">♫</button><button class="icon-button" id="guide-button" aria-label="Controls and guide">?</button></div>
   </header>
   <main id="home-screen">
     <section class="hero">
       <canvas id="hero-scene" aria-label="Your three companions in the luminous Mourningwild forest"></canvas>
       <div class="hero-shade"></div><div class="hero-grain"></div>
-      <div class="hero-copy"><p class="eyebrow"><span class="small-line"></span> AN ORIGINAL CREATURE ACTION RPG</p><h1>ECHOES<br>OF THE <em>RIFT.</em></h1><p class="hero-description">The world forgot its heartbeat.<br>Your companions remember.</p><p class="hero-story">Beyond the last lantern, six forgotten realms hold the pieces of a living heart. Gather your companions. Follow the pulse. Bring the world back to life.</p>
+      <div class="hero-copy"><p class="eyebrow"><span class="small-line"></span> THE NINTH MEMORY · A NEW CHAPTER AWAKENS</p><h1>ECHOES<br>OF THE <em>RIFT.</em></h1><p class="hero-description">Ninety-nine journeys ended here.<br>You are the first one it cannot remember.</p><p class="hero-story">Three companions. Nine guardians. A century of unfinished goodbyes. Build your legend, swear a covenant, and discover why the Professor keeps forgetting her own past.</p>
         <div class="hero-actions"><button class="primary" id="start-button">BEGIN THE EXPEDITION <span>↗</span></button><button class="secondary" id="continue-button" hidden>CONTINUE JOURNEY <span>→</span></button></div><p class="save-caption" id="save-caption">A single-player adventure. Your journey saves as you explore.</p>
       </div>
       <div class="scene-caption"><span class="scene-coordinates">01 / 06 &nbsp; · &nbsp; THE MOURNINGWILD</span><p>Some bonds outlast<br>the end of the world.</p><span class="caption-rule"></span></div>
       <div class="hero-footer"><span><i class="pulse-dot"></i> WORLDHEART SIGNAL DETECTED</span><span>EXPLORE. EVOLVE. REMEMBER.</span></div>
     </section>
+    <section class="expansion-strip"><div class="expansion-mark">IX</div><div><p class="eyebrow">THE NINTH MEMORY · EXPANSION 3.0</p><h2>More than a journey.<br><em>A life the world has never lived.</em></h2></div><div class="expansion-pillars"><button data-open-chronicle="factions"><span>01</span> CHOOSE YOUR COVENANT <b>↗</b></button><button data-open-chronicle="talents"><span>02</span> SHAPE YOUR SOUL <b>↗</b></button><button data-open-chronicle="quests"><span>03</span> FOLLOW THE MISSING NAMES <b>↗</b></button></div></section>
     <section class="party-section"><div class="section-title"><div><p class="eyebrow">THREE HEARTBEATS. ONE JOURNEY.</p><h2>Find your <em>kindred.</em></h2></div><p>Switch companions mid-combat.<br>Every creature changes the way you fight.</p><button class="text-button" id="party-button">BUILD YOUR PARTY <span>↗</span></button></div><div class="party-cards" id="home-party"></div></section>
     <section class="world-section"><div class="section-title"><div><p class="eyebrow">A WORLD IN SIX FRACTURES</p><h2>Follow the <em>unknown.</em></h2></div><p>Interconnected paths. Hidden sanctuaries.<br>Guardians with something left to protect.</p><button class="text-button" id="atlas-button">OPEN THE ATLAS <span>↗</span></button></div><div id="biome-cards" class="biome-cards"></div></section>
-    <footer class="site-footer"><span>✧ KINETIC MONSTERS</span><p>15 places to discover · 11 companions · 6 guardians · Your story to finish</p><button id="footer-guide">LEARN THE CONTROLS ↗</button></footer>
+    <footer class="site-footer"><span>✧ KINETIC MONSTERS</span><p>18 places · 11 companions · 9 bosses · 8 chronicles · An unwritten future</p><button id="footer-guide">LEARN THE CONTROLS ↗</button></footer>
   </main>
   <section id="game-screen" hidden aria-label="Worldheart campaign">
     <canvas id="world-canvas" tabindex="0" aria-label="Campaign gameplay. A D move, Space jump, Shift dash, J strike, K heavy, L special, E interact."></canvas>
-    <div class="game-hud"><div class="party-hud" id="party-hud"></div><div class="location-hud"><span id="location-biome"></span><strong id="location-room"></strong><span class="room-divider">✧</span></div><div class="utility-hud"><span id="lumen-count">0 ◈</span><button data-overlay="map" title="Map (M)" aria-label="World map">M <small>MAP</small></button><button data-overlay="inventory" title="Inventory (I)" aria-label="Inventory">I <small>PACK</small></button><button data-overlay="pause" title="Pause (Escape)" aria-label="Pause game">II</button></div></div>
+    <div class="game-hud"><div class="party-hud" id="party-hud"></div><div class="location-hud"><span id="location-biome"></span><strong id="location-room"></strong><span class="room-divider">✧</span></div><div class="utility-hud"><button data-overlay="chronicle" title="Chronicle (N)" aria-label="Chronicle and talents">N <small>SOUL</small></button><span id="lumen-count">0 ◈</span><button data-overlay="map" title="Map (M)" aria-label="World map">M <small>MAP</small></button><button data-overlay="inventory" title="Inventory (I)" aria-label="Inventory">I <small>PACK</small></button><button data-overlay="pause" title="Pause (Escape)" aria-label="Pause game">II</button></div></div>
+    <div class="surge-hud" id="surge-hud"><span id="mastery-rank">STRANGER</span><button data-action="surge" id="surge-button"><b>R</b><span>THREEFOLD RESONANCE</span><strong id="surge-value">0%</strong></button><div><i id="surge-fill"></i></div></div><div id="world-event-hud" class="world-event-hud" hidden></div>
     <div class="combo-hud" id="combo-hud" hidden><strong id="combo-number"></strong><span>CHAIN</span></div>
     <div class="boss-hud" id="boss-hud" hidden><span id="boss-name"></span><div><i id="boss-fill"></i></div><small id="boss-phase"></small></div>
     <div class="region-title" id="region-title" hidden><p id="region-kicker"></p><h2 id="region-name"></h2><span>— ✧ —</span></div>

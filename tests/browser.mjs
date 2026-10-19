@@ -38,7 +38,7 @@ try{
   }
   assert.equal((await snapshot()).phase,'selection');assert.equal(await page.locator('#opponent-select').count(),0);assert.equal(await page.locator('.companion-card').count(),3);assert.equal(await page.locator('.biome-card').count(),6);
   await page.screenshot({path:'test-results/campaign-home.png',fullPage:true});
-  await page.click('#atlas-button');assert.equal(await page.locator('.map-node').count(),7);await page.screenshot({path:'test-results/campaign-atlas.png'});await page.click('#close-overlay');
+  await page.click('#atlas-button');assert.equal(await page.locator('.map-node').count(),10);await page.screenshot({path:'test-results/campaign-atlas.png'});await page.click('#close-overlay');
   await page.click('#start-button');assert.equal(await page.locator('[data-party-slot="0"] option').count(),8);await page.selectOption('[data-party-slot="1"]','noxshade');await page.selectOption('[data-party-slot="2"]','noxshade');assert.equal(new Set((await snapshot()).party).size,3);await page.selectOption('[data-party-slot="1"]','voltantis');await page.selectOption('[data-party-slot="2"]','zephyrix');
   await page.click('#confirm-expedition');await keys(['KeyD']);await clock(650);await keys();assert(await page.locator('#overlay').isVisible());assert.match(await page.locator('#overlay-title').textContent(),/Professor Vell/);for(let i=0;i<4;i++)await page.keyboard.press('KeyE');assert(!(await snapshot()).paused);
   await driveTo(1050);await page.keyboard.press('KeyE');await clock(100);assert.equal((await snapshot()).room,'moss-path');
@@ -66,7 +66,7 @@ try{
     await page.click('#home-button');await page.click('[data-return-home]');
     await page.evaluate(({key,s})=>localStorage.setItem(key,JSON.stringify(s)),{key:SAVE_KEY,s:checkpoints[i]});await page.reload();await clock(100);await page.click('#continue-button');await clock(100);await driveTo(850);await clock(150);const s=await snapshot();assert.equal(s.biome,['moss','forge','reef','storm','frost','rift'][i]);assert(await page.locator('#boss-hud').isVisible());await page.screenshot({path:`test-results/campaign-${s.biome}.png`});await page.keyboard.press('KeyI');assert.equal(await page.locator('.ability-card:not(.locked)').count(),s.abilities.length);await page.keyboard.press('KeyI');
   }
-  await page.keyboard.press('KeyN');assert.equal(await page.locator('.codex-card').count(),28);await page.screenshot({path:'test-results/campaign-journal.png'});await page.click('#close-overlay');
+  await page.keyboard.press('KeyN');await page.click('[data-overlay="codex"]');assert.equal(await page.locator('.codex-card').count(),35);await page.screenshot({path:'test-results/campaign-journal.png'});await page.click('#close-overlay');
   await page.click('#home-button');await page.click('[data-return-home]');await page.evaluate(({key,s})=>localStorage.setItem(key,JSON.stringify(s)),{key:SAVE_KEY,s:earned.save()});await page.reload();await clock(100);await page.click('#continue-button');assert((await snapshot()).finished);assert(await page.locator('[data-ending="restore"]').isVisible());await page.click('[data-ending="restore"]');assert.equal((await snapshot()).ending,'restore');assert.match(await page.locator('#overlay-title').textContent(),/world remembers/);await page.click('[data-resume]');await page.keyboard.press('KeyM');assert.equal(await page.locator('.map-node.locked').count(),0);await page.click('#close-overlay');
   console.log('PASS: all six biome renderers, guardian rigs, progressive ability inventory, completed campaign reload, and full story bestiary.');
 
