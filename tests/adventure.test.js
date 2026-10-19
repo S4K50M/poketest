@@ -12,7 +12,7 @@ test('the supplied identities use correct types and distinct anatomical rigs',()
   assert.deepEqual(ROSTER.find(d=>d.id==='pyrojaw').types,['Fire','Rock']);
   assert.equal(ROSTER.find(d=>d.id==='terrakhan').rig,'beetle');
   assert.equal(ROSTER.find(d=>d.id==='noxshade').rig,'jackal');
-  assert.equal(new Set(ROSTER.map(d=>d.rig)).size,8);assert.equal(Object.keys(MINIONS).length,5);
+  assert.equal(new Set(ROSTER.map(d=>d.rig)).size,11);assert.equal(Object.keys(MINIONS).length,11);
 });
 test('party selection rejects duplicates or invalid members and fills to three',()=>{
   assert.throws(()=>new TrainingEngine(['pyrojaw','pyrojaw']));assert.throws(()=>new TrainingEngine(['missing']));

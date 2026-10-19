@@ -17,3 +17,18 @@ export const MINIONS={
   dewdrop:{name:'Dewdrop',types:'WATER',hp:22,xp:14,coins:5,color:'#91dded',hint:'A floating tadpole leaves slippery bubbles. Jump the traps or expect a longer braking distance.',speed:1,height:27},
   sproutlet:{name:'Sproutlet',types:'GRASS / DARK',hp:26,xp:16,coins:6,color:'#a6c882',hint:'Watch the disturbed earth. It burrows, then erupts with a short rooting ambush.',speed:1.2,height:30},
 };
+
+// New companions are rescued through the story, and keep their own silhouette and skill.
+Object.assign(DESIGNS,{
+  mycora:{name:'Mycora',types:['Grass','Spirit'],rig:'deer',role:'Grove Oracle',color:'#b4daa0',dark:'#364f47',accent:'#ffe2ae',description:'A delicate six-eyed forest deer with branching fungal antlers, a moss cloak, and luminous seed pods. The forest walks with her.',passive:'Seed communion',skill:'Bloom Communion',directional:'Briar Rush',maxHp:7,attack:1.02,move:1.07,bodyHeight:60,element:'Earth'},
+  lumivern:{name:'Lumivern',types:['Light','Bug'],rig:'moth',role:'Lantern Keeper',color:'#f3dca5',dark:'#665671',accent:'#fff2d0',description:'A velvet dusk moth with four enormous moon-patterned wings and a lantern heart. Its light seeks out everything the darkness has hidden.',passive:'Seeking light',skill:'Lantern Swarm',directional:'Solar Flare',maxHp:5,attack:1,move:1.1,bodyHeight:60,element:'Electric'},
+  chronowl:{name:'Chronowl',types:['Ice','Psychic'],rig:'owl',role:'Time Weaver',color:'#b4c9ed',dark:'#424265',accent:'#fff0cf',description:'A six-winged snow owl with an hourglass crown and a clockwork constellation for a face. Every feather keeps a different second.',passive:'Borrowed time',skill:'Stasis Ring',directional:'Second Hand',maxHp:6,attack:1.12,move:1.06,bodyHeight:65,element:'Ice'},
+});
+Object.assign(MINIONS,{
+  thornling:{name:'Thornling',types:'GRASS / POISON',hp:34,xp:18,coins:8,color:'#c4de9d',hint:'A briar sprite fires a three-thorn fan. Jump the fan and strike its exposed seed.',speed:1.3,height:36},
+  ashwing:{name:'Ashwing',types:'FIRE / FLYING',hp:30,xp:20,coins:8,color:'#ffa46b',hint:'A furnace bat circles, then dives. Its glowing wings tell you when to dash.',speed:2.2,height:38},
+  inkfin:{name:'Inkfin',types:'WATER / DARK',hp:38,xp:22,coins:9,color:'#9ad9ed',hint:'A paper-thin deepwater ray leaves black ink bolts behind it.',speed:1.4,height:34},
+  stormkite:{name:'Stormkite',types:'ELECTRIC / FLYING',hp:32,xp:24,coins:10,color:'#d7bcff',hint:'A storm bird tracks your position before releasing a lightning spear. Keep moving.',speed:2.6,height:36},
+  frostmite:{name:'Frostmite',types:'ICE / BUG',hp:42,xp:25,coins:10,color:'#bceaff',hint:'A crystalline crawler fires slowing frost. Heavy strikes shatter its shell.',speed:1.5,height:26},
+  riftling:{name:'Riftling',types:'VOID / GHOST',hp:48,xp:30,coins:12,color:'#ffa9ce',hint:'A torn echo teleports before lunging. Punish its reappearance.',speed:2.4,height:42},
+});

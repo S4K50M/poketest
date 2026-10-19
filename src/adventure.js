@@ -102,7 +102,7 @@ export class AdventureSystems{
     for(const shot of this.enemyShots){
       shot.x+=shot.vx;shot.y+=shot.vy;shot.life--;
       if(this.decoy&&Math.hypot(shot.x-this.decoy.x,shot.y-(this.decoy.y-20))<40){shot.life=0;this.burstDecoy();}
-      else if(Math.abs(shot.x-p.x)<20&&Math.abs(shot.y-(p.y-this.data.bodyHeight*.5))<25){shot.life=0;this.hurt(Math.sign(shot.vx),.5,{burn:65});}
+      else if(Math.abs(shot.x-p.x)<20&&Math.abs(shot.y-(p.y-this.data.bodyHeight*.5))<25){shot.life=0;this.hurt(Math.sign(shot.vx),.5,shot.status||{burn:65});}
     }
     this.enemyShots=this.enemyShots.filter(b=>b.life>0);
   }

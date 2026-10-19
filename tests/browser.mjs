@@ -3,102 +3,78 @@ import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync } from 'node:fs';
 import { chromium } from 'playwright';
 import http from 'node:http';
+import {CampaignEngine} from '../src/campaign.js';
+import {playCampaign,walkTo} from './helpers/campaign-route.js';
+import {SAVE_KEY,ROOMS} from '../src/world.js';
 
-// Real browser integration: local assets, every rig, keyboard inputs, a complete
-// best-of-three, pause, rematch, move manual, and a narrow viewport.
 const port=Number(process.env.TEST_PORT||3100),base=`http://127.0.0.1:${port}`;
 const server=spawn(process.execPath,['server.mjs'],{cwd:new URL('..',import.meta.url),env:{...process.env,PORT:String(port)},stdio:'pipe'});
 let browser,nestedServer;const errors=[];
 try{
-  let ready=false;
-  for(let i=0;i<50;i++){try{if((await fetch(base)).ok){ready=true;break}}catch{}await new Promise(r=>setTimeout(r,100))}
-  assert(ready,'static server did not become ready');
-  const executablePath=process.env.CHROMIUM_PATH||(existsSync('/usr/bin/chromium')?'/usr/bin/chromium':undefined);
-  browser=await chromium.launch({executablePath,headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
-  const page=await browser.newPage({viewport:{width:1440,height:1024}});
-  page.on('pageerror',e=>errors.push(e.message));page.on('requestfailed',r=>errors.push(`${r.url()} ${r.failure()?.errorText}`));
-  page.on('response',r=>{if(r.status()>=400)errors.push(`${r.status()} ${r.url()}`)});
-  await page.goto(base);await page.evaluate(()=>document.fonts.ready);await page.clock.install();
-  assert.equal(await page.locator('.fighter-card').count(),8);
-  mkdirSync('test-results',{recursive:true});await page.screenshot({path:'test-results/selection.png',fullPage:true});
-  const ids=await page.locator('.fighter-card').evaluateAll(cards=>cards.map(c=>c.dataset.fighter));
-  for(const id of ids){
-    await page.locator(`[data-fighter="${id}"]`).click();
-    assert.equal(await page.locator('#opponent-select option').count(),7);
-    assert(!(await page.locator('#opponent-select option').evaluateAll(options=>options.map(o=>o.value))).includes(id));
-    await page.locator('#start-fight').click();await page.clock.runFor(2300);
-    const s=await page.evaluate(()=>window.kinetic.snapshot());assert.equal(s.fighters[0].id,id);assert.equal(s.phase,'fighting');
-    await page.locator('#back-select').click();
+  let ready=false;for(let i=0;i<50;i++){try{if((await fetch(base)).ok){ready=true;break;}}catch{}await new Promise(r=>setTimeout(r,100));}assert(ready);
+  browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH||(existsSync('/usr/bin/chromium')?'/usr/bin/chromium':undefined),headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
+  const page=await browser.newPage({viewport:{width:1440,height:1000}});
+  page.on('pageerror',e=>errors.push(e.message));page.on('requestfailed',r=>errors.push(`${r.url()} ${r.failure()?.errorText}`));page.on('response',r=>{if(r.status()>=400)errors.push(`${r.status()} ${r.url()}`);});
+  await page.goto(base);await page.evaluate(()=>document.fonts.ready);await page.clock.install();mkdirSync('test-results',{recursive:true});
+  const snapshot=()=>page.evaluate(()=>window.kinetic.snapshot());
+  const clock=ms=>page.clock.runFor(ms);
+  const downKeys=new Set();
+  async function keys(wanted=[]){for(const k of [...downKeys])if(!wanted.includes(k)){await page.keyboard.up(k);downKeys.delete(k);}for(const k of wanted)if(!downKeys.has(k)){await page.keyboard.down(k);downKeys.add(k);}}
+  async function driveTo(x,max=500){
+    let jumpingUntil=0;
+    for(let i=0;i<max;i++){
+      const s=await snapshot(),p=s.player;if(await page.locator('#overlay').isVisible())throw Error('Unexpected overlay while walking: '+await page.locator('#overlay-title').textContent());
+      if(Math.abs(p.x-x)<25&&p.grounded){await keys();await clock(120);return s;}
+      const moves=Math.abs(p.x-x)<20?[]:[p.x<x?'KeyD':'KeyA'];
+      const room=ROOMS[s.room],edge=room.platforms.find(b=>Math.abs(b.y-p.y)<2&&p.x>=b.x&&p.x<=b.x+b.w);
+      if(p.grounded&&edge&&x>p.x&&edge.x+edge.w-p.x<90||p.wall)jumpingUntil=s.tick+32;
+      if(s.tick<jumpingUntil)moves.push('Space');
+      await keys(moves);
+      if(s.enemies.some(e=>e.hp>0&&Math.abs(e.x-p.x)<120))await page.keyboard.press('KeyK');
+      if(room.thorns?.some(h=>p.x>h.x&&p.x<h.x+h.w)&&!p.grounded&&p.vy>0)await page.keyboard.press('ShiftLeft');
+      await clock(85);
+    }
+    throw Error('walk timed out: '+JSON.stringify(await snapshot()));
   }
-  console.log('PASS: all eight fighters render and enter combat; opponent cannot be the selected fighter.');
-  await page.selectOption('#party-select-0','pyrojaw');await page.selectOption('#party-select-1','zephyrix');await page.selectOption('#party-select-2','noxshade');
-  assert.deepEqual((await page.evaluate(()=>window.kinetic.snapshot())).party,['pyrojaw','zephyrix','noxshade']);
-  await page.selectOption('#party-select-1','noxshade');assert.equal(new Set((await page.evaluate(()=>window.kinetic.snapshot())).party).size,3);await page.selectOption('#party-select-1','zephyrix');
-  await page.locator('#start-training').click();
-  assert.equal((await page.evaluate(()=>window.kinetic.snapshot())).mode,'training');
-  await page.keyboard.press('Digit2');await page.clock.runFor(340);assert.equal((await page.evaluate(()=>window.kinetic.snapshot())).player.id,'zephyrix');
-  await page.locator('[data-switch-slot="2"]').click();await page.clock.runFor(340);assert.equal((await page.evaluate(()=>window.kinetic.snapshot())).player.id,'noxshade');
-  await page.keyboard.press('KeyQ');await page.clock.runFor(340);assert.equal((await page.evaluate(()=>window.kinetic.snapshot())).player.id,'pyrojaw');
-  await page.keyboard.down('KeyD');await page.clock.runFor(700);
-  assert((await page.evaluate(()=>window.kinetic.snapshot())).player.x>350);
-  await page.keyboard.down('Space');await page.clock.runFor(120);
-  assert((await page.evaluate(()=>window.kinetic.snapshot())).player.y<500);
-  await page.keyboard.up('Space');await page.clock.runFor(500);
-  for(let i=0;i<75;i++){const s=await page.evaluate(()=>window.kinetic.snapshot());if(s.player.x>=1360)break;await page.clock.runFor(50);}
-  let path=await page.evaluate(()=>window.kinetic.snapshot());assert(path.completed[0]);assert.equal(path.lesson,1);assert(path.player.x>=1360&&path.player.x<1460);
-  await page.keyboard.down('Space');await page.clock.runFor(800);await page.keyboard.up('Space');await page.clock.runFor(150);await page.keyboard.up('KeyD');
-  path=await page.evaluate(()=>window.kinetic.snapshot());assert(path.completed[1],'real keyboard bridge jump did not satisfy the lesson');assert.equal(path.stats.falls,0);
-  await page.keyboard.press('ShiftLeft');await page.clock.runFor(70);path=await page.evaluate(()=>window.kinetic.snapshot());assert(path.player.dash>0);
-  await page.keyboard.press('Escape');const pausedPath=await page.evaluate(()=>window.kinetic.snapshot());await page.clock.runFor(500);assert.equal((await page.evaluate(()=>window.kinetic.snapshot())).tick,pausedPath.tick);
-  await page.locator('#path-resume').click();await page.locator('#nav-guide').click();assert((await page.evaluate(()=>window.kinetic.snapshot())).paused);assert((await page.locator('#guide-body').textContent()).includes('ledge grace'));
-  await page.locator('#close-guide').click();await page.clock.runFor(32);assert(!(await page.evaluate(()=>window.kinetic.snapshot())).paused);assert.equal(await page.evaluate(()=>document.activeElement.id),'path-canvas');
-  await page.locator('#sound-toggle').click();assert.equal(await page.evaluate(()=>document.activeElement.id),'path-canvas');await page.locator('#sound-toggle').click();
-  await page.locator('#path-coach-toggle').click();assert.equal(await page.locator('#path-coach-toggle').getAttribute('aria-expanded'),'false');await page.locator('#path-coach-toggle').click();
-  await page.keyboard.press('KeyR');await page.clock.runFor(350);assert.equal((await page.evaluate(()=>window.kinetic.snapshot())).player.x,1080);
-  const beforeHeal=await page.evaluate(()=>window.kinetic.snapshot());assert(beforeHeal.player.hp<beforeHeal.player.maxHp);
-  await page.keyboard.down('KeyF');await page.clock.runFor(900);await page.keyboard.up('KeyF');
-  const healed=await page.evaluate(()=>window.kinetic.snapshot());assert.equal(healed.player.hp,Math.min(beforeHeal.player.maxHp,beforeHeal.player.hp+1));assert.equal(healed.stats.heals,1);assert(healed.player.spirit<80);
-  await page.keyboard.press('KeyM');assert(await page.locator('#field-journal').isVisible());assert.equal(await page.locator('.journal-species').count(),5);assert.equal(await page.locator('#journal-party article').count(),3);assert((await page.evaluate(()=>window.kinetic.snapshot())).paused);
-  await page.screenshot({path:'test-results/journal.png',fullPage:true});await page.keyboard.press('Escape');await page.clock.runFor(32);assert(!(await page.evaluate(()=>window.kinetic.snapshot())).paused);assert.equal(await page.evaluate(()=>document.activeElement.id),'path-canvas');
-  await page.screenshot({path:'test-results/training.png',fullPage:true});await page.locator('#path-exit').click();assert.equal((await page.evaluate(()=>window.kinetic.snapshot())).phase,'selection');
-  console.log('PASS: three-member party selection, duplicate swapping, keyboard/HUD/cycle switching, real healing with Focus cost, journal, traversal, pause and checkpoint recovery.');
-  await page.locator('[data-fighter="pyrojaw"]').click();await page.selectOption('#opponent-select','glaciolith');await page.selectOption('#ai-level','easy');
-  await page.locator('#start-fight').click();await page.clock.runFor(2300);
-  const initial=await page.evaluate(()=>window.kinetic.snapshot());
-  await page.keyboard.down('KeyD');await page.clock.runFor(450);await page.keyboard.up('KeyD');
-  const moved=await page.evaluate(()=>window.kinetic.snapshot());assert.notEqual(moved.fighters[0].x,initial.fighters[0].x);
-  for(let i=0;i<12;i++){await page.keyboard.press(i%4===0?'KeyK':'KeyJ');await page.clock.runFor(210)}
-  const fighting=await page.evaluate(()=>window.kinetic.snapshot());assert(fighting.fighters[0].hp<190||fighting.fighters[1].hp<235,'combat produced no damage');
-  await page.locator('#hitbox-toggle').click();assert.equal(await page.locator('#hitbox-toggle').getAttribute('aria-pressed'),'true');
-  await page.screenshot({path:'test-results/combat.png',fullPage:true});
-  await page.keyboard.press('Escape');const paused=await page.evaluate(()=>window.kinetic.snapshot());assert(paused.paused);await page.clock.runFor(1000);assert.equal((await page.evaluate(()=>window.kinetic.snapshot())).tick,paused.tick);
-  await page.locator('#resume-button').click();await page.locator('#battle-guide').click();assert(await page.locator('#guide-dialog').isVisible());assert((await page.evaluate(()=>window.kinetic.snapshot())).paused);assert(await page.locator('.move-table').isVisible());await page.locator('#close-guide').click();await page.clock.runFor(32);assert(!(await page.evaluate(()=>window.kinetic.snapshot())).paused);
-  console.log('PASS: real keyboard movement and combat, hitbox inspector, pause/resume, and fighter move manual.');
-  // Run the actual UI clock forward until a match concludes. No state mutation or
-  // mocked damage: the CPU must win two rounds through the real combat loop.
-  for(let i=0;i<4;i++){
-    if((await page.evaluate(()=>window.kinetic.snapshot())).phase==='matchover')break;
-    await page.clock.runFor(65000);console.log('match progress',JSON.stringify(await page.evaluate(()=>window.kinetic.snapshot())));
+  assert.equal((await snapshot()).phase,'selection');assert.equal(await page.locator('#opponent-select').count(),0);assert.equal(await page.locator('.companion-card').count(),3);assert.equal(await page.locator('.biome-card').count(),6);
+  await page.screenshot({path:'test-results/campaign-home.png',fullPage:true});
+  await page.click('#atlas-button');assert.equal(await page.locator('.map-node').count(),7);await page.screenshot({path:'test-results/campaign-atlas.png'});await page.click('#close-overlay');
+  await page.click('#start-button');assert.equal(await page.locator('[data-party-slot="0"] option').count(),8);await page.selectOption('[data-party-slot="1"]','noxshade');await page.selectOption('[data-party-slot="2"]','noxshade');assert.equal(new Set((await snapshot()).party).size,3);await page.selectOption('[data-party-slot="1"]','voltantis');await page.selectOption('[data-party-slot="2"]','zephyrix');
+  await page.click('#confirm-expedition');await keys(['KeyD']);await clock(650);await keys();assert(await page.locator('#overlay').isVisible());assert.match(await page.locator('#overlay-title').textContent(),/Professor Vell/);for(let i=0;i<4;i++)await page.keyboard.press('KeyE');assert(!(await snapshot()).paused);
+  await driveTo(1050);await page.keyboard.press('KeyE');await clock(100);assert.equal((await snapshot()).room,'moss-path');
+  await driveTo(300);await page.keyboard.press('KeyE');await page.keyboard.press('KeyI');assert(await page.locator('#overlay').isVisible());assert.equal(await page.locator('.item-tile').count(),7);assert.equal(await page.locator('.ability-card').count(),6);await page.click('[data-craft="fang"]');assert.match(await page.locator('#overlay-content').textContent(),/MISSING MATERIALS/);await page.keyboard.press('KeyI');
+  assert.equal(await page.evaluate(()=>document.activeElement.id),'world-canvas');await page.keyboard.press('Digit2');await clock(350);assert.equal((await snapshot()).player.id,'voltantis');await page.click('[data-switch="2"]');await clock(350);assert.equal((await snapshot()).player.id,'zephyrix');await page.keyboard.press('KeyQ');await clock(350);assert.equal((await snapshot()).player.id,'pyrojaw');
+  await page.keyboard.press('KeyM');const paused=await snapshot();await clock(500);assert.equal((await snapshot()).tick,paused.tick);assert.equal(paused.visited.length,2);await page.keyboard.press('KeyM');
+  // Real browser traversal crosses the gap and enters the first guardian chamber.
+  await driveTo(2370);await page.keyboard.press('KeyE');await clock(100);assert.equal((await snapshot()).room,'moss-heart');await driveTo(850);
+  let jumpUntil=0;
+  for(let i=0;i<650;i++){
+    const s=await snapshot(),e=s.enemies.find(e=>e.boss&&e.hp>0);if(!e)break;const p=s.player,dx=e.x-p.x;
+    const moves=[];if(dx>60)moves.push('KeyD');if(dx< -60)moves.push('KeyA');if(!p.grounded&&Math.abs(dx)<90)moves.push('KeyS');if(p.grounded&&e.state==='windup')jumpUntil=s.tick+30;if(s.tick<jumpUntil)moves.push('Space');
+    await keys(moves);await page.keyboard.press('KeyK');if(i%12===0){await keys();await page.keyboard.press('KeyL');}if(p.hp<2)await page.keyboard.press('KeyV');await clock(85);
   }
-  const finished=await page.evaluate(()=>window.kinetic.snapshot());assert.equal(finished.phase,'matchover');assert(finished.wins.some(w=>w===2));assert(await page.locator('#rematch-button').isVisible());
-  await page.locator('#rematch-button').click();assert.deepEqual((await page.evaluate(()=>window.kinetic.snapshot())).wins,[0,0]);
-  await page.locator('#back-select').click();await page.setViewportSize({width:390,height:844});await page.clock.runFor(200);
-  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth),390,'mobile layout overflows');await page.screenshot({path:'test-results/mobile.png',fullPage:true});
-  await page.locator('#controls-button').click();assert(await page.locator('#guide-dialog').isVisible());await page.locator('#close-guide').click();
-  await page.clock.runFor(32);await page.locator('#start-training').click();await page.clock.runFor(200);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth),390,'training layout overflows');await page.screenshot({path:'test-results/training-mobile.png',fullPage:true});await page.locator('#path-exit').click();
-  console.log('PASS: complete best-of-three, rematch, responsive selection, and local assets.');
-  // A repository subpath catches leading-slash asset URLs that pass root-hosted QA.
-  nestedServer=http.createServer(async(req,res)=>{
-    if(!req.url.startsWith('/poketest/')){res.writeHead(404).end('Outside repository path');return;}
-    try{const upstream=await fetch(base+req.url.slice('/poketest'.length));res.writeHead(upstream.status,{'Content-Type':upstream.headers.get('content-type')||'application/octet-stream'});res.end(Buffer.from(await upstream.arrayBuffer()));}
-    catch{res.writeHead(502).end('Upstream unavailable');}
-  });
-  await new Promise(resolve=>nestedServer.listen(0,'127.0.0.1',resolve));
-  await page.goto(`http://127.0.0.1:${nestedServer.address().port}/poketest/`);
-  await page.evaluate(()=>document.fonts.ready);await page.clock.runFor(250);
-  assert.equal(await page.evaluate(()=>getComputedStyle(document.body).backgroundColor),'rgb(17, 19, 15)');
-  assert.equal(await page.locator('.fighter-card').count(),8);
-  assert(await page.evaluate(()=>document.fonts.check('700 16px Barlow')),'bundled font failed to load');
-  await page.locator('#start-fight').click();await page.clock.runFor(2300);assert.equal((await page.evaluate(()=>window.kinetic.snapshot())).phase,'fighting');
-  assert.deepEqual(errors,[]);console.log('PASS: stylesheet, fonts, creature selection, and combat load below /poketest/ with zero browser errors.');
-}finally{await browser?.close();nestedServer?.close();server.kill('SIGTERM')}
+  await keys();await clock(150);const won=await snapshot();assert(won.fragments.includes('briar'));assert(won.abilities.includes('claw'));assert(won.unlocked.includes('mycora'));assert(await page.locator('[data-dismiss-reward]').isVisible());await page.screenshot({path:'test-results/campaign-first-guardian.png'});await page.click('[data-dismiss-reward]');
+  const persisted=await page.evaluate(key=>JSON.parse(localStorage.getItem(key)),SAVE_KEY);assert(persisted.fragments.includes('briar'));await page.reload();await clock(100);await page.click('#continue-button');await clock(100);assert((await snapshot()).fragments.includes('briar'));assert.equal((await snapshot()).enemies[0].hp,0);
+  await driveTo(270);await page.keyboard.press('KeyE');await page.keyboard.press('Escape');await page.click('[data-overlay="party"]');assert.equal(await page.locator('[data-party-slot="0"] option').count(),9);await page.selectOption('[data-party-slot="0"]','mycora');await page.click('[data-resume]');assert.equal((await snapshot()).player.id,'mycora');
+  await page.keyboard.press('Escape');const pause=await snapshot();await clock(300);assert.equal((await snapshot()).tick,pause.tick);await page.click('[data-resume]');assert.equal(await page.evaluate(()=>document.activeElement.id),'world-canvas');
+  console.log('PASS: original party selection, story, real traversal, minion combat, guardian victory, ability/companion rewards, save/reload, recruitment, map, inventory and pause.');
+
+  // Earn every later fixture through the headless input controller, then render
+  // those legitimate checkpoints in Chromium. No invented progression flags.
+  const checkpoints=[],earned=new CampaignEngine();playCampaign(earned,{onGuardian:g=>checkpoints.push(JSON.parse(JSON.stringify(g.save())))});
+  for(let i=1;i<checkpoints.length;i++){
+    await page.click('#home-button');await page.click('[data-return-home]');
+    await page.evaluate(({key,s})=>localStorage.setItem(key,JSON.stringify(s)),{key:SAVE_KEY,s:checkpoints[i]});await page.reload();await clock(100);await page.click('#continue-button');await clock(100);await driveTo(850);await clock(150);const s=await snapshot();assert.equal(s.biome,['moss','forge','reef','storm','frost','rift'][i]);assert(await page.locator('#boss-hud').isVisible());await page.screenshot({path:`test-results/campaign-${s.biome}.png`});await page.keyboard.press('KeyI');assert.equal(await page.locator('.ability-card:not(.locked)').count(),s.abilities.length);await page.keyboard.press('KeyI');
+  }
+  await page.keyboard.press('KeyN');assert.equal(await page.locator('.codex-card').count(),28);await page.screenshot({path:'test-results/campaign-journal.png'});await page.click('#close-overlay');
+  await page.click('#home-button');await page.click('[data-return-home]');await page.evaluate(({key,s})=>localStorage.setItem(key,JSON.stringify(s)),{key:SAVE_KEY,s:earned.save()});await page.reload();await clock(100);await page.click('#continue-button');assert((await snapshot()).finished);assert(await page.locator('[data-ending="restore"]').isVisible());await page.click('[data-ending="restore"]');assert.equal((await snapshot()).ending,'restore');assert.match(await page.locator('#overlay-title').textContent(),/world remembers/);await page.click('[data-resume]');await page.keyboard.press('KeyM');assert.equal(await page.locator('.map-node.locked').count(),0);await page.click('#close-overlay');
+  console.log('PASS: all six biome renderers, guardian rigs, progressive ability inventory, completed campaign reload, and full story bestiary.');
+
+  await page.setViewportSize({width:390,height:844});await clock(180);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth),390);await page.screenshot({path:'test-results/campaign-mobile.png'});assert(await page.locator('.touch-controls').isVisible());const prior=(await snapshot()).player.x;const touchBox=await page.locator('[data-hold="right"]').boundingBox();await page.mouse.move(touchBox.x+20,touchBox.y+20);await page.mouse.down();await clock(200);await page.mouse.up();assert((await snapshot()).player.x>prior);await page.click('[data-overlay="inventory"]');assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth),390);await page.screenshot({path:'test-results/campaign-mobile-pack.png'});await page.click('#close-overlay');await page.click('#home-button');await page.click('[data-return-home]');await page.screenshot({path:'test-results/campaign-mobile-home.png',fullPage:true});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth),390);
+  console.log('PASS: mobile layout, touch movement, inventory and home screen without horizontal overflow.');
+
+  nestedServer=http.createServer(async(req,res)=>{if(!req.url.startsWith('/poketest/')){res.writeHead(404).end();return;}try{const r=await fetch(base+req.url.slice('/poketest'.length));res.writeHead(r.status,{'Content-Type':r.headers.get('content-type')||'application/octet-stream'});res.end(Buffer.from(await r.arrayBuffer()));}catch{res.writeHead(502).end();}});
+  await new Promise(resolve=>nestedServer.listen(0,'127.0.0.1',resolve));await page.goto(`http://127.0.0.1:${nestedServer.address().port}/poketest/`);await page.evaluate(()=>document.fonts.ready);assert.equal(await page.evaluate(()=>getComputedStyle(document.body).backgroundColor),'rgb(12, 23, 35)');assert.equal(await page.locator('.biome-card').count(),6);await page.click('#start-button');await page.click('#confirm-expedition');assert.equal((await snapshot()).mode,'campaign');
+  console.log('PASS: relative CSS, bundled script, fonts and playable campaign under a GitHub-style /poketest/ hosting path.');
+  assert.deepEqual(errors,[]);console.log('All campaign browser checks passed. No JavaScript errors or failed assets.');
+}finally{if(browser)await browser.close();if(nestedServer)await new Promise(resolve=>nestedServer.close(resolve));server.kill();}

@@ -15,7 +15,34 @@ export function drawCreature(c,d,x,y,s=1,face=1,pose={},time=0,options={}){
   if(options.shadow!==false)oval(c,0,2,['gator','beetle','griffin','jackal'].includes(d.rig)?100:60,11,'#040c0b99');
   if(options.aura)halo(c,0,-95,130,d.color+'30');
   c.translate(pose.hit?-8:0,bob);if(pose.hit)c.rotate(-.08);
-  if(d.rig==='gator'){
+  const stretch=pose.air?1.05:1+Math.sin(w*2)*.025, squash=pose.land||0;
+  c.scale((1+squash*.15)/stretch,stretch*(1-squash*.12));
+  if(['deer','moth','owl'].includes(d.rig)){
+    if(d.rig==='deer'){
+      for(const side of [-1,1])for(const back of [0,1]){const xx=side*49+back*14,delta=Math.sin(w+back*3)*14;line(c,[[xx,-92],[xx+delta,-42],[xx+delta-8,-2]],back?d.dark:d.color,12);oval(c,xx+delta-5,-5,12,5,'#e7d9a8');}
+      oval(c,-8,-105,77,38,base);poly(c,[[-70,-120],[-15,-150],[65,-121],[38,-83],[-45,-78]],d.dark);
+      for(let i=0;i<9;i++){const xx=-68+i*14;poly(c,[[xx,-127],[xx+20,-153],[xx+29,-110],[xx+15,-83]],i%2?'#7eaf83':'#a5ca9a');}
+      poly(c,[[37,-127],[49,-201],[81,-216],[111,-187],[101,-147],[75,-117]],base);
+      for(const side of [-1,1]){const xx=side<0?52:88;line(c,[[xx,-204],[xx+side*10,-250],[xx+side*38,-275]],'#cfbd91',7);line(c,[[xx+side*12,-251],[xx+side*7,-277]],'#cfbd91',5);oval(c,xx+side*39,-278,18,7,'#efd4a1');halo(c,xx+side*39,-278,23,'#ffe6a733');}
+      for(let i=0;i<3;i++)oval(c,78+i*9,-177+i*5,3,4,'#fce8a9');poly(c,[[44,-187],[17,-211],[20,-180],[46,-165]],'#bdd6a7');
+    }else{
+      const owl=d.rig==='owl';
+      for(const side of [-1,1])for(let layer=0;layer<(owl?3:2);layer++){
+        c.save();c.translate(side*15,-135);c.rotate(side*(Math.sin(time*7+layer)*.16+layer*.25));
+        const xx=side*(120-layer*20),yy=-110+layer*75;
+        poly(c,[[0,0],[xx*.45,yy-75],[xx,yy-35],[xx*1.22,yy+30],[xx*.7,yy+110],[0,30]],layer%2?d.dark:base);
+        if(owl)for(let j=0;j<5;j++)line(c,[[side*20,-5],[xx*(.6+j*.1),yy+40+j*12]],'#e4e7ed66',3);
+        else{oval(c,xx*.7,yy+5,25,35,'#fce3b780','#fce9c8');oval(c,xx*.7,yy+5,10,17,d.dark);}
+        c.restore();
+      }
+      oval(c,0,-110,owl?43:25,70,base);for(let i=0;i<5;i++)line(c,[[-24,-134+i*20],[0,-122+i*20],[24,-134+i*20]],d.dark,4);
+      oval(c,0,-189,owl?53:29,owl?49:34,base);for(const side of [-1,1]){oval(c,side*22,-192,20,25,d.dark);oval(c,side*22,-191,8,12,d.accent);line(c,[[side*18,-220],[side*43,-251]],d.color,5);}
+      poly(c,[[-10,-180],[0,-162],[11,-180]],'#e8c99a');
+      if(owl){poly(c,[[-18,-241],[-13,-266],[13,-266],[18,-241],[8,-230],[-8,-230]],'#f4dda8');line(c,[[-10,-260],[9,-240],[-9,-240],[10,-260]],d.dark,2);}
+      else{halo(c,0,-119,40,'#ffe3a649');oval(c,0,-119,12,21,'#fff0bf');}
+      for(const side of [-1,1])line(c,[[side*15,-47],[side*24,-10],[side*40,-7]],d.dark,7);
+    }
+  }else if(d.rig==='gator'){
     // Long, low body; four weight-bearing legs; natural obsidian back plates.
     c.save();if(pose.heavy)c.rotate(-a*.7);
     poly(c,[[-66,-91],[-125,-70],[-170,-80],[-181,-111],[-176,-49],[-145,-40],[-77,-51]],d.dark);

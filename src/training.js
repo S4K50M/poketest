@@ -51,11 +51,11 @@ export class TrainingEngine extends AdventureSystems{
     const partyAction=this.partyInput(action);if(partyAction!==null)return partyAction;
     if(['jump','dash','light','heavy','special'].includes(action))this.cancelHeal();
     if(p.root>0&&['jump','dash'].includes(action))return false;
-    if(action==='jump'){p.jumpBuffer=MOTOR.jumpBuffer;p.jumpHeld=true;return true;}
+    if(action==='jump'){p.jumpBuffer=(this.motor||MOTOR).jumpBuffer;p.jumpHeld=true;return true;}
     if(action==='dash'){
       if(p.dashCooldown||!p.grounded&&p.airDashes>=(this.data.id==='zephyrix'?2:1))return false;
       if(p.attack&&p.attack.frame<p.attack.start+p.attack.active)return false;
-      p.attack=null;p.dash=MOTOR.dashFrames;p.skillVector=null;p.dashCooldown=this.data.id==='zephyrix'?21:MOTOR.dashCooldown;p.dashUsed=true;p.vy=0;p.invul=Math.max(p.invul,9);this.stats.dashes++;if(!p.grounded){this.stats.airDashes++;p.airDashes++;}this.emit('dash');return true;
+      p.attack=null;p.dash=(this.motor||MOTOR).dashFrames;p.skillVector=null;p.dashCooldown=this.data.id==='zephyrix'?21:(this.motor||MOTOR).dashCooldown;p.dashUsed=true;p.vy=0;p.invul=Math.max(p.invul,9);this.stats.dashes++;if(!p.grounded){this.stats.airDashes++;p.airDashes++;}this.emit('dash');return true;
     }
     if(action==='light'||action==='heavy'){
       if(p.attack||p.dash)return false;
@@ -84,9 +84,9 @@ export class TrainingEngine extends AdventureSystems{
   jump(){
     const p=this.player;
     if(!p.jumpBuffer)return;
-    if(p.grounded||p.coyote>0){p.vy=MOTOR.jump;p.jumpCount=1;p.coyote=0;this.stats.jumps++;}
+    if(p.grounded||p.coyote>0){p.vy=(this.motor||MOTOR).jump;p.jumpCount=1;p.coyote=0;this.stats.jumps++;}
     else if(p.wall){p.vy=-13;p.vx=-p.wall*9;p.face=-p.wall;p.wallLock=9;p.jumpCount=1;p.dashUsed=false;p.airDashes=0;this.stats.wallJumps++;this.emit('walljump');}
-    else if(p.jumpCount<2){p.vy=MOTOR.doubleJump;p.jumpCount=2;this.stats.doubleJumps++;this.emit('doublejump');}
+    else if(p.jumpCount<2){p.vy=(this.motor||MOTOR).doubleJump;p.jumpCount=2;this.stats.doubleJumps++;this.emit('doublejump');}
     else return;
     if(!p.jumpHeld)p.vy*=.55;
     p.dash=0;p.grounded=false;p.jumpBuffer=0;this.emit('jump');
@@ -101,17 +101,17 @@ export class TrainingEngine extends AdventureSystems{
     if(p.respawning)return;
     this.updateAdventure();
     p.spirit=Math.min(100,p.spirit+.06);
-    if(p.grounded){p.coyote=MOTOR.coyote;p.dashUsed=false;p.airDashes=0;}else p.coyote=Math.max(0,p.coyote-1);
+    if(p.grounded){p.coyote=(this.motor||MOTOR).coyote;p.dashUsed=false;p.airDashes=0;}else p.coyote=Math.max(0,p.coyote-1);
     this.jump();if(p.jumpBuffer>0)p.jumpBuffer--;
     const direction=p.root>0||p.healing||p.fortress?0:Number(this.inputs.right)-Number(this.inputs.left),oldX=p.x,oldY=p.y,slow=p.slow>0?.55:1;
-    if(p.dash>0){p.vx=(p.skillVector?.x??p.face)*MOTOR.dash*slow;p.vy=(p.skillVector?.y||0)*MOTOR.dash;p.dash--;this.effects.push({type:'trail',x:p.x,y:p.y,face:p.face,creature:this.data.id,life:13});}
+    if(p.dash>0){p.vx=(p.skillVector?.x??p.face)*(this.motor||MOTOR).dash*slow;p.vy=(p.skillVector?.y||0)*(this.motor||MOTOR).dash;p.dash--;this.effects.push({type:'trail',x:p.x,y:p.y,face:p.face,creature:this.data.id,life:13});}
     else{
-      if(!p.wallLock){const speed=MOTOR.run*clamp(.96+(this.data.speed-.059)*2,.90,1.08)*slow;p.vx=approach(p.vx,direction*speed,direction?(p.slick>0?.6:MOTOR.acceleration):(p.slick>0?.12:MOTOR.friction));if(direction)p.face=direction;}
-      p.vy=Math.min(MOTOR.fall,p.vy+MOTOR.gravity);
-      if(p.wall&&direction===p.wall&&p.vy>2)p.vy=2;
+      if(!p.wallLock){const speed=(this.motor||MOTOR).run*clamp(.96+(this.data.speed-.059)*2,.90,1.08)*slow;p.vx=approach(p.vx,direction*speed,direction?(p.slick>0?.6:(this.motor||MOTOR).acceleration):(p.slick>0?.12:(this.motor||MOTOR).friction));if(direction)p.face=direction;}
+      p.vy=Math.min((this.motor||MOTOR).fall,p.vy+(this.motor||MOTOR).gravity);
+      if(p.wall&&(!this.campaign||this.abilities.has('claw'))&&direction===p.wall&&p.vy>2)p.vy=2;
     }
-    p.x=clamp(p.x+p.vx,24,7960);p.wall=0;
-    for(const block of PLATFORMS.filter(b=>b.solid)){
+    p.x=clamp(p.x+p.vx,24,(this.worldWidth||8000)-40);p.wall=0;
+    for(const block of (this.platforms||PLATFORMS).filter(b=>b.solid)){
       if(p.y<=block.y+2||p.y-this.data.bodyHeight>=block.y+block.h-2)continue;
       if(oldX+15<=block.x&&p.x+15>block.x){p.x=block.x-15;p.wall=1;p.vx=0;}
       else if(oldX-15>=block.x+block.w&&p.x-15<block.x+block.w){p.x=block.x+block.w+15;p.wall=-1;p.vx=0;}
@@ -119,15 +119,15 @@ export class TrainingEngine extends AdventureSystems{
       else if(Math.abs(p.x-15-block.x-block.w)<2)p.wall=-1;
     }
     const gate=LESSONS[this.lesson];
-    if(!this.completed[this.lesson]&&p.x+15>gate.gate&&oldX<gate.gate){p.x=gate.gate-15;p.vx=0;}
+    if(!this.campaign&&!this.completed[this.lesson]&&p.x+15>gate.gate&&oldX<gate.gate){p.x=gate.gate-15;p.vx=0;}
     p.y+=p.vy;p.grounded=false;
-    for(const platform of PLATFORMS){
+    for(const platform of (this.platforms||PLATFORMS)){
       if(p.x+13<=platform.x||p.x-13>=platform.x+platform.w)continue;
       if(p.vy>=0&&oldY<=platform.y+1&&p.y>=platform.y){p.y=platform.y;p.vy=0;p.grounded=true;p.jumpCount=0;p.wall=0;p.dashUsed=false;p.airDashes=0;}
       else if(platform.solid&&p.vy<0&&oldY-this.data.bodyHeight>=platform.y+platform.h&&p.y-this.data.bodyHeight<=platform.y+platform.h){p.y=platform.y+platform.h+this.data.bodyHeight;p.vy=0;}
     }
     this.stats.distance+=Math.abs(p.x-oldX);if(Math.abs(p.vx)>.5)p.walkPhase+=Math.abs(p.vx)*.055;
-    if(p.y>720||THORNS.some(t=>p.x>t.x&&p.x<t.x+t.w&&p.y>t.y)){this.respawn();return;}
+    if(p.y>720||(this.thorns||THORNS).some(t=>p.x>t.x&&p.x<t.x+t.w&&p.y>t.y)){this.respawn();return;}
     this.updateAttack();this.updateEnemies();this.updateProjectiles();
     for(const wave of this.waves){wave.x+=wave.vx;wave.life--;if(Math.abs(p.x-wave.x)<28&&p.y>485)this.hurt(Math.sign(p.x-wave.x));}
     this.waves=this.waves.filter(w=>w.life>0);

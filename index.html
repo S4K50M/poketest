@@ -1,94 +1,44 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#10120e" />
-  <meta name="description" content="Eight original creatures. Frame-perfect combat. Enter the Iron Fist Arena in this playable 2.5D fighting game." />
-  <title>Kinetic Monsters — Iron Fist Arena</title>
-  <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="./src/style.css" />
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#0d1824"><meta name="description" content="An original creature action RPG. Three companions. Six forgotten biomes. One shattered Worldheart.">
+  <title>Kinetic Monsters — Echoes of the Rift</title>
+  <link rel="preload" href="./assets/fonts/barlow-condensed-latin-500-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="icon" href="./assets/favicon.svg"><link rel="stylesheet" href="./src/style.css">
+  <script defer src="./bundle/game.js"></script>
 </head>
 <body>
   <header class="topbar">
-    <a class="brand" href="./index.html" aria-label="Kinetic Monsters home"><span class="brand-mark">K<span>↗</span></span><span>KINETIC<br><b>MONSTERS</b></span></a>
-    <nav aria-label="Main"><button class="nav-item active" id="nav-arena">THE ARENA</button><button class="nav-item path-nav" id="nav-path">THE PATH <span>NEW</span></button><button class="nav-item" id="nav-roster">FIGHTERS <span>08</span></button><button class="nav-item" id="nav-guide">HOW TO PLAY <span>↗</span></button></nav>
-    <div class="header-meta"><i class="live-dot"></i> SYSTEM ONLINE <span class="version">PROTOTYPE / V.01</span></div>
-    <button class="sound-toggle" id="sound-toggle" aria-label="Enable sound" title="Toggle synthesized game audio">♪ <span>SOUND OFF</span></button>
+    <button class="brand" id="home-button" aria-label="Kinetic Monsters home"><span class="brand-sigil">✧</span><span>KINETIC<br><b>MONSTERS</b></span></button>
+    <nav aria-label="Main navigation"><button class="nav active" id="nav-campaign">THE EXPEDITION</button><button class="nav" id="nav-map">WORLD ATLAS</button><button class="nav" id="nav-codex">FIELD JOURNAL</button></nav>
+    <div class="header-end"><span class="edition"><i></i> A WORLD WAITING TO WAKE</span><button class="icon-button" id="sound-button" aria-label="Toggle sound" aria-pressed="false">♫</button><button class="icon-button" id="guide-button" aria-label="Controls and guide">?</button></div>
   </header>
-
-  <main id="selection-screen">
-    <div class="section-kicker"><span><i class="tiny-square"></i> IRON FIST ARENA</span><span>01 — SELECT YOUR FIGHTER</span><span class="session">LOCAL SESSION <i class="live-dot"></i></span></div>
-    <section class="selection-heading"><div><p class="eyebrow">INSTINCT MEETS IMPACT.</p><h1>BUILT TO <em>BRAWL.</em></h1></div><p class="intro">No turns. No mercy.<br>Just you, your monster, and the next hit.</p></section>
-    <section class="path-launch"><div class="path-emblem" aria-hidden="true">◇</div><div><span class="eyebrow">EXPEDITION · A PARTY OF THREE</span><h2>THE HOLLOW FOUNDRY</h2><p>Three creatures. Five wild species. One bond that carries you through.</p></div><span class="path-launch-meta">SWITCH. RECOVER.<br>GROW TOGETHER.</span><button id="start-training">BEGIN THE PATH <span>↗</span></button></section>
-    <section class="party-builder" aria-label="Choose your expedition party"><div class="party-builder-heading"><span class="eyebrow">YOUR ACTIVE PARTY <b>03 / 03</b></span><p>Choose three different creatures. Switch with <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> or <kbd>Q</kbd> during the level.</p></div><div id="party-loadout" class="party-loadout"></div></section>
-    <section class="select-layout" aria-label="Fighter selection">
-      <div class="roster-panel">
-        <div class="panel-label"><span><b class="lime">P1</b> CHOOSE YOUR FIGHTER</span><span>8 AVAILABLE</span></div>
-        <div class="roster-grid" id="roster-grid"></div>
-        <div class="roster-bottom"><span>↔ SELECT A FIGHTER</span><span>ALL INSTINCT. <b>ALL ORIGINAL.</b></span></div>
+  <main id="home-screen">
+    <section class="hero">
+      <canvas id="hero-scene" aria-label="Your three companions in the luminous Mourningwild forest"></canvas>
+      <div class="hero-shade"></div><div class="hero-grain"></div>
+      <div class="hero-copy"><p class="eyebrow"><span class="small-line"></span> AN ORIGINAL CREATURE ACTION RPG</p><h1>ECHOES<br>OF THE <em>RIFT.</em></h1><p class="hero-description">The world forgot its heartbeat.<br>Your companions remember.</p><p class="hero-story">Beyond the last lantern, six forgotten realms hold the pieces of a living heart. Gather your companions. Follow the pulse. Bring the world back to life.</p>
+        <div class="hero-actions"><button class="primary" id="start-button">BEGIN THE EXPEDITION <span>↗</span></button><button class="secondary" id="continue-button" hidden>CONTINUE JOURNEY <span>→</span></button></div><p class="save-caption" id="save-caption">A single-player adventure. Your journey saves as you explore.</p>
       </div>
-      <div class="fighter-preview" id="fighter-preview">
-        <div class="preview-grid"></div><div class="preview-orbit orbit-one"></div><div class="preview-orbit orbit-two"></div>
-        <span class="preview-watermark" id="preview-watermark">01</span>
-        <div class="preview-top"><span class="element-tag" id="preview-element">◈ FIRE / BRAWLER</span><span class="preview-number" id="preview-number">KM—001</span></div>
-        <canvas id="hero-canvas" aria-label="Illustration of selected fighter"></canvas>
-        <div class="hero-caption"><span>THE MAGMA MENACE</span><span>ORIGINAL SPECIMEN / 001</span></div>
-        <div class="preview-bottom"><div><p class="eyebrow" id="preview-archetype">RUSHDOWN / BRAWLER</p><h2 id="preview-name">PYROJAW<span>↗</span></h2></div><span class="class-badge" id="class-badge">FIRE<br>CLASS</span></div>
-      </div>
-      <aside class="fighter-detail">
-        <div class="detail-top"><span class="eyebrow">FIGHTER INTEL</span><span class="crosshair">⌖</span></div>
-        <h3 id="detail-title">Pressure.<br>Then eruption.</h3><p id="detail-desc" class="detail-description"></p>
-        <div class="stats" id="fighter-stats"></div>
-        <div class="signature"><span class="eyebrow">EXPEDITION SKILL</span><h4 id="signature-name"></h4><div id="signature-keys" class="key-sequence"></div><p id="signature-desc"></p></div>
-        <div class="difficulty"><span>TECHNICAL DIFFICULTY</span><div id="difficulty-pips"></div></div>
-      </aside>
+      <div class="scene-caption"><span class="scene-coordinates">01 / 06 &nbsp; · &nbsp; THE MOURNINGWILD</span><p>Some bonds outlast<br>the end of the world.</p><span class="caption-rule"></span></div>
+      <div class="hero-footer"><span><i class="pulse-dot"></i> WORLDHEART SIGNAL DETECTED</span><span>EXPLORE. EVOLVE. REMEMBER.</span></div>
     </section>
-    <section class="match-config">
-      <div class="opponent-config"><span class="config-icon">⌁</span><div><label for="opponent-select">YOUR OPPONENT <span>CPU</span></label><select id="opponent-select" aria-label="Choose AI opponent"></select></div><canvas id="opponent-avatar" width="100" height="90"></canvas></div>
-      <div class="arena-config"><span class="config-icon">⬡</span><div><label for="arena-select">BATTLEGROUND</label><select id="arena-select" aria-label="Choose arena"><option value="foundry">THE FOUNDRY</option><option value="glacier">GLACIER VAULT</option><option value="neon">NEON UNDERCITY</option></select><span class="config-sub">DESTRUCTIBLE OCTAGON / 2 TIERS</span></div></div>
-      <div class="rules-config"><span class="eyebrow">MATCH FORMAT</span><strong>BEST OF 3 <span>×</span> 60 SEC</strong><div class="difficulty-select"><label for="ai-level">CPU</label><select id="ai-level"><option value="normal">CONTENDER</option><option value="easy">ROOKIE</option><option value="hard">APEX</option></select></div></div>
-      <button class="fight-button" id="start-fight"><span>ENTER THE ARENA<small>MAKE YOUR FIRST HIT COUNT</small></span><span class="button-arrow">↗</span></button>
-    </section>
-    <section class="mechanic-strip"><div><span class="strip-icon">✳</span><span><b>REAL-TIME. REAL IMPACT.</b><small>Frame-driven combat. Every hit earned.</small></span></div><div><span class="strip-icon">◇</span><span><b>ELEMENTS CHANGE THE RULES.</b><small>Burn. Freeze. Stun. Break their rhythm.</small></span></div><button id="controls-button">LEARN THE CONTROLS <span>↗</span></button></section>
-    <footer><span>© 2026 KINETIC MONSTERS <b>·</b> AN ORIGINAL FIGHTING EXPERIENCE</span><span>8 FIGHTERS. ONE ARENA. <b>ZERO EXCUSES.</b></span></footer>
+    <section class="party-section"><div class="section-title"><div><p class="eyebrow">THREE HEARTBEATS. ONE JOURNEY.</p><h2>Find your <em>kindred.</em></h2></div><p>Switch companions mid-combat.<br>Every creature changes the way you fight.</p><button class="text-button" id="party-button">BUILD YOUR PARTY <span>↗</span></button></div><div class="party-cards" id="home-party"></div></section>
+    <section class="world-section"><div class="section-title"><div><p class="eyebrow">A WORLD IN SIX FRACTURES</p><h2>Follow the <em>unknown.</em></h2></div><p>Interconnected paths. Hidden sanctuaries.<br>Guardians with something left to protect.</p><button class="text-button" id="atlas-button">OPEN THE ATLAS <span>↗</span></button></div><div id="biome-cards" class="biome-cards"></div></section>
+    <footer class="site-footer"><span>✧ KINETIC MONSTERS</span><p>15 places to discover · 11 companions · 6 guardians · Your story to finish</p><button id="footer-guide">LEARN THE CONTROLS ↗</button></footer>
   </main>
-
-  <main id="game-screen" hidden>
-    <div class="game-toolbar"><button id="back-select">← FIGHTER SELECT</button><span id="arena-name">THE FOUNDRY <i> / </i> TIER 01</span><div><button id="hitbox-toggle" aria-pressed="false">HITBOXES OFF</button><button id="pause-button">PAUSE <kbd>ESC</kbd></button></div></div>
-    <section class="battle-shell">
-      <canvas id="arena-canvas" aria-label="Live arena combat. Use WASD to move and J K L U I to attack."></canvas>
-      <div class="battle-hud"><div class="fighter-hud player-hud"><div class="hud-name"><span><b>P1</b> <strong id="player-name"></strong></span><span id="player-hp-number"></span></div><div class="hp-track"><div class="hp-ghost" id="player-hp-ghost"></div><div class="hp-fill" id="player-hp"></div></div><div class="sub-gauges"><div class="guard-track"><i id="player-guard"></i></div><span>GUARD</span><div class="round-pips" id="player-rounds"></div></div><div class="burst-track"><i id="player-burst"></i></div><span class="burst-label" id="player-burst-label">KINETIC GAUGE</span></div><div class="timer-box"><span id="round-label">ROUND 01</span><strong id="round-timer">60</strong><small>BEST OF 3</small></div><div class="fighter-hud enemy-hud"><div class="hud-name"><span id="enemy-hp-number"></span><span><strong id="enemy-name"></strong> <b>CPU</b></span></div><div class="hp-track"><div class="hp-ghost" id="enemy-hp-ghost"></div><div class="hp-fill" id="enemy-hp"></div></div><div class="sub-gauges"><div class="round-pips" id="enemy-rounds"></div><span>GUARD</span><div class="guard-track"><i id="enemy-guard"></i></div></div><div class="burst-track"><i id="enemy-burst"></i></div><span class="burst-label" id="enemy-burst-label">KINETIC GAUGE</span></div></div>
-      <div id="combo-display" class="combo-display" hidden><strong>2</strong><span>HIT COMBO</span><small>24 DAMAGE</small></div>
-      <div id="combat-callout" class="combat-callout"></div><div id="status-display" class="status-display"></div>
-      <div class="stage-watermark">KINETIC <b>MONSTERS</b></div>
-      <div id="round-overlay" class="round-overlay" hidden><span id="overlay-kicker">IRON FIST ARENA</span><h2 id="overlay-title">ROUND 1</h2><p id="overlay-subtitle">FIGHT WITH INSTINCT.</p><div id="overlay-buttons" hidden><button id="resume-button">RESUME FIGHT ↗</button><button id="rematch-button">RUN IT BACK ↗</button><button id="select-button">FIGHTER SELECT</button></div></div>
-    </section>
-    <div class="game-bottom"><div><i class="live-dot"></i><span id="combat-state">60 HZ COMBAT ENGINE</span></div><span id="frame-readout">READY</span><span>WALL INTEGRITY <b id="wall-integrity">100%</b></span></div>
-    <div class="game-controls"><div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><span>MOVE / A GUARDS</span><kbd>SPACE</kbd><span>JUMP</span><kbd>SHIFT</kbd><span>DASH</span></div><div><kbd>J</kbd><span>LIGHT</span><kbd>K</kbd><span>HEAVY</span><kbd>L</kbd><span>ELEMENT</span><kbd>U</kbd><span>THROW / TECH</span><kbd>I</kbd><span>BURST</span></div><button id="battle-guide">MOVE LIST ↗</button></div>
-  </main>
-
-  <main id="training-screen" hidden>
-    <div class="game-toolbar"><button id="path-exit">← PARTY & ROSTER</button><span>THE HOLLOW FOUNDRY <i> / </i> EXPEDITION</span><div><button id="path-journal-button">JOURNAL <kbd>M</kbd></button><button id="path-retry">WAYLIGHT <kbd>R</kbd></button><button id="path-pause">PAUSE <kbd>ESC</kbd></button></div></div>
-    <section class="path-shell">
-      <canvas id="path-canvas" tabindex="0" aria-label="Side-view training level. A and D move, Space jumps, Shift dashes, J attacks. Follow the professor’s lessons."></canvas>
-      <div class="path-hud"><div><span id="path-fighter-name" class="eyebrow">PYROJAW / PILGRIM</span><div id="path-health" aria-label="Health"></div><div class="path-spirit"><i id="path-spirit-fill"></i></div><span class="path-spirit-label">FOCUS · L TO CHANNEL</span></div><div class="path-area"><span id="path-chapter">FIELD LESSON 01 / 06</span><strong id="path-zone">THE AWAKENING</strong><div id="path-progress"></div></div><div class="path-echoes"><span>◈</span> <strong id="path-shards">00</strong><small>/ 06 ECHO SHARDS</small></div></div>
-      <div class="path-party" id="path-party" aria-label="Switch active party member"></div>
-      <div class="path-rpg"><span id="path-bond-label">BOND LV. 1</span><strong id="path-lumens">0 LUMENS</strong><div class="path-xp"><i id="path-xp-fill"></i></div><small id="path-bond-xp">0 / 60 XP</small></div>
-      <div id="path-heal" class="path-heal" hidden><span id="path-heal-label">FOCUSING · HOLD F</span><div><i id="path-heal-fill"></i></div></div>
-      <div id="path-statuses" class="path-statuses"></div>
-      <div class="path-toast" id="path-toast" role="status" aria-live="polite"></div>
-      <aside id="path-coach" class="path-coach"><div class="coach-heading"><span class="coach-avatar" aria-hidden="true">V</span><div><span>PROF. VELL</span><small>YOUR FIELD INSTRUCTOR</small></div><button id="path-coach-toggle" aria-expanded="true">HIDE −</button></div><div class="coach-content"><h2 id="path-lesson">Find your feet.</h2><p id="path-hint"></p><div class="path-lesson-keys" id="path-keys"></div><div class="path-goal" id="path-goal"></div></div></aside>
-      <div class="path-waymark"><span>↗</span><strong id="path-next">FOLLOW THE WAYLIGHT</strong><small>A PATH IS LEARNED ONE STEP AT A TIME.</small></div>
-      <div class="path-overlay" id="path-overlay" hidden><p class="eyebrow" id="path-overlay-kicker">TAKE A BREATH</p><h2 id="path-overlay-title">PAUSED</h2><p id="path-overlay-description">YOUR NEXT STEP IS WAITING.</p><div class="path-results" id="path-results" hidden></div><div class="path-overlay-buttons"><button id="path-resume">CONTINUE THE PATH ↗</button><button id="path-again" hidden>WALK IT AGAIN ↗</button><button id="path-to-arena" hidden>ENTER THE ARENA ↗</button><button id="path-overlay-exit">FIGHTER SELECT</button></div></div>
-    </section>
-    <div class="path-control-strip"><span><kbd>A</kbd><kbd>D</kbd> MOVE</span><span><kbd>SPACE</kbd> JUMP</span><span><kbd>SHIFT</kbd> DASH</span><span><kbd>J</kbd> STRIKE / S+J BOUNCE</span><span><kbd>K</kbd> HEAVY</span><span><kbd>L</kbd> SKILL</span><span><kbd>1 / 2 / 3</kbd> SWITCH</span><span><kbd>F</kbd> HOLD TO HEAL</span><span><kbd>E</kbd> REST</span><span><kbd>B</kbd> FORGE</span></div>
-    <div class="path-footnote"><span><i class="live-dot"></i> RESPONSIVE MOVEMENT · FORGIVING LANDINGS</span><span>ORIGINAL CREATURES. A NEW WAY TO MOVE.</span></div>
-  </main>
-
-  <dialog id="field-journal"><button id="close-journal" class="close-dialog" aria-label="Close field journal">×</button><p class="eyebrow">PROF. VELL’S FIELD NOTES</p><h2>THE LIVING<br><em>FOUNDRY.</em></h2><div id="journal-progress"></div><h3 class="journal-section-title">YOUR COMPANIONS</h3><div id="journal-party"></div><h3 class="journal-section-title">WILD SPECIES <span id="journal-discovered"></span></h3><div id="journal-minions"></div><p class="guide-foot">Hold F to recover a heart for 33 Focus. E rests the whole party. B forges a Heartwood Charm at your waylight. Progress lasts for this expedition.</p></dialog>
-
-  <dialog id="guide-dialog"><button class="close-dialog" id="close-guide" aria-label="Close controls">×</button><p class="eyebrow">KNOW YOUR NEXT MOVE</p><h2>FIGHT WITH<br><em>INSTINCT.</em></h2><div class="guide-tabs"><button class="selected" data-tab="basics">THE BASICS</button><button data-tab="moves">FIGHTER MOVES</button></div><div id="guide-body"></div><p class="guide-foot">Keyboard required · Relative inputs follow your opponent · Escape to pause</p></dialog>
-  <script defer src="./bundle/game.js"></script>
-</body>
-</html>
+  <section id="game-screen" hidden aria-label="Worldheart campaign">
+    <canvas id="world-canvas" tabindex="0" aria-label="Campaign gameplay. A D move, Space jump, Shift dash, J strike, K heavy, L special, E interact."></canvas>
+    <div class="game-hud"><div class="party-hud" id="party-hud"></div><div class="location-hud"><span id="location-biome"></span><strong id="location-room"></strong><span class="room-divider">✧</span></div><div class="utility-hud"><span id="lumen-count">0 ◈</span><button data-overlay="map" title="Map (M)" aria-label="World map">M <small>MAP</small></button><button data-overlay="inventory" title="Inventory (I)" aria-label="Inventory">I <small>PACK</small></button><button data-overlay="pause" title="Pause (Escape)" aria-label="Pause game">II</button></div></div>
+    <div class="combo-hud" id="combo-hud" hidden><strong id="combo-number"></strong><span>CHAIN</span></div>
+    <div class="boss-hud" id="boss-hud" hidden><span id="boss-name"></span><div><i id="boss-fill"></i></div><small id="boss-phase"></small></div>
+    <div class="region-title" id="region-title" hidden><p id="region-kicker"></p><h2 id="region-name"></h2><span>— ✧ —</span></div>
+    <div class="toast" id="game-toast" role="status" aria-live="polite" hidden></div>
+    <div class="quest-hud"><span class="eyebrow" id="quest-chapter"></span><p id="quest-goal"></p><div><span id="bond-level"></span><span id="fragment-count"></span></div></div>
+    <div class="heal-indicator" id="heal-indicator" hidden><span>FOCUSING</span><div><i id="heal-progress"></i></div></div>
+    <div class="control-strip"><span><kbd>A</kbd><kbd>D</kbd> MOVE</span><span><kbd>SPACE</kbd> JUMP</span><span><kbd>SHIFT</kbd> DASH</span><span><kbd>J</kbd> STRIKE</span><span><kbd>K</kbd> HEAVY</span><span><kbd>L</kbd> SPECIAL</span><span><kbd>F</kbd> HEAL</span><span><kbd>E</kbd> INTERACT</span><span><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> SWITCH</span><span><kbd>U</kbd> GRAPPLE</span></div>
+    <div class="touch-controls" aria-label="Touch game controls"><div class="touch-tools"><button data-action="grapple" aria-label="Grapple">U</button><button data-action="potion" aria-label="Drink a flask">V</button><button data-action="tool" aria-label="Use exploration tool">T</button><button data-action="toolCycle" aria-label="Cycle exploration tools">C</button></div><div class="touch-move"><button data-hold="left" aria-label="Move left">←</button><button data-hold="right" aria-label="Move right">→</button><button data-hold="down" aria-label="Aim down">↓</button></div><div class="touch-actions"><button data-action="switch">Q</button><button data-action="interact">E</button><button data-hold="heal">F</button><button data-action="dash">»</button><button data-action="light">J</button><button data-action="heavy">K</button><button data-action="special">L</button><button data-action="jump">↑</button></div></div>
+  </section>
+  <dialog id="overlay" aria-labelledby="overlay-title"><div class="modal-header"><span class="eyebrow" id="overlay-kicker">KINETIC MONSTERS</span><button id="close-overlay" class="icon-button" aria-label="Close dialog">×</button></div><div id="overlay-content"></div></dialog>
+</body></html>
