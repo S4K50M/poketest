@@ -4,23 +4,28 @@ A playable, original 2.5D arena-fighting prototype. Eight illustrated creatures,
 
 ## Run
 
-Requires Node.js 20 or newer and a modern browser with a keyboard.
+Download or clone the **whole repository**, keep its folder structure, and open `index.html` in a modern browser with a keyboard. The committed `bundle/game.js` lets combat run without a server or installation. Downloading the HTML file alone does not include its CSS, fonts, or game script.
+
+For local HTTP hosting, use Node.js 20 or newer:
 
 ```sh
 cd /workspace/poketest
 npm start
 ```
 
-The server listens on port **3000**, configurable with `PORT`. Choose a fighter, any of the seven other CPU opponents, an arena, and a difficulty, then select **Enter the Arena**. The app can also be served by any static HTTP server from the repository root. ES modules require HTTP; opening `index.html` directly from disk is unsupported.
+The server listens on port **3000**, configurable with `PORT`. Choose a fighter, any of the seven other CPU opponents, an arena, and a difficulty, then select **Enter the Arena**. Relative asset paths also support static hosting below a repository subpath, such as GitHub Pages.
 
-There is no build step. Installation is only necessary for browser test tooling:
+The browser bundle is already included. To edit the source or run browser tests, install development tooling:
 
 ```sh
 npm ci
+npm run build
 npm run check
 npm test
 npm run test:browser
 ```
+
+Use `npm run dev` for an HTTP development server that rebuilds the bundle when source files change. After editing `src/`, run `npm run build` before committing; `npm run check` detects stale bundles. The source modules remain separate for engine tests and architecture, while the entry page uses a classic bundled script to avoid file-origin module restrictions.
 
 Browser tests use `/usr/bin/chromium` when available. Otherwise set `CHROMIUM_PATH`, or install Playwright's Chromium with `npx playwright install chromium`. Browser tests start and stop their own server on port 3100 (`TEST_PORT` overrides this) and save screenshots to ignored `test-results/`.
 
@@ -81,7 +86,10 @@ Movement units are world units per frame. Damage is multiplied by power, with ad
 | `src/main.js` | Selection, keyboard sampling, HUD, fixed-step accumulator, pause/focus handling, move manual and optional Web Audio |
 | `src/style.css` | Responsive tournament UI and locally bundled typography |
 | `server.mjs` | Dependency-free static development server |
+| `scripts/build.mjs` | esbuild packaging, watch mode, and committed-bundle freshness check |
+| `bundle/game.js` | Generated, committed browser entry that works without ES module fetches |
 | `tests/engine.test.js` | Deterministic gameplay regression tests using Node's built-in runner |
+| `tests/assets.test.js` | Relative file URL resolution and existence checks for HTML assets and fonts |
 | `tests/browser.mjs` | Chromium integration: eight selections, real keyboard combat, full match, pause, guide, rematch, responsive layout |
 
 The engine takes an optional seeded `random`, an `onEvent` callback, and an `ai: false` option for deterministic training or tests. `window.kinetic.snapshot()` exposes a read-only browser QA snapshot. No mutable game object is exposed. Effects and sound subscribe to events; they cannot affect combat outcomes.

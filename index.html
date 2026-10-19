@@ -6,12 +6,12 @@
   <meta name="theme-color" content="#10120e" />
   <meta name="description" content="Eight original creatures. Frame-perfect combat. Enter the Iron Fist Arena in this playable 2.5D fighting game." />
   <title>Kinetic Monsters — Iron Fist Arena</title>
-  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="/src/style.css" />
+  <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="./src/style.css" />
 </head>
 <body>
   <header class="topbar">
-    <a class="brand" href="/" aria-label="Kinetic Monsters home"><span class="brand-mark">K<span>↗</span></span><span>KINETIC<br><b>MONSTERS</b></span></a>
+    <a class="brand" href="./index.html" aria-label="Kinetic Monsters home"><span class="brand-mark">K<span>↗</span></span><span>KINETIC<br><b>MONSTERS</b></span></a>
     <nav aria-label="Main"><button class="nav-item active" id="nav-arena">THE ARENA</button><button class="nav-item" id="nav-roster">FIGHTERS <span>08</span></button><button class="nav-item" id="nav-guide">HOW TO PLAY <span>↗</span></button></nav>
     <div class="header-meta"><i class="live-dot"></i> SYSTEM ONLINE <span class="version">PROTOTYPE / V.01</span></div>
     <button class="sound-toggle" id="sound-toggle" aria-label="Enable sound" title="Toggle synthesized game audio">♪ <span>SOUND OFF</span></button>
@@ -67,6 +67,6 @@
   </main>
 
   <dialog id="guide-dialog"><button class="close-dialog" id="close-guide" aria-label="Close controls">×</button><p class="eyebrow">KNOW YOUR NEXT MOVE</p><h2>FIGHT WITH<br><em>INSTINCT.</em></h2><div class="guide-tabs"><button class="selected" data-tab="basics">THE BASICS</button><button data-tab="moves">FIGHTER MOVES</button></div><div id="guide-body"></div><p class="guide-foot">Keyboard required · Relative inputs follow your opponent · Escape to pause</p></dialog>
-  <script type="module" src="/src/main.js"></script>
+  <script defer src="./bundle/game.js"></script>
 </body>
 </html>

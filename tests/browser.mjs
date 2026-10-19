@@ -2,12 +2,13 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync } from 'node:fs';
 import { chromium } from 'playwright';
+import http from 'node:http';
 
 // Real browser integration: local assets, every rig, keyboard inputs, a complete
 // best-of-three, pause, rematch, move manual, and a narrow viewport.
 const port=Number(process.env.TEST_PORT||3100),base=`http://127.0.0.1:${port}`;
 const server=spawn(process.execPath,['server.mjs'],{cwd:new URL('..',import.meta.url),env:{...process.env,PORT:String(port)},stdio:'pipe'});
-let browser;const errors=[];
+let browser,nestedServer;const errors=[];
 try{
   let ready=false;
   for(let i=0;i<50;i++){try{if((await fetch(base)).ok){ready=true;break}}catch{}await new Promise(r=>setTimeout(r,100))}
@@ -53,5 +54,19 @@ try{
   await page.locator('#back-select').click();await page.setViewportSize({width:390,height:844});await page.clock.runFor(200);
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth),390,'mobile layout overflows');await page.screenshot({path:'test-results/mobile.png',fullPage:true});
   await page.locator('#controls-button').click();assert(await page.locator('#guide-dialog').isVisible());await page.locator('#close-guide').click();
-  assert.deepEqual(errors,[]);console.log('PASS: complete best-of-three, rematch, responsive selection, local assets, and zero browser errors.');
-}finally{await browser?.close();server.kill('SIGTERM')}
+  console.log('PASS: complete best-of-three, rematch, responsive selection, and local assets.');
+  // A repository subpath catches leading-slash asset URLs that pass root-hosted QA.
+  nestedServer=http.createServer(async(req,res)=>{
+    if(!req.url.startsWith('/poketest/')){res.writeHead(404).end('Outside repository path');return;}
+    try{const upstream=await fetch(base+req.url.slice('/poketest'.length));res.writeHead(upstream.status,{'Content-Type':upstream.headers.get('content-type')||'application/octet-stream'});res.end(Buffer.from(await upstream.arrayBuffer()));}
+    catch{res.writeHead(502).end('Upstream unavailable');}
+  });
+  await new Promise(resolve=>nestedServer.listen(0,'127.0.0.1',resolve));
+  await page.goto(`http://127.0.0.1:${nestedServer.address().port}/poketest/`);
+  await page.evaluate(()=>document.fonts.ready);await page.clock.runFor(250);
+  assert.equal(await page.evaluate(()=>getComputedStyle(document.body).backgroundColor),'rgb(17, 19, 15)');
+  assert.equal(await page.locator('.fighter-card').count(),8);
+  assert(await page.evaluate(()=>document.fonts.check('700 16px Barlow')),'bundled font failed to load');
+  await page.locator('#start-fight').click();await page.clock.runFor(2300);assert.equal((await page.evaluate(()=>window.kinetic.snapshot())).phase,'fighting');
+  assert.deepEqual(errors,[]);console.log('PASS: stylesheet, fonts, creature selection, and combat load below /poketest/ with zero browser errors.');
+}finally{await browser?.close();nestedServer?.close();server.kill('SIGTERM')}
