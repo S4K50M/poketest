@@ -15,7 +15,8 @@
     "test:mobile": "node tests/mobile-browser.mjs",
     "test:echo": "node tests/echo-browser.mjs",
     "test:recovery": "node tests/recovery-browser.mjs",
-    "test:firstgate": "node tests/firstgate-browser.mjs"
+    "test:firstgate": "node tests/firstgate-browser.mjs",
+    "test:art": "node tests/art-browser.mjs"
   },
   "engines": {
     "node": ">=20"

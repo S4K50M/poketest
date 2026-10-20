@@ -44,17 +44,17 @@ Door gates can reference fragment counts, abilities, or bosses. Main fragment ga
 
 ## Add a creature or enemy
 
-Playable identity and anatomy live in designs.js and roster.js. Supply stats, body height, colors, rig selection, and signature metadata. Implement a distinct rig or an intentional compatible rig in creatures.js. Implement actual neutral/directional signature behavior in AdventureSystems or CampaignEngine; a skill name alone does not add behavior.
+Playable identity and anatomy live in designs.js and roster.js. Supply stats, body height, colors, rig selection, and signature metadata. Implement a distinct companion rig in [creature-art.js](../src/creature-art.js), reached through the compatible drawCreature entry point in creatures.js. Preserve the anatomy and identity in [creature designs](creature-designs.md) when refining existing characters. Implement actual neutral/directional signature behavior in AdventureSystems or CampaignEngine; a skill name alone does not add behavior.
 
 Add rescue/unlock rewards, party-selection handling, and any required save validation. The starter selection currently uses the original eight, with three rescues unlocked by guardians. Do not accidentally make every added creature a starter or accept an unearned rescued party from a save.
 
-Minions need a MINIONS record, encounter spawns, AI in the appropriate update method, and art in creatures.js, world-render.js, or chronicle-art.js. Check contact radius/body height, projectile/status behavior, stun and knockback, and once-only rewards. The creature design reference preserves supplied concepts; [gameplay](gameplay.md) describes their implemented context.
+Minions need a MINIONS record, encounter spawns, AI in the appropriate update method, and a species renderer in [enemy-art.js](../src/enemy-art.js). All nineteen current wild species use this route; older art modules remain fallback paths for unhandled content. Check contact radius/body height, projectile/status behavior, stun and knockback, and once-only rewards. [Gameplay](gameplay.md) describes their implemented context.
 
 ## Add a boss
 
 Supply identity, health, biome/color, lore, and rewards. Add an encounter spec with a boss ID, then implement AI in CampaignEngine.updateBoss or RPGCampaign.updateBoss. Existing AI exposes patrol, windup, charge/cast, recovery, enrage, and optional sealed states. Telegraph the attack, provide an avoidance route, and leave a punish opening.
 
-Implement matching art and confirm entity-animation wrappers remain balanced with Canvas save/restore. If the boss is optional, use the optional registry/reward path and defeatedBosses; do not insert it into the main six-fragment progression. Set sensible arena bounds and introduction distance for rooms wider than the original guardian chambers. Connect victory to its art/ability/equipment/quest rewards and return door.
+Implement matching art in [boss-art.js](../src/boss-art.js) and confirm entity-animation wrappers remain balanced with Canvas save/restore. Give the boss a distinct silhouette and meaningful windup, attack, recovery, stagger, and phase details; a palette change alone does not create a new boss identity. Resolve its complete definition, including any faction variant, before drawing. If the boss is optional, use the optional registry/reward path and defeatedBosses; do not insert it into the main six-fragment progression. Set sensible arena bounds and introduction distance for rooms wider than the original guardian chambers. Connect victory to its art/ability/equipment/quest rewards and return door.
 
 ## Add a quest or history record
 
@@ -74,9 +74,22 @@ Move frames and contact data live in MOVES, with selection/contact logic in Comb
 
 ## Animation and accessibility
 
-The creature renderer accepts legacy pose flags and pose.state; options include attackProgress, combo, speed, shieldRatio, charged, and elementColor. Pass simulation attack progress for readable contact timing. Shared entity wrappers handle action/recoil/death, boss cues, and NPC response; preserve their absolute-world-coordinate callback contract.
+The public drawing contracts are:
 
-CombatFX events are presentation-only. Respect bounded particle pools, avoid obscuring projectiles/platforms, and honor reduced motion. Camera zoom is an absolute multiplier of 1 at rest. Check mobile controls against both HUD placement and the standing actor silhouette.
+```js
+drawCreature(context, creature, x, y, scale, facing, pose, timeSeconds, options);
+creatureBounds(creature); // {left, top, right, bottom, width, height}
+drawEnemyMinion(context, enemy, timeSeconds, minionDefinition);
+drawArenaBoss(context, enemy, resolvedBossDefinition, timeSeconds);
+```
+
+Companion `x, y` and enemy `x, y` are world-space feet anchors, with positive Y downward. Author local rig geometry with feet at Y = 0. `drawCreature` owns its scale and facing transform; `facing = -1` mirrors local X. Minion and boss entry points own their transforms too. Do not pre-mirror a renderer twice. `creatureBounds`, re-exported alongside `drawCreature` from creatures.js, returns conservative local art bounds. Include horns, tails, wings, weapons, and attack extensions so portraits stay complete. These are presentation measurements and must not change body height, collision radius, hitboxes, or attack reach.
+
+The creature renderer accepts legacy pose flags and `pose.state`, including `idle`, `walk`, `air`, `launch`, `dash`, `land`, `shield`, `parry`, `attack`, `heavy`, `cast`, `hit`, and `death`. `pose.walk` supplies gait phase; `pose.land` is a 0–1 landing amount. Options include `attackProgress`, `deathProgress`, `combo`, `speed`, `shieldRatio`, `charged`, `elementColor`, `shadow`, `aura`, and `reducedMotion`. Progress values and speed use 0–1 ranges. Pass simulation attack progress for readable anticipation, contact, and recovery. Use the actor presentation clock in seconds for breathing, joint motion, and follow-through; do not advance an attack using wall-clock time. Keep feet planted during grounded poses while articulated limbs, tails, feathers, vents, and material details supply secondary motion.
+
+Enemy renderers return `true` for a handled identity and `false` for an unknown one so fallback paths remain available. Read enemy state, phase, timers, recoil, and reduced-motion flags from the supplied presentation copy. Do not mutate it or its definition. Shared entity wrappers handle action/recoil/death, boss cues, and NPC response; their callback draws using absolute world coordinates. Use balanced Canvas `save()`/`restore()` calls, restore alpha/compositing/transforms, and keep every coordinate finite. Death visuals are renderer-local and must never retain a live simulation enemy or delay a reward.
+
+NPC wrappers use the ambient clock for breathing, player-facing attention, book/page details, and conversation gestures. They also honor reduced motion. CombatFX events are presentation-only. Respect bounded particle pools, avoid obscuring projectiles/platforms, and honor reduced motion in every rig as well as the shared wrappers. Keep the complete idle silhouette and useful attack tells when decorative oscillation, flashes, and afterimages are reduced. Camera zoom is an absolute multiplier of 1 at rest. Check mobile controls against both HUD placement and the standing actor silhouette. Run the [art checks](testing.md#art-and-animation-regressions) and inspect actual gameplay, not only isolated contact sheets.
 
 ## Acceptance checklist
 

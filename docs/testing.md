@@ -17,6 +17,7 @@ npm run test:mobile
 npm run test:echo
 npm run test:recovery
 npm run test:firstgate
+npm run test:art
 ```
 
 | Command | What it verifies |
@@ -31,8 +32,9 @@ npm run test:firstgate
 | `npm run test:echo` | Nonblocking echo pickup, journal records, repeated interaction and reload safety, elevated shrine collection |
 | `npm run test:recovery` | Automatic full-party recovery, one-use springs, persistent Game Over, Retry and mobile death-screen rotation |
 | `npm run test:firstgate` | First-gate branch traversal, missed-jump landings, reclimbing, and desktop/mobile presentation |
+| `npm run test:art` | Canvas contact sheets for companions, wild enemies and bosses, plus desktop/mobile world rendering |
 
-The Momentum release passed 145 Node tests and all three browser suites. This is a release baseline, not a permanently fixed test-count requirement. Documentation-only edits need link/path checks and command review; they do not require rebuilding or rerunning combat routes.
+Test totals grow with concrete regressions; use the current command output as the result for a change. Documentation-only edits need link/path checks and command review; they do not require rebuilding or rerunning combat routes.
 
 ## Chromium and test servers
 
@@ -51,6 +53,7 @@ npx playwright install chromium
 | Echo pickups | 3160 | `ECHO_TEST_PORT` |
 | Recovery / Game Over | 3170 | `RECOVERY_TEST_PORT` |
 | First-gate landings | 3180 | `FIRSTGATE_TEST_PORT` |
+| Art and animation | 3190 | `ART_TEST_PORT` |
 
 Each suite starts and stops its own server. Choose a free override port if another task uses the default. Screenshots are written to ignored test-results/. Inspect screenshots after rendering or layout changes; a passing input test cannot prove visual quality by itself.
 
@@ -77,7 +80,7 @@ Also inspect readable attack telegraphs, foreground occlusion, particle density,
 | Markdown only | Local links/anchors, referenced commands/files, git diff --check |
 | Move data / defense / party | Build/check, Node combat/party tests, live combat suite |
 | Rooms / gates / quests / saves | Build/check, Node routes/migrations, campaign or RPG browser suite |
-| Rigs / effects / HUD / CSS | Build/check, relevant browser suites, desktop/mobile screenshot review |
+| Rigs / effects / HUD / CSS | Build/check, Node art checks, test:art, relevant browser suites, desktop/mobile screenshot review |
 | Asset paths / bundle / hosting | Asset tests, check, campaign nested-hosting suite |
 
 Add tests for meaningful behavior or a concrete regression. Keep generated screenshots and temporary verification scripts out of the commit. See [contributing](contributing.md) for the change workflow.
@@ -93,3 +96,9 @@ Recovery tests cover two or three interior springs per gate, different new-journ
 Review real gameplay screenshots of tunnel ceilings, backwalls, attached rock shelves, local light, recovery basins, and boss telegraphs on desktop and mobile. Check that the grounded passage reads as a tunnel, with visible floor and headroom. Art must match the revised continuous floors and catch shelves; it must not conceal safe landings or imply a collision surface the engine does not have.
 
 The first-gate network tests deliberately walk off ledges at several heights, require landing on another elevated platform, and climb back into the route with the abilities available on first arrival. Distinct route fixtures verify parallel paths rather than treating all platforms as a single ascending staircase.
+
+## Art and animation regressions
+
+The Node art checks draw all eleven companions, nineteen wild species, and twenty-one boss identities through their public entry points. They exercise both facings, playable action poses, enemy action states, boss phases, final-guardian faction variants, and reduced motion. Canvas recorders reject non-finite coordinates and unbalanced context state; frozen inputs check that art does not change entity state or definitions. These checks establish rendering safety, not visual quality.
+
+The art browser suite uses the real Canvas renderer to produce `art-companions.png`, `art-minions.png`, `art-bosses.png`, and `art-action-poses.png` contact sheets. It also captures actual gameplay in `art-battle-desktop.png` and `art-battle-mobile.png` so composition, floor anchoring, HUD clearance, tunnel lighting, and attack readability can be reviewed together. Inspect these screenshots under ignored `test-results/` after any rig or effects change. Confirm that grounded poses touch their landing surface, different body types fit portraits, and boss phase effects leave avoidance routes visible. Check that pause/hitstop hold player and enemy rig animation and reduced motion retains complete characters without camera shake or dense afterimages.

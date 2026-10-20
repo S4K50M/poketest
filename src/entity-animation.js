@@ -4,7 +4,10 @@ const TAU=Math.PI*2;
 const clamp=(n,a=0,b=1)=>Math.max(a,Math.min(b,n));
 const finite=(n,fallback=0)=>Number.isFinite(n)?n:fallback;
 const seed=value=>String(value??0).split('').reduce((n,s)=>(n*31+s.charCodeAt(0))%997,7);
-const ownRig=e=>['palimpsest','belltwin','nullheart'].includes(e.boss)||['candlewraith','clockscarab','oathbound','hushling'].includes(e.kind);
+// Fresh anatomical rigs already articulate their joints. This layer supplies
+// only the small weight transfer shared by every creature.
+const ownRig=e=>!!(e.boss||e.kind);
+const smooth=n=>{n=clamp(n);return n*n*(3-2*n);};
 function alpha(color,opacity){
   const hex=typeof color==='string'?color.replace('#',''):'';
   const full=hex.length===3?hex.split('').map(n=>n+n).join(''):hex.slice(0,6);
@@ -20,22 +23,26 @@ export function drawEntityAnimated(c,e,time,draw){
   if(typeof draw!=='function')return;
   if(!e){draw();return;}
   const t=finite(time),x=finite(e.x),y=finite(e.y),face=e.face===-1?-1:1;
-  const existing=ownRig(e),strength=existing?.42:1,boss=!!e.boss;
+  const existing=ownRig(e),strength=existing?(e.boss?.52:.64):1,boss=!!e.boss;
   const moving=['patrol','chase','charge','attack'].includes(e.state),wind=e.state==='windup';
   const hurt=clamp(finite(e.recoil)/12),recoilDir=Math.sign(e.recoilDir)||-face;
   const stunned=e.stun>0||e.state==='stagger',dead=e.hp<=0&&e.deathTimer>0;
   const death=dead?clamp(1-finite(e.deathTimer,32)/32):0;
-  const anticipation=wind?clamp(1-finite(e.timer,32)/(boss?(e.phase>=2?26:38):32)):0;
-  const motion=e.reducedMotion?0:1,phase=seed(e.id||e.kind||e.boss);
+  const windFrames=finite(e.windupFrames,boss?46-5*(e.phase||1):e.kind==='graveburrower'?40:32);
+  const anticipation=wind?smooth(1-finite(e.timer,windFrames)/windFrames):0;
+  const motion=e.reducedMotion||e.frozen>0?0:1,phase=seed(e.id||e.kind||e.boss);
   c.save();
   try{
     c.translate(x,y);
-    const stride=moving?Math.sin(t*(boss?8:12)+phase):0;
+    const stride=moving?Math.sin(t*(boss?7:12)+phase):0;
+    // A double-frequency footfall makes a planted gait feel heavier than a
+    // continuous bob. Secondary motion is frozen by the reduced-motion option.
+    const planted=Math.max(0,Math.sin(t*(boss?14:24)+phase));
     c.translate(recoilDir*hurt*(boss?8:6)*strength,
-      (Math.sin(t*2.9+phase)*.65-Math.abs(stride)*(boss?1.2:1.8))*strength*motion);
+      (Math.sin(t*2.9+phase)*.5-Math.abs(stride)*(boss?1.3:1.6)+planted*(boss?.6:.25))*strength*motion);
     if(wind){c.translate(-face*anticipation*(boss?7:4)*strength,anticipation*3*strength);c.rotate(-face*anticipation*.025*strength);}
-    if(e.state==='charge'){c.rotate(face*.045*strength);c.scale(1+.065*strength,1-.035*strength);}
-    if(e.state==='recover'){const squash=clamp(finite(e.timer)/55)*.025*strength;c.scale(1+squash,1-squash);}
+    if(e.state==='charge'){c.translate(face*2*strength,0);c.rotate(face*.035*strength);c.scale(1+.045*strength,1-.025*strength);}
+    if(e.state==='recover'){const recovery=clamp(finite(e.timer)/55),squash=recovery*.035*strength;c.translate(-face*recovery*2,recovery*1.8);c.scale(1+squash,1-squash);}
     if(hurt){c.rotate(recoilDir*hurt*.055*strength);c.scale(1+hurt*.045*strength,1-hurt*.025*strength);}
     if(stunned&&!hurt&&!e.frozen)c.rotate(Math.sin(t*13+phase)*.012*strength*motion);
     if(e.juggle>0){const stretch=clamp(Math.abs(finite(e.launchVy))/14)*.09;c.scale(1-stretch*.5,1+stretch);c.rotate(face*Math.sin(t*8)*.035*motion);}
@@ -46,6 +53,18 @@ export function drawEntityAnimated(c,e,time,draw){
       c.rotate(recoilDir*death*.12*strength);
     }
     c.translate(-x,-y);draw();
+    if(hurt>.3&&!dead){
+      // Directional grit appears at the contact side and settles with the
+      // existing recoil clock; drawing cannot create or extend hit-stun.
+      c.save();c.globalAlpha*=hurt*.3;
+      for(let i=0;i<3;i++){const offset=(1-hurt)*(13+i*7);line(c,[[x+recoilDir*(18+offset),y-(boss?90:28)+i*4],[x+recoilDir*(25+offset),y-(boss?90:28)+i*4-3]],'#e9dfc2',.8);}
+      c.restore();
+    }
+    if(dead&&death>.08){
+      c.save();c.globalAlpha*=(1-death)*.55;
+      for(let i=0;i<(boss?9:5);i++){const a=i*2.399+phase*.01,r=death*(boss?70:33),xx=x+Math.cos(a)*r,yy=y-(boss?85:25)-death*(20+i*5)+Math.sin(a)*r*.4;diamond(c,xx,yy,1.3+(1-death)*1.8,i%2?'#d4c59f':'#9dafad');}
+      c.restore();
+    }
     if(e.frozen>0){
       const radius=boss?66:26,cy=y-(boss?95:28);
       c.globalAlpha*=.65;const points=[];
@@ -63,7 +82,7 @@ export function drawBossAura(c,e,time,color='#e9c7ab'){
   const t=finite(time),x=finite(e.x),y=finite(e.baseY,finite(e.y));
   const wind=e.state==='windup',rage=e.phase>=2,enrage=e.state==='enrage';
   const active=e.introduced!==false&&e.state!=='sealed';
-  const anticipation=wind?clamp(1-finite(e.timer,32)/(rage?26:38)):0;
+  const anticipation=wind?smooth(1-finite(e.timer,41)/(46-5*(e.phase||1))):0;
   const pulse=(Math.sin(t*3)+1)/2,staggered=e.stun>20&&e.state==='recover';
   c.save();
   try{
@@ -132,7 +151,13 @@ export function drawNPCAnimation(c,o,g,time,draw){
     draw();
     if(original){
       // Eye placement follows the player without mirroring a name or a book.
-      oval(c,x+facing*5,y-79,1.6,2.2,'#314446');
+      const blink=((t*.17+s*.013)%1)>.965;
+      if(blink)line(c,[[x+facing*5-2,y-79],[x+facing*5+2,y-79]],'#314446',1);else oval(c,x+facing*5,y-79,1.6,2.2,'#314446');
+      // The supporting hand shifts beneath the book while the free wrist
+      // gestures gently during speech; both remain anchored to the drawing.
+      const gesture=talking?Math.sin(t*2.2+s)*3*motion:0;
+      line(c,[[x-facing*10,y-49],[x-facing*19,y-39+gesture],[x-facing*24,y-46+gesture]],'#b9b59b',3);
+      oval(c,x-facing*24,y-46+gesture,2.5,2.8,'#d8bda0');
       const bookX=x+facing*17,bookY=y-42+Math.sin(t*2.5+s)*1.5*motion;
       const openness=near?1:.72,flip=(Math.sin(t*(talking?6:1.4)+s)+1)/2;
       glow(c,bookX,bookY,28,'#ffe6b3',talking?.18:.07);

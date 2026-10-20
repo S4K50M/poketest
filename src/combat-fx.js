@@ -11,6 +11,8 @@ const ELEMENTS = {
   Earth: ['#bad997', '#f7e6ae'], Shadow: ['#bb8fe9', '#f5c5ff'],
   Water: ['#80d9ed', '#e0fcff'], Steel: ['#c4d9ed', '#fff0dc'],
 };
+const ELEMENT_ALIASES={Rock:'Earth',Ground:'Earth',Grass:'Earth',Dark:'Shadow',Ghost:'Shadow',Void:'Shadow',Flying:'Wind',Fairy:'Wind',Dragon:'Steel',Light:'Electric',Psychic:'Shadow',Bug:'Earth'};
+const materialFor=element=>ELEMENT_ALIASES[element]||element;
 const BIOME_PALETTES = {
   sanctuary: ['#f7dda0', '#acdfbc'], moss: ['#a9ebad', '#efedb2'],
   forge: ['#ff9a60', '#ffd8a2'], reef: ['#8de1ed', '#c9f9f6'],
@@ -75,6 +77,32 @@ export class CombatFX {
     }
   }
 
+  materialImpact(x, y, element, face, strength = 1) {
+    // Each material has a different weight, trajectory and fragment shape.
+    // All pieces still use the shared bounded pool and event-driven lifetimes.
+    const colors = ELEMENTS[element] || ELEMENTS.Steel;
+    const forward = face > 0 ? 0 : Math.PI;
+    const kinds = {Fire:'ember', Electric:'filament', Ice:'crystal', Wind:'wisp', Earth:'chip', Shadow:'cinder', Water:'droplet', Steel:'metal'};
+    const count = this.reducedMotion ? 4 : 7 + Math.round(strength * 2);
+    for(let i=0;i<count;i++) {
+      const a=forward+(this.random()-.5)*2.8,speed=(65+this.random()*145)*strength;
+      const airy=['Fire','Shadow','Wind','Electric'].includes(element),life=(airy?.34:.48)+this.random()*.2;
+      this.addParticle({x:x+(this.random()-.5)*9,y:y+(this.random()-.5)*8,
+        vx:Math.cos(a)*speed,vy:Math.sin(a)*speed-(element==='Water'?60:airy?30:0),
+        gravity:airy?-45:element==='Earth'?490:element==='Steel'?380:290,
+        drag:airy?2.7:1.8,color:colors[i%2],size:1.2+this.random()*(element==='Earth'?3.3:2.2),
+        rotation:a,spin:(this.random()-.5)*(element==='Steel'?18:7),kind:kinds[element]||'metal',life,maxLife:life});
+    }
+    if(element==='Water') {
+      this.ring(x,y,colors[0],42+strength*9,.32,{squash:.36,width:1.3});
+      this.ring(x,y+5,colors[1],28+strength*7,.25,{squash:.24,width:.8});
+    } else if(element==='Wind'||element==='Shadow') {
+      this.slashes.push({x,y,face,color:colors[0],life:.28,maxLife:.28,kind:'ribbon',angle:(this.random()-.5)*.7});
+    } else if(element==='Electric') {
+      this.slashes.push({x,y,face,color:colors[0],life:.14,maxLife:.14,kind:'bolt',angle:this.random()*TAU});
+    }
+  }
+
   ring(x, y, color, radius = 70, duration = .35, options = {}) {
     if (this.rings.length >= 32) this.rings.shift();
     this.rings.push({x, y, color, radius, life: duration, maxLife: duration,
@@ -98,7 +126,7 @@ export class CombatFX {
     const p = game?.player || {};
     const target = payload.target || payload.enemy || payload.e;
     const data = game?.data || {};
-    const element = payload.element || target?.element || data.element || 'Steel';
+    const element = materialFor(payload.element || target?.element || data.element || 'Steel');
     const colors = payload.color ? [payload.color, '#fff6dc'] : ELEMENTS[element] || [data.color || '#b4e7cf', data.accent || '#fff3c7'];
     const face = payload.face || p.face || 1;
     const x = payload.x ?? target?.x ?? ((p.x || 0) + (type === 'hit' ? face * 48 : 0));
@@ -108,12 +136,13 @@ export class CombatFX {
 
     switch (type) {
       case 'hit': case 'impact': case 'critical': case 'counterhit': {
-        this.burst(x, y, 13 * strength, colors, {angle: face > 0 ? 0 : Math.PI, spread: 2.7, speed: 320 * strength, gravity: 260, life: .3});
+        this.burst(x, y, 7 * strength, colors, {angle: face > 0 ? 0 : Math.PI, spread: 2.7, speed: 320 * strength, gravity: 260, life: .24});
+        this.materialImpact(x,y,element,face,strength);
         this.burst(x, y, 5, ['#fffce1'], {speed: 150, gravity: 80, life: .14});
         this.ring(x, y, colors[1], 26 + strength * 18, .2, {width: heavy ? 4 : 2, squash: .8});
         this.impact = Math.max(this.impact, heavy ? .7 : .32); this.impactAngle = this.random() * TAU;
         this.impulse(heavy ? 4.8 : 2.4, face);
-        if (element === 'Electric') this.slashes.push({x, y, face, color: colors[0], life: .15, maxLife: .15, kind: 'bolt', angle: this.random() * TAU});
+        // Material ribbons and shards provide the element cue, not extra flash.
         break;
       }
       case 'launch': case 'launcher': case 'wallslam': {
@@ -139,11 +168,13 @@ export class CombatFX {
         const sx = payload.x ?? (p.x || 0) + face * 34;
         this.burst(sx, y, 12, ['#a9f3ed', '#e3fff5'], {angle: face > 0 ? 0 : Math.PI, spread: Math.PI, speed: 200, gravity: 60, life: .28});
         this.ring(sx, y, '#aff9ee', 42, .24, {squash: .4, width: 3});
+        this.slashes.push({x:sx,y,face,color:'#d8fff1',life:.18,maxLife:.18,kind:'guardwave',angle:0});
         this.impulse(1.8, face); break;
       }
       case 'guardbreak': case 'shieldbreak': case 'break': case 'bossbreak': {
         this.burst(x, y, 46, ['#8ee5ef', '#f9dab8', '#f2ffff'], {speed: 340, gravity: 430, kind: 'shard', life: .65});
         this.ring(x, y, '#ffb995', 115, .4, {width: 5});
+        this.slashes.push({x,y,face,color:type==='bossbreak'?'#ffe7b1':'#bdf5fa',life:.36,maxLife:.36,kind:'fracture',angle:this.random()*.5});
         if (type !== 'bossbreak') this.hurtVignette = .35;
         else { this.flash = Math.max(this.flash, .12); this.flashColor = '#fff1b0'; }
         this.impulse(10, face); break;
@@ -206,7 +237,8 @@ export class CombatFX {
         this.impulse(defeated ? 13 : 8, face); break;
       }
       case 'kill': case 'shatter': {
-        this.burst(x, y, 20, colors, {speed: 180, gravity: -20, life: .65, kind: 'diamond'}); break;
+        this.materialImpact(x,y,element,face,.75);
+        this.burst(x, y, 9, colors, {speed: 95, gravity: -35, life: .7, kind: 'cinder'}); break;
       }
       case 'room': case 'respawn':
         this.particles.length = 0; this.rings.length = 0; this.slashes.length = 0;
@@ -366,7 +398,16 @@ export class CombatFX {
       const progress = 1 - s.life / s.maxLife;
       c.save(); c.translate(s.x, s.y); c.scale(s.face, 1); c.rotate(s.angle);
       c.globalAlpha = (1 - progress) ** .8; c.strokeStyle = s.color;
-      if (s.kind === 'star') {
+      if(s.kind==='guardwave') {
+        c.lineWidth=2.5*(1-progress)+.4;c.beginPath();c.ellipse(0,0,12+progress*20,25+progress*25,0,-1.35,1.35);c.stroke();
+        c.globalAlpha*=.5;c.lineWidth=.8;c.beginPath();c.ellipse(4,0,17+progress*21,29+progress*24,0,-1.2,1.2);c.stroke();
+      } else if(s.kind==='fracture') {
+        const extent=18+progress*51;c.lineWidth=1.3*(1-progress)+.4;
+        for(let i=0;i<6;i++){const a=i*TAU/6;c.beginPath();c.moveTo(Math.cos(a)*8,Math.sin(a)*8);c.lineTo(Math.cos(a+.12)*extent*.5,Math.sin(a+.12)*extent*.5);c.lineTo(Math.cos(a)*extent,Math.sin(a)*extent);c.stroke();}
+      } else if(s.kind==='ribbon') {
+        c.lineWidth=(1-progress)*3+.6;const sweep=26+progress*39;c.beginPath();c.moveTo(-sweep,18);c.bezierCurveTo(-sweep*.6,-31,sweep*.7,-25,sweep,7);c.stroke();
+        c.globalAlpha*=.5;c.lineWidth=.8;c.beginPath();c.moveTo(-sweep-5,23);c.bezierCurveTo(-sweep*.6,-24,sweep*.7,-18,sweep+4,11);c.stroke();
+      } else if (s.kind === 'star') {
         for (let i = 0; i < 4; i++) {
           c.rotate(Math.PI / 4); c.lineWidth = i % 2 ? 1 : 2;
           c.beginPath(); c.moveTo(-55 * (1 - progress * .5), 0); c.lineTo(55 * (1 - progress * .5), 0); c.stroke();
@@ -390,7 +431,18 @@ export class CombatFX {
       c.globalAlpha = Math.min(1, particle.life * 8) * (1 - age * .25);
       c.fillStyle = particle.color; c.strokeStyle = particle.color;
       const size = particle.size * (1 - age * .6);
-      if (particle.kind === 'spark') {
+      if(particle.kind==='droplet') {
+        c.save();c.translate(particle.x,particle.y);c.rotate(Math.atan2(particle.vy,particle.vx)+Math.PI/2);c.beginPath();c.moveTo(0,-size*2.8);c.quadraticCurveTo(size*1.5,size*.3,0,size*1.2);c.quadraticCurveTo(-size*1.5,size*.3,0,-size*2.8);c.fill();c.restore();
+      } else if(particle.kind==='chip'||particle.kind==='crystal'||particle.kind==='metal') {
+        c.save();c.translate(particle.x,particle.y);c.rotate(particle.rotation);c.beginPath();c.moveTo(-size,-size);c.lineTo(size*.7,-size*1.6);c.lineTo(size,particle.kind==='metal'?size*.3:size);c.lineTo(-size*.4,size*1.3);c.closePath();c.fill();
+        c.globalAlpha*=.55;c.strokeStyle='#fff2d7';c.lineWidth=.55;c.beginPath();c.moveTo(-size,-size);c.lineTo(size*.7,-size*1.6);c.stroke();c.restore();
+      } else if(particle.kind==='ember') {
+        c.globalAlpha*=.75;ellipse(c,particle.x,particle.y,size*.75,size*1.4);c.fillStyle='#fff0bd';ellipse(c,particle.x,particle.y,size*.3,size*.5);
+      } else if(particle.kind==='wisp'||particle.kind==='cinder') {
+        c.globalAlpha*=particle.kind==='cinder'?.5:.45;c.lineWidth=Math.max(.6,size*.65);c.beginPath();c.moveTo(particle.x-particle.vx*.035,particle.y-particle.vy*.035);c.quadraticCurveTo(particle.x+Math.sin(particle.rotation)*size*3,particle.y-size*3,particle.x,particle.y);c.stroke();
+      } else if(particle.kind==='filament') {
+        c.lineWidth=.85;c.beginPath();c.moveTo(particle.x-particle.vx*.024,particle.y-particle.vy*.024);c.lineTo(particle.x+size,particle.y-size);c.lineTo(particle.x-size*.5,particle.y);c.lineTo(particle.x+particle.vx*.01,particle.y+particle.vy*.01);c.stroke();
+      } else if (particle.kind === 'spark') {
         c.lineWidth = Math.max(.5, size * .55);
         c.beginPath(); c.moveTo(particle.x, particle.y);
         c.lineTo(particle.x - particle.vx * .028, particle.y - particle.vy * .028); c.stroke();

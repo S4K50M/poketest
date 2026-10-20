@@ -4,8 +4,9 @@ An original browser action RPG about three creature companions, a fractured Worl
 
 The playable prototype includes:
 
+- A fully redrawn bestiary: **eleven companions, nineteen wild species, and twenty-one bosses**, with distinct anatomy, inked silhouettes, layered materials, and articulated action animation.
+- Anticipation, impact, recovery, shield, recoil, and death animation; elemental trails, phase effects, and responsive NPC details finish the combat presentation.
 - A redesigned first gate with branching climbs, shared landings, and recovery platforms that lead back into the route after missed jumps.
-
 - **42 rooms across six dimensions**, nine major bosses, twelve minibosses, eleven companions, and nineteen wild species.
 - Branching tunnel dungeons with continuous lower floors, optional upper climbs and vaults, looping shortcuts, and a discovered-room atlas without route arrows.
 - Three-phase guardians, stronger knockback, scarce automatic Wellsprings, and committed Focus healing make expeditions dangerous.
@@ -60,7 +61,7 @@ Start with the [documentation index](docs/README.md).
 | [World and story](docs/world-and-story.md) | Biomes, guardians, optional routes, spoiler-marked story |
 | [Creature design reference](docs/creature-designs.md) | Supplied creature concepts and their implementation context |
 | [Architecture](docs/architecture.md) | Engine layers, rendering, UI, source map |
-| [Content authoring](docs/content-authoring.md) | Adding rooms, creatures, bosses, quests and powers |
+| [Content authoring](docs/content-authoring.md) | Adding rooms, creatures, bosses, quests, powers and Canvas art |
 | [Save format](docs/save-format.md) | Persistence, v2/v3 migration, checkpoints and backups |
 | [Testing](docs/testing.md) | Unit and browser checks, ports, screenshots, regressions |
 | [Deployment](docs/deployment.md) | Portable builds, GitHub Pages and relative asset paths |
@@ -75,3 +76,5 @@ npm test
 ```
 
 After changing JavaScript, run `npm run build` before checking and commit the generated `bundle/game.js`. For gameplay, UI, rendering, save, or hosting changes, also run the relevant [Chromium suites](docs/testing.md). Documentation-only changes do not require rebuilding the game.
+
+`npm run test:art` renders the full roster and bestiary as contact sheets and checks the actual game view on desktop and mobile. The artwork overhaul changes presentation; combat frames, hitboxes, progression, and saved identities retain their existing rules.

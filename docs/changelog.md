@@ -1,5 +1,13 @@
 # Changelog
 
+## Complete bestiary art and animation overhaul
+
+- Redrew all eleven companions, nineteen wild species, and twenty-one bosses with distinct anatomy, curved inked silhouettes, layered materials, and articulated parts. Supplied creature identities and body types remain intact.
+- Added action-specific anticipation, contact, follow-through, defense, recoil, and death presentation, with phase-aware guardian details and faction-specific final forms.
+- Refined elemental impact particles, trails, environmental accents, and NPC secondary motion. Reduced motion preserves readable characters while softening decorative movement and feedback.
+- Separated actor animation from ambient time, preserved pause and hitstop, and kept presentation-only death bodies outside gameplay and saves. Portrait framing follows individual companion bounds.
+- Added full-bestiary Canvas safety checks, contact sheets, and desktop/mobile gameplay art verification. Combat frames, hitboxes, damage, AI tuning, progression, and save identifiers retain their existing rules.
+
 ## First-gate landing networks
 
 - Added parallel climbing routes, shared mezzanines, side balconies, and crossways throughout the first gate’s upper rooms.

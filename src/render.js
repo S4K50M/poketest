@@ -1,4 +1,4 @@
-import { drawCreature } from './creatures.js';
+import { drawCreature, creatureBounds } from './creatures.js';
 export { drawCreature } from './creatures.js';
 
 
@@ -11,12 +11,15 @@ function glow(c,x,y,r,color){const g=c.createRadialGradient(x,y,0,x,y,r);g.addCo
 
 export function fitCanvas(canvas){const r=canvas.getBoundingClientRect(),dpr=Math.min(window.devicePixelRatio||1,2);if(canvas.width!==Math.round(r.width*dpr)||canvas.height!==Math.round(r.height*dpr)){canvas.width=Math.round(r.width*dpr);canvas.height=Math.round(r.height*dpr)}const c=canvas.getContext('2d');c.setTransform(dpr,0,0,dpr,0,0);return {c,w:r.width,h:r.height};}
 
-export function paintPortrait(canvas,d,{hero=false,time=0,face=1}={}){
+export function paintPortrait(canvas,d,{hero=false,time=0,face=1,reducedMotion=false}={}){
   const {c,w,h}=fitCanvas(canvas);c.clearRect(0,0,w,h);
+  if(!w||!h||!d)return;
+  const bounds=creatureBounds(d),size=Math.min(w*.92/bounds.width,h*.88/bounds.height);
+  const x=w*.5-(bounds.left+bounds.right)*.5*size*face,y=h*.5-(bounds.top+bounds.bottom)*.5*size;
   if(hero){glow(c,w*.53,h*.52,h*.43,d.color+'15');
-    c.save();c.translate(w*.49,h*.88);c.scale(1,.26);c.strokeStyle='#b9d97844';c.lineWidth=2;c.beginPath();c.arc(0,0,w*.34,0,TAU);c.stroke();c.beginPath();c.arc(0,0,w*.28,0,TAU);c.stroke();c.restore();
-    drawCreature(c,d,w*.48,h*.91,['gator','beetle','jackal','griffin'].includes(d.rig)?Math.min(h/240,w/420):h/328,face,{attack:.16},time,{aura:true});
+    c.save();c.translate(x,y+2*size);c.scale(1,.26);c.strokeStyle='#b9d97844';c.lineWidth=2;c.beginPath();c.arc(0,0,w*.34,0,TAU);c.stroke();c.beginPath();c.arc(0,0,w*.28,0,TAU);c.stroke();c.restore();
+    drawCreature(c,d,x,y,size,face,{state:'idle'},time,{aura:true,reducedMotion});
     // Floating embers and registration marks.
-    for(let i=0;i<12;i++){const x=w*.15+((i*53)%Math.max(1,w*.7)),y=h*.14+((i*71)%Math.max(1,h*.6));c.globalAlpha=.25+Math.sin(time+i)*.2;ellipse(c,x,y,1.2,1.2,d.accent)}c.globalAlpha=1;
-  }else drawCreature(c,d,w*.49,h*1.08,['gator','beetle','jackal','griffin'].includes(d.rig)?Math.min(h/205,w/240):h/254,face,{attack:.10},0,{shadow:false});
+    for(let i=0;i<12;i++){const x=w*.15+((i*53)%Math.max(1,w*.7)),y=h*.14+((i*71)%Math.max(1,h*.6));c.globalAlpha=.25+Math.sin((reducedMotion?0:time)+i)*.2;ellipse(c,x,y,1.2,1.2,d.accent)}c.globalAlpha=1;
+  }else drawCreature(c,d,x,y,size,face,{state:'idle'},0,{shadow:false,reducedMotion:true});
 }

@@ -57,7 +57,17 @@ function startCampaign(resume=false){
   closeOverlay(true);rewardQueue=[];game=new CampaignEngine(resume?DEFAULT_PARTY:party,{save:resume?saved:null,onEvent:events,onSave:store});view='game';$('home-screen').hidden=true;$('game-screen').hidden=false;document.body.classList.add('playing');accumulator=0;last=performance.now();lastHud=0;noticeFrames=0;if(!resume||!saved?.combat)game.combat.settings.reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)').matches;game.save();renderHud();canvas.focus({preventScroll:true});window.scrollTo(0,0);if(game.phase==='gameover')openOverlay('gameover');else if(game.trueEnding)openOverlay('trueending');else if(game.finished&&!game.ending)openOverlay('ending');syncMobileLayout();
 }
 function returnHome(){if(game)game.save();clearInputs();closeOverlay(true);view='home';$('home-screen').hidden=false;$('game-screen').hidden=true;document.body.classList.remove('playing','game-over','recovery-flash');game=null;syncMobileLayout();renderHomeParty();updateContinue();$('start-button').focus({preventScroll:true});}
-function renderPortraits(){document.querySelectorAll('[data-portrait]').forEach(c=>paintPortrait(c,findFighter(c.dataset.portrait),{hero:c.dataset.hero==='true'}));}
+function reducedMotion(){return game?.combat?.settings?.reducedMotion??saved?.combat?.settings?.reducedMotion??window.matchMedia('(prefers-reduced-motion: reduce)').matches;}
+function renderPortraits(){document.querySelectorAll('[data-portrait]').forEach(c=>paintPortrait(c,findFighter(c.dataset.portrait),{hero:c.dataset.hero==='true',reducedMotion:reducedMotion()}));}
+let lastPortraitClock=0;
+function animatePortraits(clock){
+  if(reducedMotion()||clock-lastPortraitClock<100)return;
+  lastPortraitClock=clock;
+  document.querySelectorAll('[data-portrait][data-hero="true"]').forEach(c=>{
+    const r=c.getBoundingClientRect();if(!r.width||!r.height||r.bottom<0||r.top>innerHeight)return;
+    paintPortrait(c,findFighter(c.dataset.portrait),{hero:true,time:clock/1000});
+  });
+}
 function renderHomeParty(){
   $('home-party').innerHTML=party.map((id,i)=>{const d=findFighter(id);return `<button class="companion-card" data-build-party style="--creature-glow:${d.color}"><div class="companion-copy"><small>COMPANION 0${i+1}</small><h3>${d.name}</h3><p>${d.role}</p><span>${d.types.join(' / ').toUpperCase()} &nbsp; ↗</span></div><canvas data-portrait="${id}" aria-label="${d.name}"></canvas></button>`;}).join('');renderPortraits();
 }
@@ -215,7 +225,8 @@ function frame(clock){
   if(view==='game'&&game){accumulator+=delta;let steps=0;while(accumulator>=1000/60&&steps++<6){game.step();if(noticeFrames>0)noticeFrames--;accumulator-=1000/60;}renderer.render(game,clock);if(clock-lastHud>80){renderHud();lastHud=clock;}if(game.tick&&game.tick%600===0&&!game.paused)game.save();
     if(game.phase==='gameover'&&overlayType!=='gameover')openOverlay('gameover');
     if(game.phase==='playing'&&rewardQueue.length&&!modal.open&&game.enemies.every(e=>!e.boss||e.hp<=0))openOverlay('reward');
-  }else heroRenderer.renderHome(clock,party);
+  }else heroRenderer.renderHome(clock,party,{reducedMotion:reducedMotion()});
+  animatePortraits(clock);
   requestAnimationFrame(frame);
 }
 window.kinetic={snapshot:()=>game?game.snapshot():{phase:'selection',mode:'campaign',party:[...party],hasSave:!!saved},version:'4.0.0'};

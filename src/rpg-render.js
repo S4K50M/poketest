@@ -52,5 +52,5 @@ export function drawRPGAuras(c,g,t){
  for(const d of g.worldDrops){const item=EQUIPMENT[d.template],col=RARITIES[item.rarity].color,y=d.y+Math.sin(t*3+d.x)*5;glow(c,d.x,y,33,col+'44');poly(c,[[d.x,y-12],[d.x+8,y],[d.x,y+12],[d.x-8,y]],col);line(c,[[d.x,y-45],[d.x,y-20]],col+'55',1);if(Math.abs(p.x-d.x)<160)label(c,item.name,d.x,y-25,col);}
  if(g.keepsakes.has('blankegg')){const xx=p.x-p.face*38,yy=p.y-83+Math.sin(t*3)*6;glow(c,xx,yy,25,'#ffedbf22');if(g.trueEnding){for(let i=0;i<6;i++){const a=t+i*TAU/6;line(c,[[xx,yy],[xx+Math.cos(a)*13,yy+Math.sin(a)*13]],'#f8e3ae',3);}oval(c,xx,yy,7,8,'#f3deb2');oval(c,xx+3,yy-1,1.5,2,'#3a4956');}else{oval(c,xx,yy,9,12,'#e9dfbf');line(c,[[xx-5,yy],[xx,yy-3],[xx+4,yy+1]],'#a3ab83',1.5);}}
  const surge=g.worldEffects.find(e=>e.type==='eclipse'&&e.maxLife===100);
- if(surge)for(const [i,m] of g.party.entries()){c.save();c.globalAlpha=.4*Math.min(1,surge.life/30);const a=t*2+i*TAU/3;drawCreature(c,m.data,p.x+Math.cos(a)*115,p.y-60+Math.sin(a)*35,.3,p.face,{attack:.9,air:true},t,{shadow:false,aura:true});c.restore();}
+ if(surge)for(const [i,m] of g.party.entries()){c.save();c.globalAlpha=.4*Math.min(1,surge.life/30);const a=t*2+i*TAU/3;drawCreature(c,m.data,p.x+Math.cos(a)*115,p.y-60+Math.sin(a)*35,.3,p.face,{attack:.9,air:true},t,{shadow:false,aura:true,reducedMotion:!!g.combat?.settings?.reducedMotion});c.restore();}
 }
