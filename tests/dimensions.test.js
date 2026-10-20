@@ -1,3 +1,4 @@
+import { BOSS_ENCOUNTERS, beginBossMove } from '../src/boss-encounters.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { CampaignEngine } from '../src/campaign.js';
@@ -37,23 +38,19 @@ test('sitting benches no longer heal and gate recovery is sparse across deeper c
   assert.equal(g.roomId,'sanctuary');assert(g.party.every(m=>m.hp===m.maxHp));
 });
 
-test('guardians have larger health pools, three phases, and four distinct telegraphed attacks',()=>{
+test('guardians have larger health pools, three phases, and four bespoke telegraphed attacks',()=>{
   const g=new CampaignEngine();g.loadRoom('moss-heart');const e=g.enemies.find(e=>e.boss);
   assert.equal(e.maxHp,bossHealth(BOSSES.briar));assert(e.maxHp>=500);
   assert.equal(bossPhase({...e,hp:e.maxHp}),1);assert.equal(bossPhase({...e,hp:e.maxHp*.6}),2);assert.equal(bossPhase({...e,hp:e.maxHp*.3}),3);
   e.introduced=true;
   for(const [fraction,phase] of [[.6,2],[.3,3]]){e.hp=e.maxHp*fraction;updateBossEncounter(g,e);assert.equal(e.phase,phase);assert.equal(e.state,'enrage');}
-  const kinds=new Set();
+  const moves=new Set();
   for(let move=0;move<4;move++){
-    Object.assign(e,{state:'patrol',timer:1,pattern:move-1,stun:0,hp:e.maxHp,phase:1});
-    updateBossEncounter(g,e);assert.equal(e.state,'windup');kinds.add(e.telegraph.kind);
-    e.timer=1;updateBossEncounter(g,e);
-    if(move===0)assert.equal(e.state,'charge');
-    if(move===1)assert(g.enemyShots.length>=5);
-    if(move===2)assert(g.hazards.length>=3);
-    if(move===3)assert.equal(e.state,'leap');
+    Object.assign(e,{state:'patrol',timer:1,stun:0,hp:e.maxHp,phase:1});beginBossMove(g,e,move);
+    assert.equal(e.state,'windup');assert(e.telegraph.events.length>0);moves.add(e.moveId);
+    e.timer=1;updateBossEncounter(g,e);assert(e.attackFrame>=0);
   }
-  assert.deepEqual([...kinds].sort(),['rush','sigil','slam','volley']);
+  assert.equal(moves.size,4);assert.equal(BOSS_ENCOUNTERS.briar.sequences.length,3);
 });
 
 test('boss rewards cannot refill every companion after an expedition',()=>{

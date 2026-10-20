@@ -1,3 +1,4 @@
+import { BOSS_ENCOUNTERS, beginBossMove } from '../src/boss-encounters.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {CampaignEngine,CAMPAIGN_MOTOR} from '../src/campaign.js';
@@ -57,24 +58,17 @@ test('fast travel requires a discovered destination, a camp, and clear surroundi
 test('boss rewards are unique, unlock abilities and companions, and survive room reloads',()=>{
   const g=new CampaignEngine();g.loadRoom('moss-heart');g.enemies[0].introduced=true;g.player.x=850;assert(fightGuardian(g));assert(g.fragments.has('briar'));assert(g.abilities.has('claw'));assert(g.unlocked.has('mycora'));const coins=g.lumens;g.awardEnemy(g.enemies[0]);assert.equal(g.lumens,coins);g.loadRoom('moss-heart');assert.equal(g.enemies[0].hp,0);
 });
-test('every guardian has three phases and four telegraphed attacks with jump, position, and projectile counterplay',()=>{
-  const elementalHazards=new Set();
+test('every main guardian retains three phases and individually named, telegraphed mechanics',()=>{
   for(const [id,b] of Object.entries(BOSSES).filter(([,b])=>!b.miniboss)){
     const g=new CampaignEngine();g.loadRoom(b.biome+'-heart');const e=g.enemies.find(e=>e.boss===id);
-    assert(e,`${id} must have a real heart encounter`);assert.equal(e.maxHp,Math.round(b.hp*2.2));
-    Object.assign(e,{introduced:true,hp:e.maxHp*.6});g.player.x=900;g.updateBoss(e);assert.equal(e.phase,2);assert.equal(e.state,'enrage');
-    e.hp=e.maxHp*.3;g.updateBoss(e);assert.equal(e.phase,3);assert.equal(e.state,'enrage');
-    for(let move=0;move<4;move++){
-      g.hazards=[];g.waves=[];g.enemyShots=[];Object.assign(e,{state:'patrol',timer:1,pattern:move-1,stun:0});g.updateBoss(e);
-      assert.equal(e.state,'windup');assert(e.telegraph,`${id} attack ${move} needs a visible warning`);assert(e.timer>=30,'players need a reaction window');
-      e.timer=1;g.updateBoss(e);assert.equal(e.telegraph,null);
-      if(move===0)assert.equal(e.state,'charge');
-      if(move===1)assert.equal(g.enemyShots.length,7);
-      if(move===2){assert.equal(g.hazards.length,3);elementalHazards.add(g.hazards[0].type);}
-      if(move===3){assert.equal(e.state,'leap');e.timer=1;g.updateBoss(e);assert.equal(e.state,'recover');assert.equal(g.waves.length,2,'slam creates jumpable ground pressure');}
+    assert(e);assert.equal(e.maxHp,Math.round(b.hp*2.2));e.introduced=true;
+    for(const fraction of [.6,.3]){e.hp=e.maxHp*fraction;g.updateBoss(e);assert.equal(e.state,'enrage');}
+    const names=new Set();for(let i=0;i<4;i++){
+      beginBossMove(g,e,i);assert.equal(e.state,'windup');assert(e.telegraph?.events.length>0);assert(e.timer>=28);assert(e.hint&&e.counter);names.add(e.moveName);
+      e.timer=1;g.updateBoss(e);assert.equal(e.telegraph,null);assert(e.attackFrame>=0);
     }
+    assert.equal(names.size,4);assert.equal(BOSS_ENCOUNTERS[id].sequences.length,3);
   }
-  assert.deepEqual([...elementalHazards].sort(),['lightning','root','stasis']);
 });
 test('a wipe pauses at game over and retry returns to recovery without losing earned progression',()=>{
   const g=new CampaignEngine();g.loadRoom('forge-heart',270);g.enemies[0].hp=15;g.lumens=100;g.inventory.ember=5;g.abilities.add('claw');g.party.forEach(m=>m.hp=0);g.respawn(true);

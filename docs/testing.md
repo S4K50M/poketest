@@ -18,6 +18,7 @@ npm run test:echo
 npm run test:recovery
 npm run test:firstgate
 npm run test:art
+npm run test:bosses
 ```
 
 | Command | What it verifies |
@@ -33,6 +34,7 @@ npm run test:art
 | `npm run test:recovery` | Automatic full-party recovery, one-use springs, persistent Game Over, Retry and mobile death-screen rotation |
 | `npm run test:firstgate` | First-gate branch traversal, missed-jump landings, reclimbing, and desktop/mobile presentation |
 | `npm run test:art` | Canvas contact sheets for companions, wild enemies and bosses, plus desktop/mobile world rendering |
+| `npm run test:bosses` | Distinct encounter mechanics, warning geometry and live desktop/mobile boss presentation |
 
 Test totals grow with concrete regressions; use the current command output as the result for a change. Documentation-only edits need link/path checks and command review; they do not require rebuilding or rerunning combat routes.
 
@@ -54,6 +56,7 @@ npx playwright install chromium
 | Recovery / Game Over | 3170 | `RECOVERY_TEST_PORT` |
 | First-gate landings | 3180 | `FIRSTGATE_TEST_PORT` |
 | Art and animation | 3190 | `ART_TEST_PORT` |
+| Boss encounters | 3200 | `BOSS_TEST_PORT` |
 
 Each suite starts and stops its own server. Choose a free override port if another task uses the default. Screenshots are written to ignored test-results/. Inspect screenshots after rendering or layout changes; a passing input test cannot prove visual quality by itself.
 
@@ -79,6 +82,7 @@ Also inspect readable attack telegraphs, foreground occlusion, particle density,
 | --- | --- |
 | Markdown only | Local links/anchors, referenced commands/files, git diff --check |
 | Move data / defense / party | Build/check, Node combat/party tests, live combat suite |
+| Boss moves / arena mechanics | Build/check, Node encounter tests, test:bosses, complete campaign routes and relevant combat/recovery checks |
 | Rooms / gates / quests / saves | Build/check, Node routes/migrations, campaign or RPG browser suite |
 | Rigs / effects / HUD / CSS | Build/check, Node art checks, test:art, relevant browser suites, desktop/mobile screenshot review |
 | Asset paths / bundle / hosting | Asset tests, check, campaign nested-hosting suite |
@@ -102,3 +106,11 @@ The first-gate network tests deliberately walk off ledges at several heights, re
 The Node art checks draw all eleven companions, nineteen wild species, and twenty-one boss identities through their public entry points. They exercise both facings, playable action poses, enemy action states, boss phases, final-guardian faction variants, and reduced motion. Canvas recorders reject non-finite coordinates and unbalanced context state; frozen inputs check that art does not change entity state or definitions. These checks establish rendering safety, not visual quality.
 
 The art browser suite uses the real Canvas renderer to produce `art-companions.png`, `art-minions.png`, `art-bosses.png`, and `art-action-poses.png` contact sheets. It also captures actual gameplay in `art-battle-desktop.png` and `art-battle-mobile.png` so composition, floor anchoring, HUD clearance, tunnel lighting, and attack readability can be reviewed together. Inspect these screenshots under ignored `test-results/` after any rig or effects change. Confirm that grounded poses touch their landing surface, different body types fit portraits, and boss phase effects leave avoidance routes visible. Check that pause/hitstop hold player and enemy rig animation and reduced motion retains complete characters without camera shake or dense afterimages.
+
+## Boss encounter regressions
+
+Encounter tests cover all 21 profiles and their four named moves, rather than expecting the same rush/volley/sigil/slam cycle from every enemy. Check distinct executable event traces, valid phase sequences, finite geometry, locked targets, damage only after warnings, and reachable escape routes. Profile metadata alone is not evidence that a move produces a different fight.
+
+Mechanic checks cover real collision on temporary ledges, damaging areas, beam and ring safe spaces, summons without farmable rewards, and cleanup on phase changes, boss death, full-party death, retry, and room changes. Pause, hitstop, and frozen actors must not advance their attack timelines. Verify parry and posture interruption without retaining stale active scripts.
+
+The boss browser suite renders signature telegraphs and active mechanics and checks actual desktop/mobile play. Inspect warning versus active geometry, safe lanes, execution labels, actor/weapon animation, HUD hints, and landscape touch access. Keep a route controller that responds with normal movement, jumps, dash, shield, healing, and earned attacks. End-to-end boss victories must not rely on direct HP edits, teleportation, or invented unlocks.

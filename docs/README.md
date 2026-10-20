@@ -11,6 +11,7 @@ These guides describe the implemented **Momentum 4.0** campaign. Original design
 | [Getting started](getting-started.md) | Install, run, and troubleshoot the game |
 | [Gameplay and controls](gameplay.md) | Learn controls, party systems, healing, and RPG progression |
 | [Combat reference](combat.md) | Learn combos, defense, movement unlocks, and combat arts |
+| [Boss encounters](boss-encounters.md) | Learn each guardian’s signature attacks, phase patterns, and escape routes |
 | [World and story](world-and-story.md) | Find progression routes; major story reveals are collapsed |
 | [Creature design reference](creature-designs.md) | Read the supplied anatomical and combat concepts |
 | [Save format](save-format.md) | Understand checkpoints, local saves, migration, and backups |

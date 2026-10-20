@@ -139,7 +139,7 @@ export class CombatDirector{
   updateEnemy(e){
     if(e.recoil>0)e.recoil--;
     if(e.timeSlowUntil>=this.g.tick&&this.g.tick%10>=Math.round(e.timeScale*10))return true;
-    if(e.frozen>0){e.frozen--;if(e.flash)e.flash--;return true;}
+    if(e.frozen>0){e.encounterFrozenTick=this.g.tick;e.frozen--;if(e.flash)e.flash--;return true;}
     if(e.juggle>0&&e.hp>0){e.juggle=Math.max(1,e.juggle-1);e.launchVy+=.7;e.y+=e.launchVy;e.x=clamp(e.x+(e.vx||0)*.5,40,this.g.worldWidth-40);if(e.y>=(e.baseY||520)){e.y=e.baseY||520;e.juggle=0;e.stun=18;}return true;}
     return false;
   }

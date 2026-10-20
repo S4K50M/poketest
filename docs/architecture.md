@@ -67,6 +67,11 @@ The UI uses one dialog for menus, dialogue, rewards, and endings. Opening it pau
 | [src/enemy-art.js](../src/enemy-art.js) | Nineteen species-specific wild enemy rigs and state animation |
 | [src/boss-art.js](../src/boss-art.js) | Twenty-one main, forbidden and miniboss rigs, phase details and final-guardian variants |
 | [src/dungeon-art.js](../src/dungeon-art.js) | Dungeon attack telegraphs and legacy enemy fallback art |
+| [src/boss-encounters.js](../src/boss-encounters.js) | Boss profile registry, fixed-frame timelines, encounter hazards, summons and temporary terrain |
+| [src/boss-major-moves.js](../src/boss-major-moves.js) | Nine major/forbidden guardian move sets and phase sequences |
+| [src/boss-warden-moves.js](../src/boss-warden-moves.js) | Six distinct dimensional gatekeeper move sets |
+| [src/boss-reaver-moves.js](../src/boss-reaver-moves.js) | Six distinct optional vault encounter move sets |
+| [src/boss-encounter-render.js](../src/boss-encounter-render.js) | Encounter hazard, warning, weapon and temporary-platform presentation |
 | [src/world-render.js](../src/world-render.js) | Scene composition, art routing, actor clock, local death visuals, effects and camera |
 | [src/tunnel-render.js](../src/tunnel-render.js) | Enclosed cave layers, geological shelves, lighting, camps and recovery basins |
 | [src/recovery.js](../src/recovery.js) | Seeded spring layout, world-seed validation, safe respawn-point validation |
@@ -99,9 +104,17 @@ The current companion, wild-enemy, and boss artwork shares dark contours, curved
 
 World art is anchored at the actor’s feet in world coordinates. Facing and drawing scale belong to the drawing call, not the collision body. `creatureBounds` describes each companion’s full local silhouette; portraits fit those padded bounds with one uniform scale. Hero portraits refresh visible idle animation at 10 Hz and freeze with reduced motion. Art bounds never define attack reach or hurtboxes. The public creature entry point remains compatible with existing callers. See [animation authoring](content-authoring.md#animation-and-accessibility) for the rendering contracts.
 
+## Boss encounter timelines
+
+The 21 boss identities each resolve to a profile with four named moves and three phase sequences. The profile modules describe movement preference, readable counterplay, startup, active duration, recovery, and event builders. The runtime owns attack selection, locked targets, movement scripts, and actual hazard collision. Sharing event primitives does not share a move set: encounters combine them into different spatial and timing problems.
+
+Encounter zones use world coordinates and centered bounds. Warning delay precedes damage; active geometry is also the geometry the renderer displays. Temporary platforms enter the normal collision list as one-way landings. Summoned minions carry an encounter owner and do not pass through ordinary reward/progression payouts. Phase changes, defeat, room changes, and death clear encounter-owned state. Shared room definitions and authored floors are never rewritten by an arena attack.
+
+Boss move state, hazard lifetimes, and temporary terrain are transient simulation state. They pause with gameplay and hitstop; renderer clocks do not advance attacks. Loading an existing save reconstructs the encounter from its room and persistent defeat/reward state. See [boss encounter reference](boss-encounters.md) and [content authoring](content-authoring.md#add-a-boss) for profile and event contracts.
+
 ## Dimensional dungeon expansion
 
-[dimensions.js](../src/dimensions.js) defines 24 branching dungeon rooms and six buried stories. world.js registers these alongside existing rooms and preserves their saved IDs. [dungeon-enemies.js](../src/dungeon-enemies.js) defines twelve minibosses; [difficulty.js](../src/difficulty.js) implements three-phase encounters, telegraphed rush/volley/sigil/slam patterns, four new minion AIs, and the campaign healing contract.
+[dimensions.js](../src/dimensions.js) defines 24 branching dungeon rooms and six buried stories. world.js registers these alongside existing rooms and preserves their saved IDs. [dungeon-enemies.js](../src/dungeon-enemies.js) defines twelve minibosses; [difficulty.js](../src/difficulty.js) supplies health/phase rules, four dungeon minion AIs, and the campaign healing contract. Boss behavior routes through the individual profiles and fixed-frame encounter runtime in [boss-encounters.js](../src/boss-encounters.js).
 
 Door objects may specify destination `spawn: {x, y}` and a `requiresBoss` seal. Enemy spawns may specify `y`, `left`, `right`, and `introX` for elevated patrols. Room `map: {x,y}`, `depth`, and `dungeon` metadata drive the atlas. Feet coordinates remain positive downward, with upper floors using negative Y. The renderer follows vertical climbs. safeRest is distinct from the local fall checkpoint and is validated against a real spring in the saved worldSeed’s layout when loading.
 

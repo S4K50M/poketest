@@ -100,6 +100,12 @@ Fire can leave damaging floor zones. Electric hits add stun in the shared strike
 
 These are implemented action-RPG effects, not the original arena type-chart proposal. The [supplied design reference](creature-designs.md) includes concepts whose exact behavior may differ from the prototype.
 
+## Reading boss attacks
+
+Every main guardian, gatekeeper, and vault boss now has its own named attacks and phase order. Read the attack name and avoidance hint, then watch the marked area: its warning precedes the damaging shape. Some moves change the chamber with one-way landings, summon enemies, pull you toward a strike, or lock a dash onto your earlier position. Keep moving after a target is committed and use recovery to punish or heal.
+
+A normal frontal hit can be shielded or deflected. Marked unblockable attacks require escape or dash timing; a late execution beam can defeat the active companion outright if it connects. Use its advertised safe lane or raised landing rather than standing behind Guard. First-gate encounters remain solvable with the starting jump, dash, and shield. Detailed move names and counters are in the [boss encounter guide](boss-encounters.md).
+
 ## Tuning ownership
 
 `COMBAT`, `MOVES`, and `POWERS` in combat-data.js define tuning and unlock metadata. CombatDirector applies the attack, defensive, and art behavior; AdventureSystems supplies signature skills and shared hit/status handling. Rendering in combat-fx.js, creatures.js, and entity-animation.js must not award hits or change a cancel window. Some historical ability descriptions in world.js predate Momentum; use the live director and this table for current timing.

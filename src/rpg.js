@@ -1,4 +1,5 @@
 import './rpg-world.js';
+import { clearBossEncounter } from './boss-encounters.js';
 import { CampaignEngine } from './campaign.js';
 import { updateBossEncounter } from './difficulty.js';
 import { AdventureSystems } from './adventure.js';
@@ -70,7 +71,7 @@ export class RPGCampaign extends CampaignEngine{
     let mult=1+(this.rpgReady?BOND_RANKS[this.bondRank(owner)].damage:0);if(this.talents?.has('execution')&&e.hp<e.maxHp*.35)mult*=1.25;
     const previousSource=this.rewardSource;this.rewardSource=owner;try{super.strike(e,damage*mult,direction,options);}finally{this.rewardSource=previousSource;}
     if(this.enemies!==frameEnemies||this.player.respawning||this.phase!=='playing')return;
-    if(this.rpgReady&&e.hp<hp&&!options.dot){
+    if(this.rpgReady&&!e.summonedBy&&e.hp<hp&&!options.dot){
       const before=this.bondRank(owner);this.companionXP[owner]=Math.min(1000,(this.companionXP[owner]||0)+2);this.surge=Math.min(100,this.surge+3*(this.talents.has('overdrive')?1.4:1)*(1+this.equipmentMods().surge));this.directHits++;if(this.faction==='chorus'){const member=this.party.find(m=>m.data.id===owner);member.spirit=Math.min(100,member.spirit+1.8);}
       if(this.talents.has('siphon')&&this.directHits%5===0)this.player.hp=Math.min(this.player.maxHp,this.player.hp+.5);
       if(this.bondRank(owner)>before){this.say(this.party.find(m=>m.data.id===owner).data.name.toUpperCase()+' · '+BOND_RANKS[this.bondRank(owner)].name);this.emit('awakening',{id:owner});this.worldEffects.push({type:'aurora',x:this.player.x,y:this.player.y-40,life:100,maxLife:100});}
@@ -99,6 +100,8 @@ export class RPGCampaign extends CampaignEngine{
     if(this.trueEnding&&this.keepsakes.has('blankegg')&&this.tick%180===0){const target=this.enemies.find(e=>e.hp>0&&Math.abs(e.x-this.player.x)<600);if(target)this.projectiles.push({x:this.player.x-35,y:this.player.y-90,vx:this.player.face*8,vy:0,life:85,homing:true,kind:'needle',damage:8,color:'#ffe8b3',element:'Electric',owner:this.activeSlot,hit:new Set()});}
   }
   awardEnemy(e){
+    if(e.summonedBy){e.rewarded=true;this.emit('kill');return;}
+    if(e.boss)clearBossEncounter(this,e);
     if(e.rewarded){super.awardEnemy(e);return;}
     const beforeCoins=this.lumens;
     if(own(CHRONICLE_BOSSES,e.boss)){

@@ -1,5 +1,13 @@
 # Changelog
 
+## Distinct boss encounters
+
+- Replaced the shared four-attack boss loop with 21 encounter profiles and 84 named attacks. Each main guardian, gatekeeper, and vault boss has its own spatial patterns, movement, counterplay, and phase sequences.
+- Added encounter-owned explosions, mines, blade sweeps, beams, pulls, summons, and temporary platforms. Arena mechanics use real collision and damage; authored tunnel floors remain available.
+- Added named attack cues, avoidance hints, visible warning/active zones, and matching weapon and movement poses. Late execution attacks provide explicit warnings and an escape route.
+- Bound hazards, terrain, and summoned enemies to their encounter lifetime; transient arena state does not become saved progression, and summoned enemies cannot farm rewards.
+- Added focused boss simulation and Chromium verification alongside full campaign, combat, recovery, and mobile checks. See [boss encounters](boss-encounters.md) for the implemented move sets.
+
 ## Complete bestiary art and animation overhaul
 
 - Redrew all eleven companions, nineteen wild species, and twenty-one bosses with distinct anatomy, curved inked silhouettes, layered materials, and articulated parts. Supplied creature identities and body types remain intact.

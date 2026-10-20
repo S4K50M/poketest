@@ -91,3 +91,8 @@ body.game-over #world-canvas{filter:saturate(.45) brightness(.65)}
 .atlas-spring-note>span{font-size:22px;color:#c2e8c2;flex-shrink:0}
 body.recovery-flash #game-screen::after{content:'';position:absolute;inset:0;z-index:4;pointer-events:none;box-shadow:inset 0 0 100px #adf7cf3d,inset 0 0 20px #d4f7c45e;animation:wellspring-wake .9s ease-out forwards}
 @keyframes wellspring-wake{0%{opacity:0}15%{opacity:1}100%{opacity:0}}
+
+/* The active move and its counter remain legible inside the boss HUD. */
+.boss-hud small{letter-spacing:.7px;line-height:1.5;overflow-wrap:anywhere;max-width:100%}
+
+.boss-field-notes{border-top:1px solid #a8c4b833;margin-top:16px;padding-top:12px;overflow-wrap:anywhere}.boss-field-notes summary{cursor:pointer;font-size:10px;letter-spacing:1px;color:#e5dab2;padding:7px 0}.boss-notes{list-style:none;padding:0;margin:10px 0 0}.boss-notes li{padding:12px 0;border-top:1px solid #a8c4b81c}.boss-notes strong{font:500 19px var(--head);display:block;color:#e4dfb8}.boss-notes small{display:block;margin-top:4px;color:#9ddcc7}.boss-notes p{line-height:1.6}

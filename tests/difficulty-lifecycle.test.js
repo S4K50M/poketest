@@ -1,3 +1,4 @@
+import { beginBossMove } from '../src/boss-encounters.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { RPGCampaign } from '../src/rpg.js';
@@ -38,7 +39,7 @@ test('a same-room retry rebuilds platforms rather than restoring stale geometry'
 
 test('a lethal boss slam cannot spawn old-arena shockwaves after game over or into the retry',()=>{
   const g=new RPGCampaign();g.loadRoom('moss-heart',1310,false);vulnerable(g);
-  const e=g.enemies.find(e=>e.boss);Object.assign(e,{introduced:true,state:'leap',timer:1,leapStart:1310,leapTarget:1310,x:1310,y:520});
+  const e=g.enemies.find(e=>e.boss);Object.assign(e,{introduced:true,x:1310,y:520});beginBossMove(g,e,3);e.timer=1;
   g.updateBoss(e);
   assert.equal(g.phase,'gameover');assert.equal(g.waves.length,0);assert.equal(g.hazards.length,0);
   assert(g.retryAfterDeath());assert.equal(g.roomId,'sanctuary');assert.equal(g.waves.length,0);assert.equal(g.hazards.length,0);assert(g.player.invul>0);
@@ -59,10 +60,10 @@ test('loot on negative-height dungeon ledges keeps its position across reload',(
 });
 
 
-test('the final guardian preserves each covenant’s distinct dimensional sigils',()=>{
-  for(const [faction,type] of [['wardens','stasis'],['chorus','lightning'],['unwritten','root']]){
+test('the final guardian executes a different spatial mechanic for each covenant',()=>{
+  for(const [faction,shape] of [['wardens','pillar'],['chorus','ring'],['unwritten','slash']]){
     const g=new RPGCampaign();g.fragments.add('crown');g.defeatedBosses.add('palimpsest');g.defeatedBosses.add('belltwin');g.chooseFaction(faction);g.loadRoom('cradle-zero',1800,false);
-    const e=g.enemies.find(e=>e.boss==='nullheart');Object.assign(e,{introduced:true,state:'windup',timer:1,move:2,targetX:1800,targetY:520});
-    g.updateBoss(e);assert.equal(g.hazards.length,3);assert(g.hazards.every(h=>h.type===type),faction+' must retain its promised final attack pattern');
+    const e=g.enemies.find(e=>e.boss==='nullheart');e.introduced=true;beginBossMove(g,e,0,g.bossInfo(e.boss));e.timer=1;
+    g.updateBoss(e);assert(g.bossHazards.length>0);assert.equal(g.bossHazards[0].shape,shape,faction+' needs its own final-attack geometry');
   }
 });

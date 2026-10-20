@@ -152,3 +152,5 @@ body.mobile-game .death-actions{grid-column:2;grid-row:4;flex-direction:column;g
 body.mobile-game .death-actions>button{max-width:none;width:100%;min-height:44px;padding:9px 12px;font-size:8px}
 body.mobile-game .death-key{grid-column:1/-1;grid-row:5;font-size:6px;margin:2px 0 0;text-align:center}
 @media(max-height:360px){body.mobile-game .game-over-panel h2{font-size:40px}body.mobile-game .death-return>span{display:none}body.mobile-game .game-over-panel{gap:5px 18px}body.mobile-game .death-costs{padding:8px 0}body.mobile-game .death-costs b{font-size:22px}}
+
+body.mobile-game .boss-hud small{font-size:8px;letter-spacing:.15px;line-height:1.35;max-height:26px;overflow:hidden}

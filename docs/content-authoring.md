@@ -52,9 +52,19 @@ Minions need a MINIONS record, encounter spawns, AI in the appropriate update me
 
 ## Add a boss
 
-Supply identity, health, biome/color, lore, and rewards. Add an encounter spec with a boss ID, then implement AI in CampaignEngine.updateBoss or RPGCampaign.updateBoss. Existing AI exposes patrol, windup, charge/cast, recovery, enrage, and optional sealed states. Telegraph the attack, provide an avoidance route, and leave a punish opening.
+Supply identity, health, biome/color, lore, and rewards, then add a boss spawn using its stable ID. Register its combat profile in the appropriate major, warden, or reaver move module; [boss-encounters.js](../src/boss-encounters.js) aggregates them. Every current profile has four distinct named moves and three phase sequences. Choose movement preference, startup, active duration, recovery, an avoidance hint, and an event builder for each move. Patrol, windup, charge/leap, recovery, enrage, and sealed states remain simulation-owned.
 
 Implement matching art in [boss-art.js](../src/boss-art.js) and confirm entity-animation wrappers remain balanced with Canvas save/restore. Give the boss a distinct silhouette and meaningful windup, attack, recovery, stagger, and phase details; a palette change alone does not create a new boss identity. Resolve its complete definition, including any faction variant, before drawing. If the boss is optional, use the optional registry/reward path and defeatedBosses; do not insert it into the main six-fragment progression. Set sensible arena bounds and introduction distance for rooms wider than the original guardian chambers. Connect victory to its art/ability/equipment/quest rewards and return door.
+
+### Boss move and event contracts
+
+A profile supplies `title`, `identity`, `movement`, optional `speed`/`preferredRange`, `sequences`, and four `moves`. Each move has a globally unique `id`, `name`, `kind`, `counter`, `hint`, `tell`, `active`, `recover`, and `build(context)`. The context provides boss feet `x/y`, floor, locked target `tx/ty`, bounds `left/right`, arena center, phase, facing, resolved faction mechanic, and `clampX`. Use simulation frames at 60 Hz.
+
+Event `at` is relative to the move’s active timeline, after startup. Supported events include damaging `zone`, interpolated `dash`/leap, `warp`, projectile `shots`, `summon`, temporary `platform`, pulling `force`, and limited `heal`. Zones use centered `x/y/w/h`; `delay` is a rendered warning before their active `life`. Ring zones can supply an `inner` safe center. Add avoidance space instead of filling the complete chamber with unavoidable damage. Do not re-aim a committed dash or beam without another tell.
+
+Use `bossOwner` to let the runtime expire summons, hazards, and platforms together. Never overwrite an authored floor or persist an arena mutation in the room registry. Temporary ledges must be reachable with abilities available on first arrival, especially before double jump. Defeating a summoned creature must not award repeatable materials, XP, story counts, or equipment.
+
+Distinct encounter acceptance requires different executable patterns, not only names or colors. Vary movement, target geometry, timing, arena manipulation, and openings. Every phase needs a punish/recovery window. Execution attacks belong to late optional/final phases, require an explicit long warning and escape route, and must communicate shield bypass. Use [boss encounter reference](boss-encounters.md) for the current identities and run [boss verification](testing.md#boss-encounter-regressions) after a change.
 
 ## Add a quest or history record
 

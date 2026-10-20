@@ -54,7 +54,7 @@ export class AdventureSystems{
   }
   damagePlayer(direction=0,amount=1,status={}){
     const p=this.player;if(p.invul||p.respawning)return false;
-    if((p.guard>0||p.fortress)&&direction===-p.face){
+    if(!status.unblockable&&(p.guard>0||p.fortress)&&direction===-p.face){
       p.stored=Math.min(4,p.stored+1);this.emit('block');this.effects.push({type:'spark',x:p.x+p.face*28,y:p.y-25,life:15});
       if(p.guard>0){p.guard=0;p.invul=15;for(const e of this.enemies)if(e.hp>0&&Math.abs(e.x-p.x)<160)this.strike(e,24,p.face,{heavy:true});this.say('AEGIS REVERSAL');}
       return false;
@@ -103,7 +103,7 @@ export class AdventureSystems{
     for(const hazard of this.hazards){hazard.life--;if(hazard.type==='bubble'&&p.grounded&&Math.abs(p.x-hazard.x)<28){p.slick=150;hazard.life=0;this.say('BUBBLE SLICK · JUMP CLEAR');}}
     this.hazards=this.hazards.filter(h=>h.life>0);
     for(const shot of this.enemyShots){
-      shot.x+=shot.vx;shot.y+=shot.vy;shot.life--;
+      shot.vy+=shot.gravity||0;shot.x+=shot.vx;shot.y+=shot.vy;shot.life--;
       if(this.decoy&&Math.hypot(shot.x-this.decoy.x,shot.y-(this.decoy.y-20))<40){shot.life=0;this.burstDecoy();}
       else if(Math.abs(shot.x-p.x)<20&&Math.abs(shot.y-(p.y-this.data.bodyHeight*.5))<25){shot.life=0;this.hurt(Math.sign(shot.vx),shot.damage??.5,shot.status||{burn:65});}
       if(interrupted())return;

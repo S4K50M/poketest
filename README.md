@@ -4,6 +4,7 @@ An original browser action RPG about three creature companions, a fractured Worl
 
 The playable prototype includes:
 
+- **Twenty-one distinct boss encounters and 84 named attacks**, with individual phase sequences, arena hazards, summons, temporary landings, heavy weapon strikes, aerial movement, and execution attacks. Learn their tells and escape routes in the [boss encounter guide](docs/boss-encounters.md).
 - A fully redrawn bestiary: **eleven companions, nineteen wild species, and twenty-one bosses**, with distinct anatomy, inked silhouettes, layered materials, and articulated action animation.
 - Anticipation, impact, recovery, shield, recoil, and death animation; elemental trails, phase effects, and responsive NPC details finish the combat presentation.
 - A redesigned first gate with branching climbs, shared landings, and recovery platforms that lead back into the route after missed jumps.
@@ -58,6 +59,7 @@ Start with the [documentation index](docs/README.md).
 | [Getting started](docs/getting-started.md) | Installation, commands, first run, common problems |
 | [Gameplay and controls](docs/gameplay.md) | Party, healing, inventory, talents, tools, complete controls |
 | [Combat reference](docs/combat.md) | Frame data, movement, Guard, Flow, twelve arts and unlocks |
+| [Boss encounters](docs/boss-encounters.md) | All 21 move sets, signature mechanics, phase patterns and counterplay |
 | [World and story](docs/world-and-story.md) | Biomes, guardians, optional routes, spoiler-marked story |
 | [Creature design reference](docs/creature-designs.md) | Supplied creature concepts and their implementation context |
 | [Architecture](docs/architecture.md) | Engine layers, rendering, UI, source map |
@@ -77,4 +79,4 @@ npm test
 
 After changing JavaScript, run `npm run build` before checking and commit the generated `bundle/game.js`. For gameplay, UI, rendering, save, or hosting changes, also run the relevant [Chromium suites](docs/testing.md). Documentation-only changes do not require rebuilding the game.
 
-`npm run test:art` renders the full roster and bestiary as contact sheets and checks the actual game view on desktop and mobile. The artwork overhaul changes presentation; combat frames, hitboxes, progression, and saved identities retain their existing rules.
+`npm run test:art` renders the full roster and bestiary as contact sheets and checks the actual game view on desktop and mobile. Art renderers remain presentation-only. `npm run test:bosses` checks the distinct encounter mechanics and their desktop/mobile telegraphs; boss attacks now have their own gameplay timelines. Existing progression and saved boss identities remain compatible.

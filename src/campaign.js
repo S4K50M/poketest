@@ -1,3 +1,4 @@
+import { clearBossEncounter, resetBossEncounters, updateBossHazards } from './boss-encounters.js';
 import { TrainingEngine, MOTOR } from './training.js';
 import { ROSTER, findFighter } from './roster.js';
 import { MINIONS } from './designs.js';
@@ -61,7 +62,7 @@ export class CampaignEngine extends TrainingEngine{
     const p=this.player;this.cancelHeal();Object.assign(p,{x:arrival.x,y:arrival.y,vx:0,vy:0,grounded:true,jumpCount:0,jumpBuffer:0,dash:0,dashCooldown:0,wall:0,wallLock:0,attack:null,airDashes:0,respawning:0,slow:0,root:0,slick:0,burn:0,guard:0,armor:0,fortress:false,specialHeld:false,skillVector:null,invul:30});
     for(const o of this.room.objects)if(o.kind==='lever'&&this.opened.has(id+':'+o.id))this.platforms.push({...o.bridge});
     this.recoveryPoints=this.recoveryForRoom(id);this._insideRecovery=new Set(this.recoveryPoints.filter(r=>Math.abs(r.x-arrival.x)<46&&Math.abs(r.y-arrival.y)<24).map(r=>r.id));
-    this.combat?.reset();this.checkpoint={...arrival};this.transition=100;this.roomTime=0;this.emit('room',{room:id});if(persist)this.save();return true;
+    resetBossEncounters(this);this.combat?.reset();this.checkpoint={...arrival};this.transition=100;this.roomTime=0;this.emit('room',{room:id});if(persist)this.save();return true;
   }
   input(action){
     if(this.paused||this.phase!=='playing'||this.player.respawning)return false;
@@ -92,18 +93,22 @@ export class CampaignEngine extends TrainingEngine{
     this.playtime++;this.roomTime++;this.motor.run=CAMPAIGN_MOTOR.run*(this.equipped.includes('feather')?1.12:1)*(this.runMultiplier?.()||1);this.motor.dashCooldown=this.abilities.has('blink')?12:17;
     const combatEnemies=this.enemies;if(!this.hitstop)this.combat.step();if(this.enemies!==combatEnemies)return;
     if(this.transition>0)this.transition--;if(this.comboTimer>0)this.comboTimer--;else this.combo=0;if(this.landing>0)this.landing--;
-    const wasGrounded=this.player.grounded,vy=this.player.vy;
+    const wasGrounded=this.player.grounded,vy=this.player.vy,encountersStopped=this.hitstop>0;
     // Moving platforms carry grounded actors. Violet veils only yield during an awakened dash.
     for(const block of this.platforms)if(block.moving){const before=block.x;block.x=block.origin+Math.sin(this.tick*block.rate)*block.amplitude;if(this.player.grounded&&Math.abs(this.player.y-block.y)<2&&this.player.x>before-10&&this.player.x<before+block.w+10)this.player.x+=block.x-before;}
-    const allPlatforms=this.platforms,frameEnemies=this.enemies;
-    if(this.abilities.has('blink')&&this.player.dash>0)this.platforms=this.platforms.filter(b=>!b.veil);
-    super.step();if(this.enemies!==frameEnemies)return;this.platforms=allPlatforms;if(this.player.respawning)return;
+    const allPlatforms=this.platforms,frameEnemies=this.enemies,hidingVeils=this.abilities.has('blink')&&this.player.dash>0;
+    if(hidingVeils)this.platforms=this.platforms.filter(b=>!b.veil);
+    super.step();if(this.enemies!==frameEnemies)return;
+    // Restore only hidden veils. Encounter events may have added or removed
+    // real temporary terrain while the shared motor was advancing this frame.
+    if(hidingVeils)this.platforms.push(...allPlatforms.filter(b=>b.veil));if(this.player.respawning)return;
     for(const h of this.hazards)if(['root','lightning','stasis'].includes(h.type)){
       h.timer--;if(h.timer===0)this.emit('slam');
       const floor=h.y??520,range=h.radius||(h.type==='stasis'?100:38),dy=this.player.y-floor;
       if(h.timer<=0&&h.timer>-18&&Math.abs(this.player.x-h.x)<range&&dy<45&&dy>-(h.type==='lightning'?360:60))this.hurt(Math.sign(this.player.x-h.x),h.damage??1,h.type==='stasis'?{slow:150}:h.type==='root'?{root:18}:{});
       if(this.enemies!==frameEnemies||this.player.respawning)return;
     }
+    if(!encountersStopped)updateBossHazards(this);if(this.enemies!==frameEnemies||this.player.respawning||this.phase!=='playing')return;
     if(this.equipped.includes('pulse'))this.player.spirit=Math.min(100,this.player.spirit+.012);
     if(!wasGrounded&&this.player.grounded&&vy>4){this.landing=10;this.effects.push({type:'land',x:this.player.x,y:this.player.y,life:20});this.emit('land');}
     this.updateRecovery();
@@ -140,7 +145,7 @@ export class CampaignEngine extends TrainingEngine{
   hurt(direction=0,amount=1,status={}){
     const frameEnemies=this.enemies;
     if(this.player.dash&&this.player.invul)this.combat.evade(direction);
-    const defended=this.combat.defend(direction,amount);if(defended!==null)return defended;
+    const defended=status.unblockable?null:this.combat.defend(direction,amount);if(defended!==null)return defended;
     if(this.preventLethal?.(amount,direction))return true;
     const ok=super.hurt(direction,amount,status);
     if(this.enemies!==frameEnemies||this.player.respawning)return ok;
@@ -149,6 +154,8 @@ export class CampaignEngine extends TrainingEngine{
     return ok;
   }
   awardEnemy(e){
+    if(e.summonedBy){e.rewarded=true;this.emit('kill');return;}
+    if(e.boss)clearBossEncounter(this,e);
     if(e.rewarded){this.defeated.add(e.key);this.respawnedEnemies.delete(e.key);this.save();return;}super.awardEnemy(e);this.defeated.add(e.key);this.claimedEnemyRewards.add(e.key);this.respawnedEnemies.delete(e.key);const ch=CHAPTERS.find(c=>c.id===this.room.biome);
     if(ch)this.inventory[BOSSES[ch.boss].material]++;
     if(e.boss&&BOSSES[e.boss].miniboss){const b=BOSSES[e.boss];this.inventory[b.material]+=3;this.lumens+=35;this.gainXP(50);this.say('GATEKEEPER DEFEATED · '+b.name.toUpperCase());this.emit('bossdefeated',{boss:e.boss,miniboss:true});this.save();return;}
@@ -191,7 +198,7 @@ export class CampaignEngine extends TrainingEngine{
     for(const r of this.allRecovery())if(ROOMS[r.room].biome===gate)this.spentRecovery.delete(r.id);
     this.phase='gameover';this.paused=true;this.party.forEach(m=>m.hp=0);this.cancelHeal();this.combat.reset();this.grapple=null;this.setInputs({});
     Object.assign(this.player,{respawning:1,invul:0,vx:0,vy:0,attack:null,dash:0,specialHeld:false,fortress:false,guard:0,armor:0});
-    this.projectiles=[];this.enemyShots=[];this.waves=[];this.hazards=[];this.zones=[];this.effects=[];this.decoy=null;this.skillStrike=null;this.enemies=[];
+    resetBossEncounters(this);this.projectiles=[];this.enemyShots=[];this.waves=[];this.hazards=[];this.zones=[];this.effects=[];this.decoy=null;this.skillStrike=null;this.enemies=[];
     this.death={gate,room,returnTo:{...this.safeRest},lostLumens:before-this.lumens,restoredEnemies};
     this.recoveryPoints=this.recoveryForRoom(room);this.save();this.emit('gameover',structuredClone(this.death));
   }
@@ -308,9 +315,11 @@ export class CampaignEngine extends TrainingEngine{
       if(this.enemies!==frameEnemies||this.player.respawning)return;
       if(e.hp<=0){if(e.deathTimer>0)e.deathTimer--;continue;}
       if(this.combat.updateEnemy(e))continue;
+      const shotStart=this.enemyShots.length,hazardStart=this.hazards.length,waveStart=this.waves.length;
       if(e.boss)this.updateBoss(e);
       else if(['sinder','voltlet','pebbleback','dewdrop','sproutlet'].includes(e.kind))this.updateMinion(e);
       else this.updateWild(e);
+      if(e.summonedBy){for(const shot of this.enemyShots.slice(shotStart))shot.bossOwner=e.summonedBy;for(const h of this.hazards.slice(hazardStart))h.bossOwner=e.summonedBy;for(const wave of this.waves.slice(waveStart))wave.bossOwner=e.summonedBy;}
     }
   }
   updateWild(e){
@@ -328,5 +337,5 @@ export class CampaignEngine extends TrainingEngine{
     if(dist<35&&Math.abs(p.y-e.y)<65)this.hurt(Math.sign(p.x-e.x),1,e.kind==='frostmite'?{slow:100}:{});
   }
   updateBoss(e){updateBossEncounter(this,e);}
-  snapshot(){const s=super.snapshot();return {...s,mode:'campaign',worldSeed:this.worldSeed,recoveryPoints:this.recoveryPoints.map(r=>({...r})),spentRecovery:[...this.spentRecovery],discoveredRecovery:[...this.discoveredRecovery],death:this.death?structuredClone(this.death):null,safeRest:{...this.safeRest},combat:this.combat.snapshot(),room:this.roomId,roomName:this.room.name,biome:this.room.biome,chapter:CHAPTERS[Math.min(this.fragments.size,5)].title,abilities:[...this.abilities],fragments:[...this.fragments],unlocked:[...this.unlocked],visited:[...this.visited],inventory:{...this.inventory},charms:[...this.charms],equipped:[...this.equipped],memories:[...this.memories],shrines:[...this.shrines],combo:this.combo,finished:this.finished,ending:this.ending,playtime:this.playtime,enemies:this.enemies.map(e=>({id:e.id,boss:e.boss,kind:e.kind,hp:e.hp,maxHp:e.maxHp,state:e.state,x:e.x,y:e.y,phase:e.phase})),nearby:this.room.objects.filter(o=>Math.abs(o.x-this.player.x)<100).map(o=>o.id)};}
+  snapshot(){const s=super.snapshot();return {...s,mode:'campaign',worldSeed:this.worldSeed,recoveryPoints:this.recoveryPoints.map(r=>({...r})),spentRecovery:[...this.spentRecovery],discoveredRecovery:[...this.discoveredRecovery],death:this.death?structuredClone(this.death):null,safeRest:{...this.safeRest},combat:this.combat.snapshot(),room:this.roomId,roomName:this.room.name,biome:this.room.biome,chapter:CHAPTERS[Math.min(this.fragments.size,5)].title,abilities:[...this.abilities],fragments:[...this.fragments],unlocked:[...this.unlocked],visited:[...this.visited],inventory:{...this.inventory},charms:[...this.charms],equipped:[...this.equipped],memories:[...this.memories],shrines:[...this.shrines],combo:this.combo,finished:this.finished,ending:this.ending,playtime:this.playtime,bossHazards:(this.bossHazards||[]).map(h=>structuredClone(h)),enemies:this.enemies.map(e=>({id:e.id,boss:e.boss,kind:e.kind,hp:e.hp,maxHp:e.maxHp,state:e.state,x:e.x,y:e.y,phase:e.phase,timer:e.timer,moveId:e.moveId,moveName:e.moveName,attackKind:e.attackKind,counter:e.counter,hint:e.hint,attackFrame:e.attackFrame,windupFrames:e.windupFrames,summonedBy:e.summonedBy,telegraph:e.telegraph?structuredClone(e.telegraph):null})),nearby:this.room.objects.filter(o=>Math.abs(o.x-this.player.x)<100).map(o=>o.id)};}
 }

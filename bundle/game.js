@@ -42,7 +42,7 @@
   var ledge = (x, y, w = 150, extra = {}) => ({ x, y, w, h: 24, ...extra });
   var floor = (x, w) => ({ x, y: 520, w, h: 260 });
   var door = (id, x, y, to, name, extra = {}) => ({ id, kind: "door", x, y, to, name, ...extra });
-  var memory = (id, x, y, text2) => ({ id, kind: "memory", x, y, name: text2.split("|")[0], text: text2 });
+  var memory = (id, x, y, text3) => ({ id, kind: "memory", x, y, name: text3.split("|")[0], text: text3 });
   var enemy = (kind, x, y = 520, w = 140) => ({ kind, x, y, left: x - w / 2, right: x + w / 2 });
   var catchShelves = (route2) => route2.slice(0, -1).flatMap((source, n2) => {
     const target = route2[n2 + 1], left = Math.min(source.x, target.x) - 45, right = Math.max(source.x + source.w, target.x + target.w) + 45, y = Math.max(source.y, target.y) + 145;
@@ -1059,6 +1059,1247 @@
     object.name = "Wayfarer\u2019s Camp";
   }
 
+  // src/boss-major-moves.js
+  var zone = (at, shape, x, y, w, h, extra = {}) => ({ at, type: "zone", shape, x, y, w, h, delay: 20, life: 16, damage: 1.5, ...extra });
+  var platform = (at, c, x, style = "stone", y = c.floor - 105) => ({ at, type: "platform", x: c.clampX(x), y, w: 150, life: 300, style });
+  var shot = (at, c, extra = {}) => ({ at, type: "shots", x: c.x, y: c.y - 95, count: 3, spread: 0.6, speed: 6.5, damage: 1, kind: "orb", ...extra });
+  var dash = (at, c, to, duration = 24, height = 0, extra = {}) => ({ at, type: "dash", to: c.clampX(to), duration, height, damage: 1.5, knockback: 1.4, ...extra });
+  var mark = (at, c, x, w = 110, extra = {}) => zone(at, "pillar", c.clampX(x), c.floor - 120, w, 240, { delay: 30, life: 18, ...extra });
+  var move = (id, name, kind, counter, hint, tell2, active, recover, build) => ({ id, name, kind, counter, hint, tell: tell2, active, recover, build });
+  var MAJOR_ENCOUNTERS = {
+    briar: {
+      title: "The First Garden",
+      identity: "An area-control mother grows root lanes, protects a living nursery, then leaves the heart of her embrace safe.",
+      movement: "anchor",
+      speed: 1.25,
+      preferredRange: 175,
+      sequences: [[0, 3, 1, 0, 2], [1, 0, 3, 2, 0], [2, 3, 0, 1, 3, 0]],
+      moves: [
+        move("briar-root-comb", "Root Comb", "roots", "jump", "Jump the crawling root line; every raised patch bursts once.", 46, 110, 44, (c) => {
+          const events2 = [];
+          for (let i = 0; i < 4 + c.phase; i++) {
+            const x = c.clampX(c.tx + (i - 2) * 76);
+            events2.push(zone(i * 11, "floor", x, c.floor - 13, 62, 26, { delay: 23, life: 14, damage: 1, knockback: 1.1, status: { root: 10 }, label: "ROOT COMB" }));
+          }
+          return events2;
+        }),
+        move("briar-living-nursery", "Living Nursery", "summon", "minions", "Cut down her thornlings while the Matron tends the nursery.", 58, 55, 58, (c) => [
+          platform(0, c, c.x - c.face * 140, "root"),
+          { at: 8, type: "summon", kind: "thornling", count: c.phase === 3 ? 3 : 2, x: c.clampX(c.x + c.face * 130) },
+          zone(14, "mine", c.clampX(c.x - c.face * 145), c.floor - 17, 90, 34, { delay: 28, life: 28, damage: 1, label: "NURSERY SEED" })
+        ]),
+        move("briar-mothers-embrace", "Mother\u2019s Embrace", "ring", "get-close", "Stand inside the root circle, close to her seed chamber.", 64, 95, 52, (c) => [
+          { at: 0, type: "force", x: c.x, y: c.floor - 40, radius: 360, pull: 0.18, duration: 35 },
+          zone(0, "ring", c.x, c.floor - 45, 490, 110, { inner: 90, delay: 50, life: 22, damage: 2, knockback: 1.7, status: { root: 12 }, label: "SAFE INSIDE" }),
+          ...c.phase >= 2 ? [zone(52, "floor", c.clampX(c.x + c.face * 240), c.floor - 12, 120, 24, { delay: 20, life: 12, damage: 1 })] : []
+        ]),
+        move("briar-heartwood-bound", "Heartwood Bound", "leap", "dodge", "Her landing is locked. Dash away, then punish the rooted body.", 42, 104, 50, (c) => [
+          dash(0, c, c.tx, 30, 145, { damage: 1.5, knockback: 1.6 }),
+          zone(25, "blast", c.tx, c.floor - 35, 174, 70, { delay: 15, life: 16, damage: 2, knockback: 1.8, label: "ROOT IMPACT" }),
+          ...c.phase >= 2 ? [mark(38, c, c.tx - c.face * 170, 64, { delay: 26, damage: 1 }), mark(52, c, c.tx + c.face * 170, 64, { delay: 26, damage: 1 })] : []
+        ])
+      ]
+    },
+    bell: {
+      title: "The Furnace Sermon",
+      identity: "A heavy bell saint alternates close hammer sweeps, concentric sound, furnace grates, and lobbed cinders.",
+      movement: "stalk",
+      speed: 1.45,
+      preferredRange: 130,
+      sequences: [[0, 2, 1, 3], [2, 0, 3, 1, 0], [3, 2, 0, 1, 2, 0]],
+      moves: [
+        move("bell-censer-crusher", "Censer Crusher", "hammer", "behind", "Cross behind the raised censer; its heavy swing faces one way.", 62, 92, 55, (c) => [
+          zone(0, "slash", c.clampX(c.x + c.face * 115), c.floor - 68, 245, 135, { delay: 15, life: 12, damage: 2.5, knockback: 2.6, label: "CENSER SWING" }),
+          ...c.phase >= 2 ? [zone(42, "slash", c.clampX(c.x - c.face * 80), c.floor - 46, 185, 92, { delay: 22, life: 10, damage: 1.5, knockback: 1.8, label: "BACKSWING" })] : []
+        ]),
+        move("bell-resonant-peal", "Resonant Peal", "ring", "get-close", "The outer bell ring hurts. Stay beneath the saint or jump clear.", 66, 120, 48, (c) => [
+          zone(0, "ring", c.x, c.floor - 25, 570, 58, { inner: 100, delay: 30, life: 18, damage: 1.5, knockback: 2.2, label: "BELL RADIUS" }),
+          zone(42, "ring", c.x, c.floor - 25, 810, 58, { inner: 190, delay: 28, life: 18, damage: 1.5, knockback: 2.2 }),
+          ...c.phase === 3 ? [zone(78, "ring", c.x, c.floor - 25, 1e3, 58, { inner: 285, delay: 22, life: 16, damage: 2, knockback: 2.5 })] : []
+        ]),
+        move("bell-open-the-grates", "Open the Grates", "vents", "dodge", "Orange grates ignite in alternating lanes. Move into the dark gaps.", 54, 145, 42, (c) => {
+          const events2 = [];
+          for (let i = 0; i < 5; i++) {
+            const x = c.left + 90 + i * (c.right - c.left - 180) / 4;
+            events2.push(mark(i % 2 * 42, c, x, 70, { delay: 32, life: 24, damage: 1.5, status: { burn: 70 }, label: "FURNACE GRATE" }));
+          }
+          return events2;
+        }),
+        move("bell-coal-communion", "Coal Communion", "rain", "get-close", "The cinders arc over the saint. Close in beneath the furnace mouth.", 48, 130, 52, (c) => {
+          const events2 = [];
+          for (let i = 0; i < 3 + c.phase; i++) events2.push(shot(i * 16, c, { x: c.x, y: c.floor - 175, angle: c.face > 0 ? -0.95 : Math.PI + 0.95, count: 2, spread: 0.3, speed: 5.7, gravity: 0.18, kind: "orb", damage: 1.5, status: { burn: 55 } }));
+          return events2;
+        })
+      ]
+    },
+    leviathan: {
+      title: "The Living Tide",
+      identity: "A tidal body changes the usable floor with low water jets, creates lifeboat ledges, vacuums swimmers, and breaches across the chamber.",
+      movement: "hover",
+      speed: 1.55,
+      preferredRange: 230,
+      sequences: [[0, 2, 3, 1], [1, 0, 3, 2, 0], [3, 1, 2, 0, 3, 2]],
+      moves: [
+        move("leviathan-low-tide", "Low Tide, High Water", "flood", "platform", "Climb a water shelf or jump over the low horizontal current.", 78, 160, 54, (c) => [
+          platform(0, c, c.tx - 100, "water"),
+          platform(0, c, c.tx + 160, "water"),
+          zone(0, "beam", c.center, c.floor - 24, c.right - c.left, 44, { delay: 66, life: 45, damage: 1.5, knockback: 1.9, status: { slick: 90 }, label: "LOW TIDE" }),
+          ...c.phase >= 2 ? [shot(105, c, { count: 5, spread: 1.5, speed: 5, kind: "droplet" })] : []
+        ]),
+        move("leviathan-abyssal-inhale", "Abyssal Inhale", "vacuum", "retreat", "Escape the mouth before the inhale becomes a crushing bite.", 76, 115, 64, (c) => [
+          { at: 0, type: "force", x: c.x, y: c.floor - 55, radius: 440, pull: 0.28 + c.phase * 0.07, duration: 48 },
+          zone(8, "blast", c.x, c.floor - 73, 255, 146, { delay: 58, life: 18, damage: 2.5, knockback: 2.5, unblockable: true, label: "ABYSSAL BITE" })
+        ]),
+        move("leviathan-ink-constellation", "Ink Constellation", "orbit", "dodge", "Read the three separate ink fans. Their aim never follows you.", 44, 140, 42, (c) => {
+          const events2 = [];
+          for (let i = 0; i < 3; i++) events2.push(shot(i * 28, c, { x: c.x + c.face * (i - 1) * 45, y: c.floor - 100 - i * 28, count: 3 + c.phase, spread: 1.25, speed: 5.4 + i * 0.6, kind: "droplet", status: { slick: 65 } }));
+          return events2;
+        }),
+        move("leviathan-archive-breach", "Archive Breach", "leap", "dodge", "Let the Leviathan sail past, then avoid its ink geyser at the marked landing.", 52, 140, 60, (c) => [
+          dash(0, c, c.tx + c.face * 110, 38, 220, { damage: 2, knockback: 2 }),
+          mark(30, c, c.tx + c.face * 110, 120, { delay: 24, life: 24, damage: 2, status: { slick: 80 }, label: "INK GEYSER" }),
+          ...c.phase >= 2 ? [mark(72, c, c.x, 80, { delay: 28, damage: 1.5, label: "BACKWASH" })] : []
+        ])
+      ]
+    },
+    conductor: {
+      title: "A Storm in Four Movements",
+      identity: "A winged duelist uses aerial crossing dives, forked sky-lanes, rhythmic thunder chords, and a summoned airborne choir.",
+      movement: "skirmish",
+      speed: 3.8,
+      preferredRange: 180,
+      sequences: [[0, 2, 1, 3], [1, 0, 2, 0, 3], [0, 1, 0, 3, 2, 1]],
+      moves: [
+        move("conductor-wingbeat-cadence", "Wingbeat Cadence", "dive", "dodge", "The first landing is marked. Leave it, then watch the crossing dive.", 34, 118, 34, (c) => [
+          dash(0, c, c.tx + c.face * 85, 24, 215, { damage: 1.5, knockback: 1.7 }),
+          mark(22, c, c.tx + c.face * 85, 70, { delay: 22, damage: 1.5, label: "DOWNBEAT" }),
+          ...c.phase >= 2 ? [dash(60, c, c.tx - c.face * 120, 22, 145, { damage: 1.5, knockback: 1.6 })] : []
+        ]),
+        move("conductor-forked-verdict", "Forked Verdict", "lightning", "dodge", "Stand between the thin violet columns. The second chord strikes the gaps.", 48, 150, 40, (c) => {
+          const events2 = [];
+          for (let i = 0; i < 5; i++) {
+            const x = c.left + 70 + i * (c.right - c.left - 140) / 4;
+            events2.push(mark(i % 2 * 18, c, x, 48, { delay: 30, life: 12, damage: 1.5, label: "SKY FORK" }));
+            if (c.phase >= 2 && i < 4) events2.push(mark(72, c, x + (c.right - c.left - 140) / 8, 45, { delay: 30, life: 12, damage: 1.5, label: "SECOND CHORD" }));
+          }
+          return events2;
+        }),
+        move("conductor-thunderstaff", "Thunderstaff", "beam", "jump", "Jump the low staff beam; the final high chord passes above grounded creatures.", 58, 140, 42, (c) => [
+          zone(0, "beam", c.center, c.floor - 28, c.right - c.left, 42, { delay: 28, life: 14, damage: 2, knockback: 2.2, label: "LOW CHORD" }),
+          zone(52, "beam", c.center, c.floor - 155, c.right - c.left, 38, { delay: 30, life: 16, damage: 2, knockback: 1.8, label: "HIGH CHORD \xB7 LAND" }),
+          ...c.phase === 3 ? [zone(98, "beam", c.center, c.floor - 28, c.right - c.left, 42, { delay: 22, life: 12, damage: 2, label: "FINAL DOWNBEAT" })] : []
+        ]),
+        move("conductor-lost-choir", "The Lost Choir", "summon", "minions", "Silence the stormkites during the conductor\u2019s long exposed cadenza.", 65, 120, 65, (c) => [
+          { at: 0, type: "summon", kind: "stormkite", count: 2, x: c.clampX(c.x - c.face * 180) },
+          shot(34, c, { count: 5, spread: 2.8, speed: 4.8, kind: "needle" }),
+          ...c.phase >= 2 ? [shot(82, c, { count: 5, spread: 2.8, speed: 5.3, kind: "needle" })] : []
+        ])
+      ]
+    },
+    hourglass: {
+      title: "A Second Repeated",
+      identity: "The stag makes visible echoes of locked positions, reverses a gallop, freezes delayed mines, and rewrites its chamber into ice steps.",
+      movement: "skirmish",
+      speed: 3.1,
+      preferredRange: 185,
+      sequences: [[0, 2, 1, 3], [2, 0, 3, 1, 0], [0, 2, 0, 1, 3, 2]],
+      moves: [
+        move("hourglass-rewind-gallop", "Rewind Gallop", "rewind", "jump", "Jump the first gallop, then its return along the same remembered line.", 44, 140, 44, (c) => [
+          dash(0, c, c.tx + c.face * 140, 28, 0, { damage: 1.5, knockback: 1.6 }),
+          zone(22, "floor", c.x, c.floor - 13, 120, 26, { delay: 25, life: 15, damage: 1, status: { slow: 90 }, label: "REMEMBERED START" }),
+          dash(68, c, c.x, 28, 0, { damage: 2, knockback: 1.9 })
+        ]),
+        move("hourglass-second-hand", "The Second Hand", "beam", "platform", "Ice steps rise before the low sweeping hand. Leap onto one.", 70, 150, 46, (c) => [
+          platform(0, c, c.tx - 120, "ice"),
+          platform(0, c, c.tx + 130, "ice"),
+          zone(0, "beam", c.center, c.floor - 28, c.right - c.left, 48, { delay: 54, life: 28, damage: 2, knockback: 1.5, status: { slow: 90 }, label: "SECOND HAND" }),
+          ...c.phase >= 2 ? [zone(78, "mine", c.tx, c.floor - 13, 98, 26, { delay: 28, life: 18, damage: 1.5, status: { slow: 140 }, label: "AFTERSECOND" })] : []
+        ]),
+        move("hourglass-stolen-seconds", "Stolen Seconds", "mines", "dodge", "Leave your remembered position. Frost mines burst in a delayed spiral.", 48, 165, 42, (c) => {
+          const events2 = [];
+          for (let i = 0; i < 3 + c.phase; i++) events2.push(zone(i * 19, "mine", c.clampX(c.tx + (i % 2 ? 1 : -1) * Math.ceil(i / 2) * 100), c.floor - 28, 86, 56, { delay: 38 - i * 3, life: 15, damage: 1.5, status: { slow: 150 }, label: "STOLEN SECOND " + (i + 1) }));
+          return events2;
+        }),
+        move("hourglass-frozen-constellation", "Frozen Constellation", "terrain", "dodge", "The crystal pillars leave wide gaps; use the new ice steps for height.", 62, 150, 58, (c) => [
+          platform(0, c, c.center, "ice"),
+          mark(10, c, c.tx - 160, 68, { delay: 34, life: 25, damage: 2, status: { slow: 100 }, label: "FROZEN STAR" }),
+          mark(38, c, c.tx + 160, 68, { delay: 34, life: 25, damage: 2, status: { slow: 100 }, label: "FROZEN STAR" }),
+          shot(85, c, { count: c.phase + 2, spread: 1.6, speed: 6, kind: "needle", status: { slow: 80 } })
+        ])
+      ]
+    },
+    crown: {
+      title: "The Sovereign\u2019s Broken Oath",
+      identity: "A giant sword ruler combines directional cleaves, crushing throne charges, orbiting crown shards, and a terrain-changing heart trial.",
+      movement: "stalk",
+      speed: 1.9,
+      preferredRange: 155,
+      sequences: [[0, 2, 1, 3], [1, 0, 2, 3, 0], [0, 1, 0, 3, 2, 1]],
+      moves: [
+        move("crown-worldcleaver", "Worldcleaver", "sword", "behind", "The great blade claims one side. Dash behind the sovereign before it falls.", 70, 140, 55, (c) => [
+          zone(0, "slash", c.clampX(c.x + c.face * 170), c.floor - 95, 370, 190, { delay: 18, life: 16, damage: 3, knockback: 2.8, label: "WORLDCLEAVER" }),
+          ...c.phase >= 2 ? [zone(62, "slash", c.clampX(c.x - c.face * 120), c.floor - 46, 270, 92, { delay: 28, life: 12, damage: 2, knockback: 2.3, label: "RETURNING OATH" })] : []
+        ]),
+        move("crown-break-the-throne", "Break the Throne", "charge", "dodge", "Leave the marked lane; the throne\u2019s crash throws everything away.", 50, 130, 55, (c) => [
+          dash(0, c, c.tx + c.face * 170, 24, 45, { damage: 2.5, knockback: 2.8 }),
+          zone(24, "blast", c.clampX(c.tx + c.face * 170), c.floor - 50, 220, 100, { delay: 22, life: 18, damage: 2.5, knockback: 2.8, label: "THRONE BREAK" }),
+          ...c.phase === 3 ? [mark(70, c, c.tx - c.face * 130, 70, { delay: 26, damage: 1.5, label: "FALLEN CROWN" })] : []
+        ]),
+        move("crown-orbit-of-ruin", "Orbit of Ruin", "orbit", "shield", "The crown fires in two spokes. Deflect a shard or pass through its gaps.", 46, 130, 42, (c) => [
+          shot(0, c, { y: c.floor - 120, count: 7, spread: 3.5, speed: 5.7, kind: "blade", damage: 1.5 }),
+          shot(52, c, { y: c.floor - 65, count: 5 + c.phase, spread: 2.8, speed: 6.4, kind: "blade", damage: 1.5 })
+        ]),
+        move("crown-heart-trial", "Trial of the Worldheart", "terrain", "platform", "Memory stairs rise before the floor ruptures. Stand above the broken oath.", 84, 175, 62, (c) => [
+          platform(0, c, c.tx - 135, "memory"),
+          platform(0, c, c.tx + 135, "memory"),
+          zone(0, "floor", c.center, c.floor - 15, c.right - c.left, 30, { delay: 78, life: 35, damage: 2.5, knockback: 2, unblockable: true, label: "HEART TRIAL \xB7 CLIMB" }),
+          ...c.phase >= 2 ? [shot(128, c, { count: 3, spread: 1.25, speed: 5.5, kind: "blade" })] : []
+        ])
+      ]
+    },
+    palimpsest: {
+      title: "The Unfinished Sentence",
+      identity: "A living book edits the arena with parallel redactions, closing margins, flying punctuation, and a lethal final full stop.",
+      movement: "anchor",
+      speed: 1,
+      preferredRange: 220,
+      sequences: [[0, 2, 1, 3], [1, 0, 2, 3, 0], [2, 1, 0, 3, 0, 2]],
+      moves: [
+        move("palimpsest-redaction", "Redaction", "pillars", "dodge", "The crossed-out columns vanish into ink. Stand between the margins.", 52, 135, 48, (c) => [
+          mark(0, c, c.tx - 125, 80, { delay: 30, life: 24, damage: 1.5, label: "REDACTED" }),
+          mark(22, c, c.tx + 125, 80, { delay: 30, life: 24, damage: 1.5, label: "REDACTED" }),
+          ...c.phase >= 2 ? [mark(72, c, c.tx, 68, { delay: 32, life: 18, damage: 2, label: "LAST WORD" })] : []
+        ]),
+        move("palimpsest-folded-margins", "Folded Margins", "walls", "get-close", "The book closes the outer margins; the central binding remains safe.", 74, 145, 62, (c) => [
+          platform(0, c, c.center, "memory"),
+          zone(0, "pillar", c.left + 90, c.floor - 155, 140, 310, { delay: 44, life: 40, damage: 2, knockback: 2, label: "LEFT MARGIN" }),
+          zone(0, "pillar", c.right - 90, c.floor - 155, 140, 310, { delay: 44, life: 40, damage: 2, knockback: 2, label: "RIGHT MARGIN" }),
+          ...c.phase >= 2 ? [{ at: 18, type: "force", x: c.center, y: c.floor - 60, radius: 400, pull: 0.16, duration: 40 }] : []
+        ]),
+        move("palimpsest-punctuation-storm", "Punctuation Storm", "rain", "dodge", "The comma blades fall in slanted sentences, with pauses between lines.", 46, 150, 42, (c) => {
+          const events2 = [];
+          for (let i = 0; i < 4; i++) events2.push(shot(i * 24, c, { x: c.clampX(c.tx + (i % 2 ? 180 : -180)), y: c.floor - 275, angle: i % 2 ? 2.05 : 1.09, count: 3 + c.phase, spread: 0.7, speed: 5.5, kind: "blade", damage: 1 }));
+          return events2;
+        }),
+        move("palimpsest-full-stop", "Full Stop", "execution", "platform", "EXECUTION: get onto a paper shelf before the horizontal erasure beam.", 100, 165, 68, (c) => [
+          platform(0, c, c.tx - 115, "memory", c.floor - 115),
+          platform(0, c, c.tx + 150, "memory", c.floor - 115),
+          zone(0, "beam", c.center, c.floor - 39, c.right - c.left, 58, { delay: 88, life: 24, damage: c.phase === 3 ? "lethal" : 2.5, knockback: 2.2, unblockable: true, label: c.phase === 3 ? "FULL STOP \xB7 EXECUTION" : "FULL STOP \xB7 CLIMB" })
+        ])
+      ]
+    },
+    belltwin: {
+      title: "Yesterday, Tomorrow",
+      identity: "Two saints alternate low and high bell rhythms, recruit candle attendants, and grow a paired dawn rather than copying the furnace saint.",
+      movement: "anchor",
+      speed: 1.25,
+      preferredRange: 165,
+      sequences: [[0, 1, 2, 3], [1, 0, 3, 2, 1], [0, 3, 1, 0, 2, 3]],
+      moves: [
+        move("belltwin-yesterdays-toll", "Yesterday\u2019s Toll", "rhythm", "jump", "Two low tolls, a pause, then one late toll. Jump to the rhythm.", 54, 175, 48, (c) => [
+          zone(0, "floor", c.center, c.floor - 13, c.right - c.left, 26, { delay: 26, life: 10, damage: 1.5, label: "ONE" }),
+          zone(42, "floor", c.center, c.floor - 13, c.right - c.left, 26, { delay: 26, life: 10, damage: 1.5, label: "TWO" }),
+          zone(108, "floor", c.center, c.floor - 13, c.right - c.left, 26, { delay: 30, life: 12, damage: 2, knockback: 2, label: "YESTERDAY" })
+        ]),
+        move("belltwin-tomorrows-answer", "Tomorrow\u2019s Answer", "rhythm", "dodge", "The future tolls where you stood; the second bell answers on either side.", 58, 150, 45, (c) => [
+          mark(0, c, c.tx, 86, { delay: 36, life: 14, damage: 1.5, label: "TOMORROW" }),
+          mark(52, c, c.tx - 155, 76, { delay: 34, life: 14, damage: 1.5, label: "ANSWER LEFT" }),
+          mark(52, c, c.tx + 155, 76, { delay: 34, life: 14, damage: 1.5, label: "ANSWER RIGHT" }),
+          ...c.phase === 3 ? [shot(105, c, { count: 3, spread: 0.7, speed: 6, kind: "orb" })] : []
+        ]),
+        move("belltwin-dawn-procession", "Dawn Procession", "summon", "minions", "Defeat the candle attendants while the saints expose their sunseed.", 70, 115, 66, (c) => [
+          { at: 0, type: "summon", kind: "candlewraith", count: 2, x: c.clampX(c.x - c.face * 155) },
+          platform(0, c, c.center, "metal"),
+          zone(32, "ring", c.x, c.floor - 30, 450, 64, { inner: 110, delay: 34, life: 18, damage: 1.5, label: "DAWN HALO" })
+        ]),
+        move("belltwin-two-suns", "Two Suns", "beam", "jump", "Jump the first low sun, then land beneath tomorrow\u2019s high sun.", 80, 185, 60, (c) => [
+          zone(0, "beam", c.center, c.floor - 24, c.right - c.left, 38, { delay: 36, life: 14, damage: 2, knockback: 2, label: "FIRST SUN \xB7 JUMP" }),
+          zone(60, "beam", c.center, c.floor - 156, c.right - c.left, 42, { delay: 34, life: 18, damage: 2, label: "SECOND SUN \xB7 LAND" }),
+          ...c.phase === 3 ? [zone(121, "beam", c.center, c.floor - 24, c.right - c.left, 38, { delay: 28, life: 12, damage: 2.5, label: "BORROWED DAWN" })] : []
+        ])
+      ]
+    },
+    nullheart: {
+      title: "Tomorrow Has Teeth",
+      identity: "The chosen covenant rewrites memory cascades, the first chorus, or mirrored futures; the final cradle has its own summoned court and a horizon execution.",
+      movement: "skirmish",
+      speed: 2.8,
+      preferredRange: 185,
+      sequences: [[0, 2, 3, 1], [3, 0, 2, 1, 0], [0, 3, 1, 2, 3, 0, 1]],
+      moves: [
+        move("nullheart-oath-unraveled", "Oath Unraveled", "covenant", "dodge", "Your covenant shapes the attack: leave memory columns, jump tides, or escape mirror marks.", 62, 170, 52, (c) => {
+          if (c.mechanic === "memorycascade") return [mark(0, c, c.tx, 80, { delay: 40, life: 20, damage: 2, status: { slow: 140 }, label: "PERFECT MEMORY" }), mark(48, c, c.tx - 155, 68, { delay: 34, damage: 1.5, status: { slow: 100 } }), mark(70, c, c.tx + 155, 68, { delay: 34, damage: 1.5, status: { slow: 100 } })];
+          if (c.mechanic === "tidechoir") return [zone(0, "ring", c.tx, c.floor - 25, 500, 58, { inner: 88, delay: 38, life: 18, damage: 2, status: { slick: 100 }, label: "FIRST CHORUS" }), zone(60, "floor", c.center, c.floor - 13, c.right - c.left, 26, { delay: 34, life: 14, damage: 2, status: { slick: 80 }, label: "RISING VOICES" })];
+          return [zone(0, "slash", c.tx, c.floor - 60, 165, 120, { delay: 40, life: 12, damage: 2, label: "UNWRITTEN FUTURE" }), zone(54, "slash", c.clampX(c.tx - 180), c.floor - 60, 150, 120, { delay: 34, life: 12, damage: 2, label: "ROAD NOT TAKEN" }), zone(92, "slash", c.clampX(c.tx + 180), c.floor - 60, 150, 120, { delay: 34, life: 12, damage: 2, label: "OTHER SELF" })];
+        }),
+        move("nullheart-zero-horizon", "Zero Horizon", "execution", "platform", "EXECUTION: take a memory ledge above the flying beam. The floor lane is erased.", 108, 185, 72, (c) => [
+          platform(0, c, c.tx - 130, "memory", c.floor - 120),
+          platform(0, c, c.tx + 145, "memory", c.floor - 120),
+          zone(0, "mine", c.x, c.floor - 15, 110, 30, { delay: 36, life: 12, damage: 1, label: "ASCENDING CRADLE" }),
+          { at: 40, type: "warp", x: c.clampX(c.x - c.face * 180), y: c.floor - 175 },
+          zone(0, "beam", c.center, c.floor - 44, c.right - c.left, 64, { delay: 100, life: 28, damage: c.phase === 3 ? "lethal" : 3, unblockable: true, knockback: 2.5, label: c.phase === 3 ? "ZERO HORIZON \xB7 EXECUTION" : "ZERO HORIZON \xB7 CLIMB" }),
+          { at: 148, type: "warp", x: c.x, y: c.floor }
+        ]),
+        move("nullheart-empty-cradles", "Empty Cradles", "summon", "minions", "Break the summoned court before the cradle rings close around their empty seats.", 76, 150, 66, (c) => [
+          { at: 0, type: "summon", kind: c.mechanic === "memorycascade" ? "clockscarab" : c.mechanic === "tidechoir" ? "inkfin" : "hushling", count: c.phase === 3 ? 3 : 2, x: c.clampX(c.x - c.face * 160) },
+          platform(0, c, c.center, "memory"),
+          zone(40, "ring", c.center, c.floor - 35, 540, 80, { inner: 125, delay: 40, life: 24, damage: 2, label: "EMPTY SEATS" })
+        ]),
+        move("nullheart-future-collapse", "Future Collapse", "leap", "dodge", "The outer futures detonate first. Bait the final descending heart away from the safe center.", 72, 200, 65, (c) => [
+          zone(0, "blast", c.left + 100, c.floor - 65, 165, 130, { delay: 38, life: 18, damage: 2, knockback: 2.2, label: "LOST FUTURE" }),
+          zone(0, "blast", c.right - 100, c.floor - 65, 165, 130, { delay: 38, life: 18, damage: 2, knockback: 2.2, label: "LOST FUTURE" }),
+          dash(74, c, c.tx, 34, 225, { damage: 2.5, knockback: 2.7 }),
+          zone(94, "blast", c.tx, c.floor - 40, 205, 80, { delay: 30, life: 20, damage: 2.5, knockback: 2.8, unblockable: true, label: "FUTURE COLLAPSE" }),
+          ...c.phase === 3 ? [shot(150, c, { count: 7, spread: 2.9, speed: 6.1, kind: "blade", damage: 1.5 })] : []
+        ])
+      ]
+    }
+  };
+
+  // src/boss-warden-moves.js
+  var zone2 = (at, shape, x, y, w, h, delay = 18, life = 18, extra = {}) => ({ at, type: "zone", shape, x, y, w, h, delay, life, damage: 1.5, ...extra });
+  var dash2 = (at, to, duration, height = 0, extra = {}) => ({ at, type: "dash", to, duration, height, damage: 1.5, knockback: 1.5, ...extra });
+  var ledge2 = (c, at, x, style = "stone", y = c.floor - 105, w = 160) => ({ at, type: "platform", x: c.clampX(x) - w / 2, y, w, life: 390, style });
+  var shot2 = (at, x, y, angle, count, spread, speed, extra = {}) => ({ at, type: "shots", x, y, angle, count, spread, speed, damage: 1, ...extra });
+  var WARDEN_ENCOUNTERS = {
+    "moss-warden": {
+      title: "THE HANGING AXE",
+      identity: "A rooted executioner commits its enormous axe to long frontal cuts, low heel tremors and marked landing chops. Get behind the axe and punish the recovery.",
+      movement: "anchor",
+      speed: 1.3,
+      preferredRange: 145,
+      sequences: [[0, 1, 0, 2, 3], [2, 0, 3, 1, 0], [0, 2, 1, 3, 2, 0]],
+      moves: [
+        { id: "rootbound-timber-verdict", name: "Timber Verdict", kind: "axe", counter: "behind", hint: "Cross behind the raised axe; its back is exposed.", tell: 50, active: 58, recover: 54, build: (c) => [
+          zone2(0, "slash", c.x + c.face * 142, c.floor - 75, 242, 135, 14, 14, { damage: 2, knockback: 2.2 }),
+          ...c.phase >= 2 ? [zone2(28, "slash", c.x - c.face * 95, c.floor - 55, 150, 90, 16, 12, { damage: 1.5, knockback: 1.6 })] : []
+        ] },
+        { id: "rootbound-gallows-heel", name: "Gallows Heel", kind: "quake", counter: "jump", hint: "Jump the low root tremors; they cannot reach the air.", tell: 44, active: 92, recover: 45, build: (c) => [
+          zone2(0, "blast", c.x, c.floor - 8, 128, 30, 12, 12, { damage: 2, knockback: 2 }),
+          ...[-1, 1].map((side) => zone2(6, "floor", c.x + side * 75, c.floor - 10, 82, 26, 16, 52, { vx: side * (4 + c.phase), damage: 1.5, knockback: 1.7 }))
+        ] },
+        { id: "rootbound-hangmans-descent", name: "Hangman\u2019s Descent", kind: "leap", counter: "dodge", hint: "The axe lands on the marked ground. Dash past its landing.", tell: 55, active: 94, recover: 58, build: (c) => [
+          zone2(0, "pillar", c.tx, c.floor - 70, 105, 140, 32, 18, { damage: 2.5, knockback: 2.2, unblockable: true }),
+          dash2(0, c.clampX(c.tx), 32, 180, { damage: 1 }),
+          ledge2(c, 53, c.tx, "root", c.floor - 95, 130),
+          ...c.phase === 3 ? [zone2(40, "floor", c.tx - c.face * 100, c.floor - 10, 130, 28, 18, 18, { status: { root: 12 } })] : []
+        ] },
+        { id: "rootbound-chainroot-prison", name: "Chainroot Prison", kind: "roots", counter: "minions", hint: "Cut the burrower down; roots erupt beside your marked position.", tell: 58, active: 114, recover: 54, build: (c) => [
+          { at: 0, type: "summon", kind: "graveburrower", count: c.phase === 3 ? 2 : 1, x: c.clampX(c.x - c.face * 160) },
+          ...[-1, 1].map((side, i) => zone2(i * 24, "pillar", c.clampX(c.tx + side * 105), c.floor - 65, 65, 130, 25, 20, { damage: 1.5, status: { root: 18 } })),
+          ...c.phase >= 2 ? [zone2(52, "pillar", c.tx, c.floor - 60, 60, 120, 24, 18, { damage: 2, status: { root: 18 } })] : []
+        ] }
+      ]
+    },
+    "forge-warden": {
+      title: "THE PRESSURE COURT",
+      identity: "A furnace magistrate fights like a hydraulic press: a massive piston strike, checkerboard vent lanes, suction before a crushing hammer, and a pressurized leap.",
+      movement: "anchor",
+      speed: 1.1,
+      preferredRange: 190,
+      sequences: [[0, 1, 2, 0, 3], [1, 0, 3, 2, 1], [2, 1, 0, 3, 1, 0]],
+      moves: [
+        { id: "bailiff-piston-writ", name: "Piston Writ", kind: "hammer", counter: "behind", hint: "The hammer extends far forward. Cross its shoulder before impact.", tell: 58, active: 50, recover: 60, build: (c) => [
+          zone2(0, "slash", c.x + c.face * 185, c.floor - 68, 330, 125, 12, 18, { damage: 3, knockback: 2.8 }),
+          zone2(12, "floor", c.x + c.face * 330, c.floor - 10, 100, 30, 20, 16, { damage: 1.5, status: { burn: 80 } })
+        ] },
+        { id: "bailiff-checkerboard-foundry", name: "Checkerboard Foundry", kind: "vents", counter: "dodge", hint: "The vent rows alternate. Move into a lane after its fire dies.", tell: 48, active: 136, recover: 40, build: (c) => {
+          const vents = Array.from({ length: 5 }, (_, i) => c.left + 70 + i * (c.right - c.left - 140) / 4);
+          return vents.flatMap((x, i) => [
+            zone2(i % 2 ? 44 : 0, "pillar", x, c.floor - 90, 62, 180, 24, 27, { damage: 1.5, status: { burn: 95 } }),
+            ...c.phase >= 2 ? [zone2(i % 2 ? 0 : 72, "floor", x, c.floor - 14, 88, 36, 24, 20, { damage: 1, status: { burn: 65 } })] : []
+          ]).sort((a, b) => a.at - b.at);
+        } },
+        { id: "bailiff-vacuum-contempt", name: "Vacuum Contempt", kind: "vacuum", counter: "retreat", hint: "Run out of the intake. The crushing blow lands close to the furnace.", tell: 56, active: 106, recover: 58, build: (c) => [
+          { at: 0, type: "force", x: c.x, y: c.floor - 35, radius: 330, pull: 0.55 + c.phase * 0.1, duration: 38 },
+          zone2(25, "blast", c.x, c.floor - 60, 220, 120, 26, 20, { damage: 3, knockback: 2.7, unblockable: true }),
+          ...c.phase === 3 ? [shot2(54, c.x, c.floor - 100, -Math.PI / 2, 5, 1.4, 5, { gravity: 0.25, kind: "orb", status: { burn: 90 } })] : []
+        ] },
+        { id: "bailiff-redline-appeal", name: "Redline Appeal", kind: "leap", counter: "platform", hint: "Use the metal plate to clear the returning floor shock.", tell: 62, active: 126, recover: 55, build: (c) => [
+          ledge2(c, 0, c.tx - c.face * 150, "metal", c.floor - 100, 180),
+          dash2(0, c.clampX(c.tx + c.face * 100), 34, 150, { damage: 2, knockback: 2 }),
+          ...[-1, 1].map((side) => zone2(35, "floor", c.tx + c.face * 100 + side * 60, c.floor - 9, 110, 26, 21, 51, { vx: side * 6, damage: 2, knockback: 2.1, status: { burn: 70 } }))
+        ] }
+      ]
+    },
+    "reef-warden": {
+      title: "THE UNDERTOW JAILER",
+      identity: "A mobile jailer uses a real inward current, rooting harpoons, delayed prison walls and an arcing arrest. The water moves you before its chains close.",
+      movement: "skirmish",
+      speed: 2.7,
+      preferredRange: 255,
+      sequences: [[1, 0, 2, 1, 3], [2, 1, 3, 0, 1], [0, 3, 1, 2, 3, 1]],
+      moves: [
+        { id: "gaoler-undertow-warrant", name: "Undertow Warrant", kind: "current", counter: "retreat", hint: "Swim against the pull; the chain loop closes around the jailer.", tell: 42, active: 106, recover: 46, build: (c) => [
+          { at: 0, type: "force", x: c.x, y: c.floor - 35, radius: 390, pull: 0.65, duration: 48 },
+          zone2(29, "ring", c.x, c.floor - 42, 300, 90, 22, 24, { inner: 48, damage: 2, knockback: 1.8, status: { slick: 100 } }),
+          ...c.phase >= 2 ? [shot2(58, c.x, c.floor - 82, void 0, 3, 0.32, 7, { kind: "droplet", status: { slick: 100 } })] : []
+        ] },
+        { id: "gaoler-shackle-harpoons", name: "Shackle Harpoons", kind: "harpoon", counter: "shield", hint: "Deflect the chain needles, then close the gap during the reload.", tell: 38, active: 88, recover: 46, build: (c) => [
+          shot2(0, c.x, c.floor - 72, void 0, 3, 0.32, 8, { kind: "needle", status: { root: 16 } }),
+          shot2(28, c.x, c.floor - 115, void 0, c.phase >= 2 ? 3 : 1, 0.45, 6, { kind: "droplet", status: { slick: 120 } }),
+          ...c.phase === 3 ? [shot2(54, c.x, c.floor - 45, void 0, 3, 0.2, 9, { kind: "needle", status: { root: 12 } })] : []
+        ] },
+        { id: "gaoler-drowning-cells", name: "Drowning Cells", kind: "cells", counter: "dodge", hint: "Wait between the first water walls, then leave before the middle cell seals.", tell: 50, active: 122, recover: 48, build: (c) => [
+          ...[-1, 1].map((side) => zone2(0, "pillar", c.clampX(c.tx + side * 135), c.floor - 120, 80, 240, 24, 28, { damage: 2, status: { slick: 95 } })),
+          zone2(48, "pillar", c.tx, c.floor - 110, 110, 220, 30, 22, { damage: 2, status: { root: 14 } }),
+          ...c.phase === 3 ? [ledge2(c, 7, c.tx, "water", c.floor - 100, 150)] : []
+        ] },
+        { id: "gaoler-breaker-arrest", name: "Breaker Arrest", kind: "leap", counter: "jump", hint: "Jump the low returning breaker after the jailer vaults past you.", tell: 46, active: 122, recover: 44, build: (c) => [
+          dash2(0, c.clampX(c.tx + c.face * 130), 30, 140, { damage: 1.5, knockback: 2 }),
+          zone2(30, "floor", c.tx + c.face * 130, c.floor - 11, 105, 30, 20, 60, { vx: -c.face * 7, damage: 2, knockback: 2.3, status: { slick: 110 } }),
+          ...c.phase >= 2 ? [zone2(55, "floor", c.tx - c.face * 110, c.floor - 11, 75, 28, 22, 36, { vx: c.face * 5, damage: 1.5, status: { slick: 80 } })] : []
+        ] }
+      ]
+    },
+    "storm-warden": {
+      title: "THE LIGHTNING VERDICT",
+      identity: "The magistrate is a fast spear duelist. Its announced zigzag lunges, staggered lightning brands, long judgment lance and storm-ring landing demand different dodges.",
+      movement: "skirmish",
+      speed: 4.4,
+      preferredRange: 240,
+      sequences: [[0, 2, 1, 0, 3], [0, 1, 3, 2, 0], [0, 3, 0, 1, 2, 0]],
+      moves: [
+        { id: "magistrate-three-count-indictment", name: "Three-Count Indictment", kind: "lunge", counter: "jump", hint: "Jump the first spear rush. The follow-ups cross the same marked lane.", tell: 44, active: 106, recover: 38, build: (c) => [
+          dash2(0, c.clampX(c.tx + c.face * 160), 16, 0, { damage: 1.5, knockback: 1.5 }),
+          dash2(30, c.clampX(c.tx - c.face * 150), 17, 0, { damage: 1.5, knockback: 1.6 }),
+          ...c.phase >= 2 ? [dash2(63, c.clampX(c.tx + c.face * 105), 14, 0, { damage: 2, knockback: 2 })] : []
+        ] },
+        { id: "magistrate-ion-brand", name: "Ion Brand", kind: "lightning", counter: "dodge", hint: "Your old position is branded. Move away; do not dodge into the side brands.", tell: 39, active: 108, recover: 34, build: (c) => [
+          zone2(0, "pillar", c.tx, c.floor - 160, 55, 320, 24, 14, { damage: 2 }),
+          zone2(29, "pillar", c.clampX(c.tx - c.face * 160), c.floor - 160, 55, 320, 22, 14, { damage: 1.5 }),
+          zone2(52, "pillar", c.clampX(c.tx + c.face * 160), c.floor - 160, 55, 320, 22, 14, { damage: 1.5 })
+        ] },
+        { id: "magistrate-judgment-lance", name: "Judgment Lance", kind: "spear", counter: "jump", hint: "The long spear sweeps low. Jump it or reach the magistrate\u2019s back.", tell: 48, active: 72, recover: 42, build: (c) => [
+          zone2(0, "beam", c.x + c.face * 230, c.floor - 53, 420, 58, 16, 16, { damage: 2.5, knockback: 2.4 }),
+          ...c.phase >= 2 ? [shot2(32, c.x, c.floor - 120, void 0, 3, 0.55, 10, { kind: "needle" })] : []
+        ] },
+        { id: "magistrate-ascendant-circuit", name: "Ascendant Circuit", kind: "dive", counter: "get-close", hint: "The storm ring has a calm eye. Stand near its marked center after the dive.", tell: 53, active: 114, recover: 46, build: (c) => [
+          dash2(0, c.clampX(c.tx), 30, 220, { damage: 1.5, knockback: 1.5 }),
+          zone2(27, "ring", c.tx, c.floor - 48, 470, 110, 24, 24, { inner: 92, damage: 2, knockback: 2 }),
+          ...c.phase === 3 ? [zone2(68, "pillar", c.clampX(c.tx + c.face * 230), c.floor - 160, 65, 320, 22, 12, { damage: 2 })] : []
+        ] }
+      ]
+    },
+    "frost-warden": {
+      title: "THE CLOCKWORK GUILLOTINE",
+      identity: "A patient headsman seals old positions in falling ice, rewinds into a cutting rush, raises escape blocks above a freezing floor and calls clockscarabs into a slow-time court.",
+      movement: "stalk",
+      speed: 1.7,
+      preferredRange: 170,
+      sequences: [[0, 1, 0, 2, 3], [2, 0, 3, 1, 0], [1, 0, 2, 1, 3, 0]],
+      moves: [
+        { id: "headsman-meridian-drop", name: "Meridian Drop", kind: "guillotine", counter: "dodge", hint: "Leave the thin guillotine lines. Each blade falls on an old position.", tell: 52, active: 116, recover: 54, build: (c) => [
+          zone2(0, "pillar", c.tx, c.floor - 155, 60, 310, 24, 16, { damage: 2.5, knockback: 1.8, status: { slow: 100 } }),
+          zone2(38, "pillar", c.clampX(c.tx + c.face * 160), c.floor - 155, 70, 310, 26, 16, { damage: 2, status: { slow: 80 } }),
+          ...c.phase === 3 ? [zone2(70, "pillar", c.clampX(c.tx - c.face * 160), c.floor - 155, 70, 310, 22, 14, { damage: 2, status: { slow: 80 } })] : []
+        ] },
+        { id: "headsman-rewind-sentence", name: "Rewind Sentence", kind: "rewind", counter: "jump", hint: "The headsman reappears at the ice marker, then cuts back toward its old position.", tell: 50, active: 112, recover: 52, build: (c) => [
+          zone2(0, "mine", c.clampX(c.tx - c.face * 150), c.floor - 20, 80, 45, 26, 12, { damage: 1, status: { slow: 90 } }),
+          { at: 12, type: "warp", x: c.clampX(c.tx - c.face * 150) },
+          dash2(28, c.clampX(c.x), 24, 0, { damage: 2, knockback: 1.8 }),
+          ...c.phase >= 2 ? [zone2(53, "slash", c.x + c.face * 60, c.floor - 65, 180, 100, 22, 15, { damage: 2, status: { slow: 100 } })] : []
+        ] },
+        { id: "headsman-clock-ice-flood", name: "Clock-Ice Flood", kind: "frostfloor", counter: "platform", hint: "Climb an ice block or find the unmarked gap before the floor freezes.", tell: 62, active: 138, recover: 56, build: (c) => {
+          const gap = c.clampX(c.tx), leftWidth = Math.max(0, gap - 88 - c.left), rightWidth = Math.max(0, c.right - gap - 88);
+          return [
+            ledge2(c, 0, gap - 170, "ice", c.floor - 105, 170),
+            ledge2(c, 0, gap + 170, "ice", c.floor - 105, 170),
+            ...leftWidth > 30 ? [zone2(0, "floor", c.left + leftWidth / 2, c.floor - 13, leftWidth, 34, 46, 62, { damage: 2, status: { slow: 140 }, unblockable: true })] : [],
+            ...rightWidth > 30 ? [zone2(0, "floor", gap + 88 + rightWidth / 2, c.floor - 13, rightWidth, 34, 46, 62, { damage: 2, status: { slow: 140 }, unblockable: true })] : [],
+            ...c.phase === 3 ? [zone2(77, "pillar", gap, c.floor - 95, 55, 190, 29, 18, { damage: 2 })] : []
+          ];
+        } },
+        { id: "headsman-stasis-jury", name: "Stasis Jury", kind: "clockcourt", counter: "minions", hint: "Break the clockscarabs. The court\u2019s pulse leaves a safe center beneath the headsman.", tell: 58, active: 128, recover: 54, build: (c) => [
+          { at: 0, type: "summon", kind: "clockscarab", count: c.phase >= 2 ? 2 : 1, x: c.clampX(c.x - c.face * 190) },
+          zone2(22, "ring", c.x, c.floor - 26, 410, 56, 28, 25, { inner: 90, damage: 1.5, status: { slow: 140 } }),
+          shot2(69, c.tx, c.floor - 250, Math.PI / 2, 3, 0.65, 5, { kind: "blade", gravity: 0.12, status: { slow: 80 } })
+        ] }
+      ]
+    },
+    "rift-warden": {
+      title: "THE IMPOSSIBLE TESTIMONY",
+      identity: "The witness fights through reflected positions: staggered phantom cuts, a warned side inversion, fractured footholds and an aerial eye that fires downward execution rays.",
+      movement: "hover",
+      speed: 2.5,
+      preferredRange: 220,
+      sequences: [[0, 1, 2, 0, 3], [1, 0, 3, 2, 0], [3, 1, 0, 2, 1, 0]],
+      moves: [
+        { id: "witness-split-testimony", name: "Split Testimony", kind: "mirrors", counter: "dodge", hint: "The reflections strike in order. Leave your old position before its second cut.", tell: 45, active: 121, recover: 42, build: (c) => [
+          zone2(0, "slash", c.tx - c.face * 90, c.floor - 65, 140, 110, 22, 14, { damage: 1.5, knockback: 1.6 }),
+          zone2(30, "slash", c.clampX(c.left + c.right - c.tx), c.floor - 65, 160, 110, 22, 14, { damage: 2, knockback: 1.8 }),
+          zone2(62, "slash", c.tx + c.face * 90, c.floor - 65, 140, 110, 24, 16, { damage: 2, knockback: 1.8 })
+        ] },
+        { id: "witness-oath-inversion", name: "Oath Inversion", kind: "warp", counter: "behind", hint: "Watch the arrival mark. The witness swaps sides before its long inward cut.", tell: 52, active: 111, recover: 48, build: (c) => {
+          const arrival = c.clampX(c.left + c.right - c.x), direction = c.tx > arrival ? 1 : -1;
+          return [
+            zone2(0, "mine", arrival, c.floor - 18, 92, 42, 30, 14, { damage: 1.5 }),
+            { at: 15, type: "warp", x: arrival },
+            zone2(34, "slash", arrival + direction * 142, c.floor - 65, 245, 115, 25, 16, { damage: 2.5, knockback: 2.3 }),
+            ...c.phase === 3 ? [shot2(71, arrival, c.floor - 145, void 0, 3, 0.5, 7, { kind: "blade" })] : []
+          ];
+        } },
+        { id: "witness-fracture-bridge", name: "Fracture Bridge", kind: "riftbridge", counter: "platform", hint: "Memory footholds appear before the rifts open. Ground between the rifts remains safe.", tell: 60, active: 142, recover: 52, build: (c) => {
+          const xs = [c.clampX(c.tx - 180), c.clampX(c.tx + 180)];
+          return [
+            ...xs.map((x, i) => ledge2(c, 0, x, "memory", c.floor - 100 - i * 20, 155)),
+            ...[-240, 0, 240].map((dx, i) => zone2(i * 19, "floor", c.clampX(c.tx + dx), c.floor - 12, 120, 32, 34, 45, { damage: 1.5, unblockable: true })),
+            ...c.phase >= 2 ? [zone2(65, "beam", c.tx, c.floor - 175, 340, 35, 26, 14, { damage: 2 })] : []
+          ];
+        } },
+        { id: "witness-eye-of-unmaking", name: "Eye of Unmaking", kind: "flyingbeam", counter: "dodge", hint: "Leave the marked vertical ray. The eye descends after its second beam.", tell: 70, active: 156, recover: 64, build: (c) => [
+          zone2(0, "mine", c.clampX(c.tx), c.floor - 220, 105, 70, 24, 12, { damage: 1 }),
+          { at: 12, type: "warp", x: c.clampX(c.tx), y: c.floor - 205 },
+          zone2(26, "beam", c.tx, c.floor - 105, 80, 210, 30, 22, { damage: 3, knockback: 2.5, unblockable: true }),
+          zone2(74, "beam", c.clampX(c.tx + c.face * 155), c.floor - 105, 70, 210, 26, 20, { damage: 2.5, knockback: 2.1 }),
+          dash2(119, c.clampX(c.tx - c.face * 95), 24, 0, { damage: 1.5 })
+        ] }
+      ]
+    }
+  };
+
+  // src/boss-reaver-moves.js
+  var zone3 = (at, shape, x, y, w, h, delay, life, damage = 1.5, extra = {}) => ({ at, type: "zone", shape, x, y, w, h, delay, life, damage, ...extra });
+  var platform2 = (at, x, y, w, style, life = 420) => ({ at, type: "platform", x, y, w, style, life });
+  var aim = (c, x = c.x, y = c.floor - 85) => Math.atan2(c.ty - 35 - y, c.tx - x);
+  var sorted = (events2) => events2.sort((a, b) => a.at - b.at);
+  var REAVER_ENCOUNTERS = {
+    "moss-reaver": {
+      title: "The Carrion Gardener",
+      identity: "A patient mine-layer that grows a living nursery and turns the floor into a spore garden.",
+      movement: "anchor",
+      speed: 1.2,
+      preferredRange: 225,
+      sequences: [[0, 1, 0, 2, 3], [1, 2, 0, 3, 0, 2], [3, 0, 2, 1, 0, 3, 2]],
+      moves: [
+        {
+          id: "carrion-seed-testament",
+          name: "Seed Testament",
+          kind: "seed-minefield",
+          counter: "dodge",
+          hint: "The seeds open in sequence. Move out of each marked patch.",
+          tell: 42,
+          active: 84,
+          recover: 40,
+          build: (c) => {
+            const events2 = [], count = c.phase === 3 ? 5 : 3;
+            for (let i = 0; i < count; i++) events2.push(zone3(i * 9, "mine", c.clampX(c.tx + (i - (count - 1) / 2) * 132), c.floor - 22, 82, 68, 26 + i * 3, 24, 1.25, { status: { root: 12 }, label: "GERMINATING" }));
+            return events2;
+          }
+        },
+        {
+          id: "carrion-funeral-orchard",
+          name: "Funeral Orchard",
+          kind: "living-nursery",
+          counter: "minions",
+          hint: "Cut down the nursery before it feeds the Gardener. The center lane stays open.",
+          tell: 58,
+          active: 100,
+          recover: 52,
+          build: (c) => sorted([
+            { at: 0, type: "summon", kind: "sproutlet", count: 2, x: c.clampX(c.x - c.face * 135) },
+            { at: 24, type: "summon", kind: "graveburrower", count: 1, x: c.clampX(c.x + c.face * 155) },
+            zone3(12, "floor", c.clampX(c.center - 275), c.floor - 13, 170, 28, 30, 48, 1, { status: { root: 14 }, label: "NURSERY BED" }),
+            zone3(12, "floor", c.clampX(c.center + 275), c.floor - 13, 170, 28, 30, 48, 1, { status: { root: 14 }, label: "NURSERY BED" }),
+            ...c.phase >= 2 ? [{ at: 76, type: "heal", amount: 7 }] : []
+          ])
+        },
+        {
+          id: "carrion-root-harrow",
+          name: "Root Harrow",
+          kind: "spore-halo",
+          counter: "get-close",
+          hint: "Enter the hollow center of the spore ring; the outer garden erupts.",
+          tell: 46,
+          active: 72,
+          recover: 48,
+          build: (c) => [
+            { at: 0, type: "force", x: c.x, y: c.floor - 35, radius: 320, pull: 0.45, duration: 38 },
+            zone3(0, "ring", c.x, c.floor - 35, 530, 130, 34, 24, 2, { inner: 102, knockback: 1.8, status: { root: 14 }, label: "HOLLOW SPORE HALO" }),
+            ...c.phase === 3 ? [zone3(38, "ring", c.x, c.floor - 35, 650, 130, 24, 16, 1.5, { inner: 122, label: "SECOND BLOOM" })] : []
+          ]
+        },
+        {
+          id: "carrion-compost-cathedral",
+          name: "Compost Cathedral",
+          kind: "root-bridge-purge",
+          counter: "platform",
+          hint: "Use the new root bridges. The spores crawl along the ground.",
+          tell: 64,
+          active: 118,
+          recover: 58,
+          build: (c) => [
+            platform2(0, c.clampX(c.center - 205), c.floor - 100, 150, "root"),
+            platform2(0, c.clampX(c.center + 85), c.floor - 100, 150, "root"),
+            zone3(24, "floor", c.center, c.floor - 15, Math.min(760, c.right - c.left - 50), 32, 36, 54, 1.5, { status: { root: 16 }, label: "COMPOST TIDE" }),
+            ...c.phase >= 2 ? [zone3(76, "mine", c.clampX(c.tx), c.floor - 22, 96, 68, 28, 14, 1.5, { label: "LATE BLOOM" })] : []
+          ]
+        }
+      ]
+    },
+    "forge-reaver": {
+      title: "The Cinder Confessor",
+      identity: "A furnace beast that ricochets through powder charges, leaps like a mortar, and alternates low and high fire lanes.",
+      movement: "stalk",
+      speed: 2.8,
+      preferredRange: 150,
+      sequences: [[0, 1, 2, 0, 3], [2, 0, 1, 3, 0, 1], [0, 2, 1, 0, 3, 2, 1]],
+      moves: [
+        {
+          id: "cinder-shrapnel-stampede",
+          name: "Shrapnel Stampede",
+          kind: "powder-stampede",
+          counter: "jump",
+          hint: "Jump the two charging passes. Powder ignites behind the beast.",
+          tell: 46,
+          active: 88,
+          recover: 45,
+          build: (c) => {
+            const end = c.clampX(c.tx + c.face * 130), events2 = [{ at: 0, type: "dash", to: end, duration: 20, damage: 2, knockback: 2.2 }, { at: 44, type: "dash", to: c.x, duration: 18, damage: 2, knockback: 2.2 }];
+            for (let i = 1; i <= 3; i++) events2.push(zone3(i * 7, "mine", c.x + (end - c.x) * i / 4, c.floor - 14, 66, 42, 26, 14, 1, { status: { burn: 65 }, label: "POWDER CHARGE" }));
+            return sorted(events2);
+          }
+        },
+        {
+          id: "cinder-confession-chain",
+          name: "Confession Chain",
+          kind: "chain-detonation",
+          counter: "dodge",
+          hint: "The center bomb bursts first; outer bombs follow. Keep changing lanes.",
+          tell: 48,
+          active: 100,
+          recover: 48,
+          build: (c) => {
+            const offsets = c.phase >= 2 ? [0, -165, 165, -320, 320] : [0, -165, 165];
+            return offsets.map((dx, i) => zone3(i * 10, "blast", c.clampX(c.tx + dx), c.floor - 54, 112, 128, 26, 18, 1.75, { knockback: 1.9, status: { burn: 80 }, label: "CONFESSION " + (i + 1) }));
+          }
+        },
+        {
+          id: "cinder-mortar-requiem",
+          name: "Mortar Requiem",
+          kind: "mortar-leap",
+          counter: "behind",
+          hint: "Leave the landing seal, then attack its back while the mortar cools.",
+          tell: 52,
+          active: 82,
+          recover: 55,
+          build: (c) => {
+            const landing = c.clampX(c.tx + c.face * 55);
+            return [
+              zone3(0, "blast", landing, c.floor - 24, 160, 74, 30, 16, 2, { knockback: 2.5, status: { burn: 80 }, label: "MORTAR IMPACT" }),
+              { at: 0, type: "dash", to: landing, duration: 30, height: 218, damage: 1.5, knockback: 1.8 },
+              { at: 42, type: "shots", x: landing, y: c.floor - 85, angle: -Math.PI / 2, count: 5 + c.phase, spread: 2.3, speed: 6.2, gravity: 0.24, damage: 1, kind: "orb", status: { burn: 65 } }
+            ];
+          }
+        },
+        {
+          id: "cinder-ashen-absolution",
+          name: "Ashen Absolution",
+          kind: "furnace-height-switch",
+          counter: "platform",
+          hint: "Climb over the low flare, then drop below the high flare.",
+          tell: 64,
+          active: 124,
+          recover: 60,
+          build: (c) => [
+            platform2(0, c.clampX(c.center - 170), c.floor - 105, 170, "metal"),
+            platform2(0, c.clampX(c.center + 95), c.floor - 105, 170, "metal"),
+            zone3(30, "beam", c.center, c.floor - 20, Math.min(760, c.right - c.left - 40), 38, 30, 24, 2.5, { unblockable: true, status: { burn: 95 }, knockback: 2, label: "LOW FURNACE FLARE" }),
+            zone3(78, "beam", c.center, c.floor - 185, Math.min(760, c.right - c.left - 40), 42, 24, 24, 2, { status: { burn: 95 }, label: "HIGH FURNACE FLARE" })
+          ]
+        }
+      ]
+    },
+    "reef-reaver": {
+      title: "The Page-Eater",
+      identity: "A swimming archive predator that vacuums prey into its bookmaw, breaches across the room, and feeds on a shoal of inkfish.",
+      movement: "skirmish",
+      speed: 3.2,
+      preferredRange: 190,
+      sequences: [[0, 2, 1, 3], [1, 0, 2, 3, 2], [2, 1, 0, 2, 3, 1]],
+      moves: [
+        {
+          id: "page-bookmaw",
+          name: "Bookmaw Undertow",
+          kind: "vacuum-bite",
+          counter: "behind",
+          hint: "The mouth draws you inward. Dash past the bite or stay behind it.",
+          tell: 50,
+          active: 84,
+          recover: 56,
+          build: (c) => [
+            { at: 0, type: "force", x: c.x + c.face * 50, y: c.floor - 45, radius: 355, pull: 0.7, duration: 42 },
+            zone3(0, "slash", c.clampX(c.x + c.face * 105), c.floor - 65, 182, 136, 44, 16, 2.5, { knockback: 2.2, status: { slick: 95 }, label: "BOOKMAW SNAP" }),
+            ...c.phase === 3 ? [zone3(52, "blast", c.clampX(c.x + c.face * 110), c.floor - 30, 210, 74, 18, 14, 1.5, { label: "INK REGURGITATION" })] : []
+          ]
+        },
+        {
+          id: "page-boundless-breach",
+          name: "Boundless Breach",
+          kind: "tidal-double-vault",
+          counter: "dodge",
+          hint: "Two splashes: a long breach, then the return vault. Leave the marked water.",
+          tell: 46,
+          active: 88,
+          recover: 44,
+          build: (c) => {
+            const landing = c.clampX(c.tx + c.face * 110);
+            return [
+              platform2(0, c.clampX(c.center - 65), c.floor - 105, 130, "water"),
+              zone3(0, "blast", landing, c.floor - 20, 166, 72, 28, 16, 1.75, { knockback: 2.1, status: { slick: 110 }, label: "FIRST BREACH" }),
+              { at: 0, type: "dash", to: landing, duration: 28, height: 230, damage: 1.5, knockback: 1.8 },
+              zone3(32, "blast", c.x, c.floor - 20, 146, 72, 24, 16, 1.75, { knockback: 2.1, label: "RETURN BREACH" }),
+              { at: 36, type: "dash", to: c.x, duration: 20, height: 115, damage: 1.5, knockback: 1.8 }
+            ];
+          }
+        },
+        {
+          id: "page-ink-pagination",
+          name: "Ink Pagination",
+          kind: "alternating-ink-cones",
+          counter: "shield",
+          hint: "Alternate the shield toward each ink fan; the ink marks on the floor burst late.",
+          tell: 42,
+          active: 86,
+          recover: 46,
+          build: (c) => {
+            const events2 = [];
+            for (let i = 0; i < 3; i++) {
+              const x = c.clampX(c.x + (i % 2 ? -95 : 95)), y = c.floor - 100;
+              events2.push({ at: i * 22, type: "shots", x, y, angle: aim(c, x, y), count: 4 + c.phase, spread: 0.8, speed: 7 + i, damage: 1, kind: "droplet", status: { slick: 110 } });
+              events2.push(zone3(12 + i * 18, "mine", c.clampX(c.tx + (i - 1) * 135), c.floor - 12, 80, 40, 30, 14, 1, { status: { slick: 140 }, label: "UNREAD INK" }));
+            }
+            return sorted(events2);
+          }
+        },
+        {
+          id: "page-archive-hunger",
+          name: "Archive Hunger",
+          kind: "inkfish-feeding",
+          counter: "minions",
+          hint: "Break the shoal before the archive feeds its guardian. Stay out of the black pool.",
+          tell: 58,
+          active: 108,
+          recover: 52,
+          build: (c) => [
+            { at: 0, type: "summon", kind: "inkfin", count: 2, x: c.clampX(c.x - c.face * 145) },
+            ...c.phase >= 2 ? [{ at: 14, type: "summon", kind: "dewdrop", count: 1, x: c.clampX(c.x + c.face * 165) }] : [],
+            { at: 18, type: "force", x: c.center, y: c.floor - 30, radius: 390, pull: 0.28, duration: 60 },
+            zone3(24, "floor", c.clampX(c.tx), c.floor - 12, 290, 32, 34, 40, 1.25, { status: { slick: 140 }, label: "BLACK ARCHIVE POOL" }),
+            ...c.phase >= 2 ? [{ at: 84, type: "heal", amount: 8 }] : []
+          ]
+        }
+      ]
+    },
+    "storm-reaver": {
+      title: "The Bellbreaker",
+      identity: "An aerial duelist: rapid zigzag dives, delayed sonic traps, a hollow scream, and a final toll that must be escaped vertically.",
+      movement: "hover",
+      speed: 4.5,
+      preferredRange: 245,
+      sequences: [[0, 2, 1, 0, 3], [1, 0, 2, 0, 3, 1], [0, 1, 0, 2, 3, 0, 2]],
+      moves: [
+        {
+          id: "bellbreaker-broken-metronome",
+          name: "Broken Metronome",
+          kind: "aerial-zigzag",
+          counter: "dodge",
+          hint: "Three diving beats lock their endpoints. Dash after each wing flash.",
+          tell: 40,
+          active: 86,
+          recover: 40,
+          build: (c) => {
+            const near = c.clampX(c.tx + c.face * 100), far = c.clampX(c.tx - c.face * 135);
+            return [
+              zone3(0, "slash", near, c.floor - 42, 94, 110, 14, 12, 1.5, { knockback: 1.7, label: "BEAT ONE" }),
+              { at: 0, type: "dash", to: near, duration: 14, height: 145, damage: 1.5, knockback: 1.7 },
+              zone3(21, "slash", far, c.floor - 42, 94, 110, 14, 12, 1.5, { knockback: 1.7, label: "BEAT TWO" }),
+              { at: 21, type: "dash", to: far, duration: 14, height: 125, damage: 1.5, knockback: 1.7 },
+              zone3(44, "slash", near, c.floor - 42, 116, 110, 16, 12, 2, { knockback: 2.2, label: "BEAT THREE" }),
+              { at: 44, type: "dash", to: near, duration: 16, height: 95, damage: 2, knockback: 2.2 }
+            ];
+          }
+        },
+        {
+          id: "bellbreaker-resonant-ruin",
+          name: "Resonant Ruin",
+          kind: "air-dropped-aftershocks",
+          counter: "jump",
+          hint: "The ground bells explode in staggered time. Jump the low pulses, avoid the late high echo.",
+          tell: 45,
+          active: 100,
+          recover: 44,
+          build: (c) => sorted([
+            { at: 0, type: "dash", to: c.clampX(c.x - c.face * 170), duration: 24, height: 175, damage: 1, knockback: 1.2 },
+            ...[-1, 0, 1].map((n2, i) => zone3(i * 12, "blast", c.clampX(c.tx + n2 * 142), c.floor - 19, 106, 55, 32, 14, 1.5, { knockback: 1.9, label: "GROUND BELL " + (i + 1) })),
+            zone3(54, "beam", c.clampX(c.tx), c.floor - 158, 265, 40, 22, 14, 1.5, { label: "HIGH ECHO" })
+          ])
+        },
+        {
+          id: "bellbreaker-silence-scream",
+          name: "Silence Scream",
+          kind: "hollow-sonic-beam",
+          counter: "get-close",
+          hint: "Take shelter beneath the hollow throat. The sonic wings strike the outer lanes.",
+          tell: 60,
+          active: 112,
+          recover: 50,
+          build: (c) => {
+            const width = 260 + c.phase * 30, reach = width / 2 + 112;
+            return [
+              { at: 0, type: "force", x: c.x, y: c.floor - 40, radius: 310, pull: 0.28, duration: 24 },
+              zone3(20, "beam", c.x + c.face * reach, c.floor - 70, width, 64, 30, 26, 2, { knockback: 2.3, unblockable: true, label: "FORWARD SONIC WING" }),
+              ...c.phase >= 2 ? [zone3(56, "beam", c.x - c.face * reach, c.floor - 70, width, 64, 26, 24, 2, { knockback: 2.3, unblockable: true, label: "REVERSE SONIC WING" })] : []
+            ];
+          }
+        },
+        {
+          id: "bellbreaker-last-toll",
+          name: "Last Toll \u2014 Execution",
+          kind: "execution-sonic-floor",
+          counter: "platform",
+          hint: "Stand on the new bell perch. Phase III: the ground-level death note downs a companion.",
+          tell: 104,
+          active: 118,
+          recover: 64,
+          build: (c) => [
+            platform2(0, c.center - 75, c.floor - 120, 150, "metal", 480),
+            platform2(0, c.clampX(c.tx - 60), c.floor - 100, 120, "metal", 480),
+            zone3(46, "beam", c.center, c.floor - 39, Math.max(200, c.right - c.left - 36), 72, 42, 20, c.phase === 3 ? "lethal" : 2.5, { unblockable: true, knockback: 2.8, label: c.phase === 3 ? "EXECUTION \xB7 LEAVE THE FLOOR" : "DEATH NOTE \xB7 CLIMB" })
+          ]
+        }
+      ]
+    },
+    "frost-reaver": {
+      title: "The White Mourner",
+      identity: "A snow-winged trapper that makes hollow ice lattices and temporary refuges, then hunts between them with diving passes.",
+      movement: "hover",
+      speed: 3.1,
+      preferredRange: 240,
+      sequences: [[0, 3, 1, 2], [1, 3, 0, 2, 3], [3, 1, 0, 3, 2, 1]],
+      moves: [
+        {
+          id: "mourner-hollow-halo",
+          name: "Hollow Halo",
+          kind: "snow-ring",
+          counter: "get-close",
+          hint: "The snow halo has an empty heart. Enter the center before the wings close.",
+          tell: 46,
+          active: 94,
+          recover: 48,
+          build: (c) => [
+            zone3(0, "ring", c.x, c.floor - 50, 580, 160, 30, 24, 1.75, { inner: 106, status: { slow: 85 }, label: "HOLLOW SNOW HALO" }),
+            zone3(40, "pillar", c.x - 205, c.floor - 118, 48, 250, 26, 18, 1.5, { status: { slow: 100 }, label: "LEFT WING ICICLE" }),
+            zone3(40, "pillar", c.x + 205, c.floor - 118, 48, 250, 26, 18, 1.5, { status: { slow: 100 }, label: "RIGHT WING ICICLE" })
+          ]
+        },
+        {
+          id: "mourner-white-lattice",
+          name: "White Lattice",
+          kind: "diamond-safe-lane",
+          counter: "get-close",
+          hint: "Stay in the empty center of the ice diamond. The outer lanes close one after another.",
+          tell: 54,
+          active: 112,
+          recover: 52,
+          build: (c) => {
+            const half = Math.max(160, (c.right - c.left) / 2 - 95), events2 = [
+              zone3(0, "pillar", c.center - 180, c.floor - 135, 52, 290, 30, 34, 1.75, { status: { slow: 100 }, label: "LATTICE WEST" }),
+              zone3(0, "pillar", c.center + 180, c.floor - 135, 52, 290, 30, 34, 1.75, { status: { slow: 100 }, label: "LATTICE EAST" }),
+              zone3(40, "floor", c.center - half / 2 - 85, c.floor - 14, half, 34, 28, 30, 1.5, { status: { slow: 140 }, label: "LEFT ICE BED" }),
+              zone3(52, "floor", c.center + half / 2 + 85, c.floor - 14, half, 34, 28, 26, 1.5, { status: { slow: 140 }, label: "RIGHT ICE BED" })
+            ];
+            if (c.phase === 3) events2.push({ at: 74, type: "shots", x: c.center, y: c.floor - 240, angle: Math.PI / 2, count: 3, spread: 0.62, speed: 5.2, damage: 1, kind: "needle", status: { slow: 85 } });
+            return sorted(events2);
+          }
+        },
+        {
+          id: "mourner-last-warmth",
+          name: "Last Warmth",
+          kind: "ice-refuge-purge",
+          counter: "platform",
+          hint: "Climb a new ice refuge. The deep frost washes the ground; stay below the high snow.",
+          tell: 68,
+          active: 126,
+          recover: 60,
+          build: (c) => [
+            platform2(0, c.clampX(c.center - 245), c.floor - 105, 150, "ice", 460),
+            platform2(0, c.clampX(c.center + 100), c.floor - 105, 150, "ice", 460),
+            zone3(24, "floor", c.center, c.floor - 12, Math.max(220, c.right - c.left - 50), 28, 44, 48, 2, { status: { slow: 160 }, unblockable: true, label: "DEEP FROST \xB7 CLIMB" }),
+            zone3(72, "beam", c.center, c.floor - 230, Math.max(220, c.right - c.left - 80), 36, 28, 16, 1.5, { status: { slow: 110 }, label: "HIGH SNOW" })
+          ]
+        },
+        {
+          id: "mourner-funeral-flight",
+          name: "Funeral Flight",
+          kind: "snow-needle-swoop",
+          counter: "dodge",
+          hint: "Move after the first swoop locks. The returning wing drops needles.",
+          tell: 40,
+          active: 94,
+          recover: 40,
+          build: (c) => {
+            const far = c.clampX(c.x - c.face * 150), landing = c.clampX(c.tx + c.face * 85);
+            return [
+              { at: 0, type: "dash", to: far, duration: 20, height: 165, damage: 1.25, knockback: 1.5 },
+              { at: 24, type: "shots", x: far, y: c.floor - 180, angle: Math.PI / 2, count: 3 + c.phase, spread: 1.25, speed: 6.7, damage: 1, kind: "needle", status: { slow: 95 } },
+              zone3(34, "blast", landing, c.floor - 25, 135, 86, 26, 14, 1.5, { knockback: 1.9, status: { slow: 90 }, label: "RETURNING WING" }),
+              { at: 42, type: "dash", to: landing, duration: 18, height: 115, damage: 1.75, knockback: 2 }
+            ];
+          }
+        }
+      ]
+    },
+    "rift-reaver": {
+      title: "The Unwritten Butcher",
+      identity: "A spatial executioner that telegraphs its future locations, cuts with giant cleavers, and erases floor lanes beneath temporary memory tiles.",
+      movement: "skirmish",
+      speed: 3.9,
+      preferredRange: 185,
+      sequences: [[0, 1, 2, 0, 3], [1, 0, 2, 3, 0, 1], [0, 2, 1, 0, 3, 1, 2]],
+      moves: [
+        {
+          id: "butcher-unfinished-sentence",
+          name: "Unfinished Sentence",
+          kind: "warned-warp-crosscut",
+          counter: "behind",
+          hint: "The purple seal is its next position. Cross behind the cleaver after it appears.",
+          tell: 46,
+          active: 116,
+          recover: 48,
+          build: (c) => {
+            const arrival = c.clampX(c.tx + c.face * 145);
+            return [
+              zone3(0, "mine", arrival, c.floor - 55, 86, 130, 24, 1, 1, { label: "FUTURE POSITION" }),
+              { at: 24, type: "warp", x: arrival },
+              zone3(27, "slash", arrival - c.face * 115, c.floor - 70, 245, 130, 22, 14, 2.25, { knockback: 2.1, unblockable: true, label: "UNFINISHED CLEAVER" }),
+              zone3(38, "mine", c.x, c.floor - 55, 86, 130, 26, 1, 1, { label: "RETURN POSITION" }),
+              { at: 64, type: "warp", x: c.x },
+              zone3(68, "slash", c.x + c.face * 115, c.floor - 70, 245, 130, 22, 14, 2.25, { knockback: 2.1, unblockable: true, label: "RETURN CLEAVER" })
+            ];
+          }
+        },
+        {
+          id: "butcher-twin-guillotines",
+          name: "Twin Guillotines",
+          kind: "giant-cleaver-cage",
+          counter: "retreat",
+          hint: "Leave the two vertical blade seals, then stay below the late crosscut.",
+          tell: 56,
+          active: 104,
+          recover: 56,
+          build: (c) => [
+            zone3(0, "pillar", c.clampX(c.tx - 138), c.floor - 135, 80, 290, 36, 18, 2.5, { knockback: 2.6, unblockable: true, label: "LEFT GIANT CLEAVER" }),
+            zone3(12, "pillar", c.clampX(c.tx + 138), c.floor - 135, 80, 290, 36, 18, 2.5, { knockback: 2.6, unblockable: true, label: "RIGHT GIANT CLEAVER" }),
+            zone3(52, "slash", c.clampX(c.tx), c.floor - 205, 340, 48, 26, 18, 2, { knockback: 2.3, label: "HIGH CROSSCUT" })
+          ]
+        },
+        {
+          id: "butcher-erased-causeway",
+          name: "Erased Causeway",
+          kind: "memory-tile-floor-erasure",
+          counter: "platform",
+          hint: "Use the memory tiles. The causeway still exists beneath the erasure, but it burns.",
+          tell: 66,
+          active: 130,
+          recover: 62,
+          build: (c) => [
+            platform2(0, c.clampX(c.center - 215), c.floor - 100, 145, "memory", 460),
+            platform2(0, c.clampX(c.center + 70), c.floor - 100, 145, "memory", 460),
+            zone3(18, "pillar", c.clampX(c.center - 350), c.floor - 150, 44, 310, 40, 30, 1.5, { label: "LEFT MARGIN" }),
+            zone3(18, "pillar", c.clampX(c.center + 350), c.floor - 150, 44, 310, 40, 30, 1.5, { label: "RIGHT MARGIN" }),
+            zone3(32, "floor", c.center, c.floor - 14, 480, 32, 46, 36, 2.25, { unblockable: true, knockback: 2, label: "ERASED CAUSEWAY \xB7 CLIMB" })
+          ]
+        },
+        {
+          id: "butcher-future-erasure",
+          name: "Future Erasure \u2014 Execution",
+          kind: "execution-falling-ray",
+          counter: "dodge",
+          hint: "Phase III: the tall white ray downs a companion. Leave your locked position, then punish the exhausted Butcher.",
+          tell: 100,
+          active: 134,
+          recover: 68,
+          build: (c) => {
+            const arrival = c.clampX(c.tx < c.center ? c.right - 55 : c.left + 55);
+            return [
+              zone3(0, "mine", arrival, c.floor - 55, 86, 130, 28, 1, 1, { label: "FINAL APPEARANCE" }),
+              { at: 28, type: "warp", x: arrival },
+              zone3(34, "beam", c.clampX(c.tx), c.floor - 220, 126, 470, 52, 20, c.phase === 3 ? "lethal" : 2.5, { unblockable: true, knockback: 2.8, label: c.phase === 3 ? "EXECUTION \xB7 LEAVE THE RAY" : "FUTURE ERASURE" }),
+              ...c.phase >= 2 ? [-1, 1].map((dir, i) => zone3(78 + i * 12, "slash", c.clampX(c.tx + dir * 210), c.floor - 68, 115, 138, 24, 14, 1.75, { label: "DISCARDED FUTURE" })) : []
+            ];
+          }
+        }
+      ]
+    }
+  };
+
+  // src/boss-encounters.js
+  var BOSS_ENCOUNTERS = Object.freeze({ ...MAJOR_ENCOUNTERS, ...WARDEN_ENCOUNTERS, ...REAVER_ENCOUNTERS });
+  var clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  var finite = (n2, fallback = 0) => Number.isFinite(n2) ? n2 : fallback;
+  var ownerOf = (e) => e.key ?? `boss:${e.boss}:${e.id}`;
+  var phaseOf = (e) => e.hp <= e.maxHp / 3 ? 3 : e.hp <= e.maxHp * 2 / 3 ? 2 : 1;
+  var valid = (g) => g.phase === "playing" && !g.player.respawning;
+  function clearAttack(g, e) {
+    const owner = ownerOf(e);
+    e.encounter = null;
+    e.motion = null;
+    e.telegraph = null;
+    g.bossHazards = (g.bossHazards || []).filter((h) => h.bossOwner !== owner);
+    g.enemyShots = g.enemyShots.filter((s) => s.bossOwner !== owner);
+    g.hazards = g.hazards.filter((s) => s.bossOwner !== owner);
+    g.waves = g.waves.filter((s) => s.bossOwner !== owner);
+  }
+  function clearBossEncounter(g, e) {
+    const owner = ownerOf(e);
+    clearAttack(g, e);
+    g.platforms = g.platforms.filter((p) => p.bossOwner !== owner);
+    for (let i = g.enemies.length - 1; i >= 0; i--) if (g.enemies[i].summonedBy === owner) {
+      const n2 = g.enemies[i];
+      g.effects.push({ type: "burst", x: n2.x, y: n2.y - 25, color: BOSSES[e.boss].color, life: 22 });
+      g.enemies.splice(i, 1);
+    }
+  }
+  function resetBossEncounters(g) {
+    g.bossHazards = [];
+    g.platforms = g.platforms.filter((p) => !p.bossOwner);
+    for (const e of g.enemies || []) if (e.boss) {
+      e.encounter = null;
+      e.motion = null;
+      e.telegraph = null;
+    }
+  }
+  function context(g, e, b) {
+    const left = Math.max(50, finite(e.left, 50)), right = Math.min(g.worldWidth - 50, finite(e.right, g.worldWidth - 50));
+    return { x: e.x, y: e.y, floor: e.baseY ?? 520, tx: clamp(g.player.x, left, right), ty: g.player.y, left, right, center: (left + right) / 2, phase: e.phase || 1, face: Math.sign(g.player.x - e.x) || e.face || 1, mechanic: b.mechanic, clampX: (x) => clamp(x, left + 24, right - 24) };
+  }
+  function beginBossMove(g, e, index, definition = BOSSES[e.boss]) {
+    const profile = BOSS_ENCOUNTERS[e.boss], move2 = profile?.moves[index];
+    if (!move2 || e.hp <= 0) return false;
+    const c = context(g, e, definition), events2 = move2.build(c).map((event, n2) => ({ ...event, at: Math.max(0, Math.floor(event.at || 0)), order: n2 })).sort((a, b) => a.at - b.at || a.order - b.order);
+    e.move = index;
+    e.moveId = move2.id;
+    e.moveName = move2.name;
+    e.attackKind = move2.kind;
+    e.counter = move2.counter;
+    e.hint = move2.hint;
+    e.face = c.face;
+    e.windupFrames = move2.tell;
+    e.moveDuration = move2.active;
+    e.attackFrame = -1;
+    e.state = "windup";
+    e.timer = move2.tell;
+    e.targetX = c.tx;
+    e.targetY = c.ty;
+    e.encounter = { events: events2, frame: -1, next: 0, context: { ...c, clampX: void 0 }, recover: move2.recover, active: move2.active };
+    e.telegraph = { kind: move2.kind, x: c.x, y: c.floor, targetX: c.tx, targetY: c.ty, radius: 100, name: move2.name, hint: move2.hint, counter: move2.counter, events: events2 };
+    g.emit("warning", { boss: e.boss, move: move2.id });
+    return true;
+  }
+  function execute(g, e, event, b) {
+    const owner = ownerOf(e), color = b.color, base = e.baseY ?? 520;
+    if (event.type === "zone") {
+      const life = clamp(finite(event.life, 20), 1, 180), delay = clamp(finite(event.delay, 18), 0, 180);
+      const h = { ...event, type: "zone", x: finite(event.x, e.x), y: finite(event.y, base - 25), w: Math.max(8, finite(event.w, 120)), h: Math.max(8, finite(event.h, 70)), delay, maxDelay: delay, life, maxLife: life, bossOwner: owner, boss: e.boss, color, name: event.label || e.moveName, hint: e.hint, counter: e.counter, lethal: event.damage === "lethal" };
+      g.bossHazards ?? (g.bossHazards = []);
+      if (g.bossHazards.filter((n2) => n2.bossOwner === owner).length < 36) g.bossHazards.push(h);
+    } else if (event.type === "dash") {
+      e.motion = { x: e.x, y: e.y, to: clamp(finite(event.to, e.targetX), e.left, e.right), duration: Math.max(10, event.duration || 18), height: Math.max(0, event.height || 0), frame: 0, damage: event.damage ?? 1.5, knockback: event.knockback || 1.4 };
+      e.face = Math.sign(e.motion.to - e.x) || e.face;
+      e.state = e.motion.height ? "leap" : "charge";
+    } else if (event.type === "warp") {
+      g.effects.push({ type: "bossTrail", x: e.x, y: e.y, color, life: 22 });
+      e.x = clamp(event.x, e.left, e.right);
+      e.y = finite(event.y, base);
+      e.face = Math.sign(g.player.x - e.x) || e.face;
+    } else if (event.type === "shots") {
+      const x = finite(event.x, e.x), y = finite(event.y, e.y - 75), a = finite(event.angle, Math.atan2(e.targetY - 35 - y, e.targetX - x)), count = clamp(Math.round(event.count || 1), 1, 9), spread = event.spread || 0;
+      for (let i = 0; i < count; i++) {
+        const angle = a + (count === 1 ? 0 : (i / (count - 1) - 0.5) * spread), speed = clamp(event.speed || 6, 2, 14);
+        if (g.enemyShots.filter((s) => s.bossOwner === owner).length >= 64) break;
+        g.enemyShots.push({ x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, gravity: event.gravity || 0, damage: event.damage ?? 1, status: event.status || {}, life: 150, color, kind: event.kind || "orb", radius: event.radius || 7, bossOwner: owner });
+      }
+      g.emit("cast");
+    } else if (event.type === "summon" && MINIONS[event.kind]) {
+      const live = g.enemies.filter((n2) => n2.summonedBy === owner && n2.hp > 0).length, count = Math.min(4 - live, event.count || 1), d = MINIONS[event.kind];
+      for (let n2 = 0; n2 < count; n2++) {
+        const serial = (g._bossSpawnSerial || 0) + 1;
+        g._bossSpawnSerial = serial;
+        const x = clamp(finite(event.x, e.x) + (n2 - (count - 1) / 2) * 95, e.left + 20, e.right - 20), hp = Math.round(d.hp * 0.7);
+        g.enemies.push({ id: 1e4 + serial, key: owner + ":summon:" + serial, summonedBy: owner, bossOwner: owner, kind: event.kind, x, y: base, home: x, homeY: base, baseY: base, left: e.left, right: e.right, hp, maxHp: hp, face: -e.face, state: "patrol", timer: 45, stun: 0, vx: 0, slow: 0, rewarded: false });
+        g.effects.push({ type: "burst", x, y: base - 22, color, life: 25 });
+      }
+    } else if (event.type === "platform") {
+      const w = clamp(event.w || 150, 80, 240), x = clamp(event.x, e.left, e.right - w), y = clamp(event.y, base - 145, base - 50);
+      if (g.platforms.filter((p) => p.bossOwner === owner).length >= 8) return;
+      g.platforms.push({ x, y, w, h: 18, bossOwner: owner, tempLife: Math.max(180, event.life || 420), style: event.style || "stone", color });
+      g.emit("cast");
+    } else if (event.type === "force") {
+      g.bossHazards ?? (g.bossHazards = []);
+      g.bossHazards.push({ ...event, type: "force", x: finite(event.x, e.x), y: finite(event.y, base - 50), radius: clamp(event.radius || 240, 50, 500), pull: clamp(event.pull || 0.5, -1.2, 1.2), delay: 0, maxDelay: 0, life: clamp(event.duration || 45, 1, 90), maxLife: clamp(event.duration || 45, 1, 90), bossOwner: owner, boss: e.boss, color, name: e.moveName, hint: e.hint });
+    } else if (event.type === "heal" && g.enemies.some((n2) => n2.summonedBy === owner && n2.hp > 0)) e.hp = Math.min(e.maxHp, e.hp + Math.min(e.maxHp * 0.03, event.amount || 8));
+  }
+  function moveBoss(g, e) {
+    const m = e.motion;
+    if (!m) return;
+    const oldX = e.x, oldY = e.y, t = clamp(++m.frame / m.duration, 0, 1), base = e.baseY ?? 520;
+    e.x = m.x + (m.to - m.x) * t;
+    e.y = m.y + (base - m.y) * t - Math.sin(Math.PI * t) * m.height;
+    if (g.tick % 4 === 0) g.effects.push({ type: "bossTrail", x: e.x, y: e.y, color: BOSSES[e.boss].color, life: 16 });
+    const p = g.player, between = p.x > Math.min(oldX, e.x) - 45 && p.x < Math.max(oldX, e.x) + 45;
+    if (between && Math.abs(p.y - (oldY + e.y) / 2) < 95) g.hurt(Math.sign(p.x - e.x) || -e.face, m.damage, { knockback: m.knockback });
+    if (t >= 1) {
+      e.motion = null;
+      e.y = base;
+      e.state = "attack";
+    }
+  }
+  function updateBossEncounter(g, e, definition = BOSSES[e.boss]) {
+    if (!e.introduced || e.hp <= 0 || g.paused || g.hitstop > 0 || !valid(g) || e.frozen > 0) return;
+    const profile = BOSS_ENCOUNTERS[e.boss];
+    if (!profile) return;
+    const phase = phaseOf(e), base = e.baseY ?? 520;
+    if (phase > (e.phase || 1)) {
+      clearBossEncounter(g, e);
+      e.phase = phase;
+      e.state = "enrage";
+      e.timer = 54;
+      e.stun = 0;
+      e.poise = 0;
+      e.y = base;
+      e.attackCursor = 0;
+      g.effects.push({ type: "burst", x: e.x, y: base - 70, color: definition.color, life: 40 });
+      g.emit("enrage");
+      g.say(definition.name.toUpperCase() + " \xB7 PHASE " + phase + " \xB7 " + profile.title);
+      return;
+    }
+    if (e.flash > 0) e.flash--;
+    if (e.slow > 0) e.slow--;
+    if (e.encounter && (e.state === "recover" || e.stun > 12)) {
+      clearAttack(g, e);
+      e.y = base;
+    }
+    if (e.stun > 0) {
+      e.stun--;
+      e.x = clamp(e.x + (e.vx || 0) * 0.35, e.left, e.right);
+      e.vx = (e.vx || 0) * 0.75;
+      return;
+    }
+    e.timer--;
+    if (e.state === "enrage") {
+      if (e.timer <= 0) {
+        e.state = "patrol";
+        e.timer = 12;
+      }
+      return;
+    }
+    if (e.state === "recover") {
+      e.y = base;
+      if (e.timer <= 0) {
+        e.state = "patrol";
+        e.timer = 12;
+      }
+      return;
+    }
+    if (e.state === "patrol") {
+      const dx = g.player.x - e.x, range = profile.preferredRange ?? 140, speed = (profile.speed ?? 2.4) * (e.slow > 0 ? 0.55 : 1);
+      e.face = Math.sign(dx) || e.face;
+      if (profile.movement === "skirmish" && Math.abs(dx) < range * 0.65) e.x = clamp(e.x - e.face * speed * 0.7, e.left, e.right);
+      else if (profile.movement !== "anchor" && Math.abs(dx) > range) e.x = clamp(e.x + e.face * speed, e.left, e.right);
+      e.y = base - (profile.movement === "hover" ? 24 + Math.sin(g.tick * 0.06) * 10 : 0);
+      if (e.timer <= 0) {
+        const sequence = profile.sequences[(e.phase || 1) - 1];
+        e.attackCursor = e.attackCursor || 0;
+        const index = sequence[e.attackCursor++ % sequence.length];
+        beginBossMove(g, e, index, definition);
+      }
+      return;
+    }
+    if (e.state === "windup") {
+      if (e.timer > 0) return;
+      e.state = "attack";
+      e.telegraph = null;
+    }
+    const encounter = e.encounter;
+    if (!encounter) {
+      e.state = "recover";
+      e.timer = 30;
+      e.y = base;
+      return;
+    }
+    e.attackFrame = ++encounter.frame;
+    while (encounter.next < encounter.events.length && encounter.events[encounter.next].at <= encounter.frame) {
+      execute(g, e, encounter.events[encounter.next++], definition);
+      if (!valid(g)) return;
+    }
+    moveBoss(g, e);
+    if (!valid(g)) return;
+    if (encounter.frame >= encounter.active) {
+      e.encounter = null;
+      e.motion = null;
+      e.state = "recover";
+      e.timer = encounter.recover;
+      e.y = base;
+    }
+  }
+  function bossHazardHits(h, p, bodyHeight = 72) {
+    const hw = h.w / 2, hh = h.h / 2, cx = p.x, cy = p.y - bodyHeight / 2;
+    if (h.shape === "blast" || h.shape === "ring") {
+      const dx = Math.max(Math.abs(cx - h.x) - 13, 0), dy = Math.max(Math.abs(cy - h.y) - bodyHeight / 2, 0);
+      if ((dx / hw) ** 2 + (dy / hh) ** 2 > 1) return false;
+      if (h.shape === "ring" && Math.hypot(cx - h.x, cy - h.y) + Math.hypot(13, bodyHeight / 2) < (h.inner || 0)) return false;
+      return true;
+    }
+    return cx + 13 > h.x - hw && cx - 13 < h.x + hw && p.y > h.y - hh && p.y - bodyHeight < h.y + hh;
+  }
+  function updateBossHazards(g) {
+    if (g.paused || g.hitstop > 0 || !valid(g)) return;
+    const frameEnemies = g.enemies;
+    for (const h of g.bossHazards || []) {
+      const owner = g.enemies.find((e) => e.boss && ownerOf(e) === h.bossOwner);
+      if (!owner || owner.hp <= 0) {
+        h.life = 0;
+        continue;
+      }
+      if (owner.frozen > 0 || owner.encounterFrozenTick === g.tick) continue;
+      h.x += h.vx || 0;
+      h.y += h.vy || 0;
+      if (h.delay > 0) {
+        h.delay--;
+        continue;
+      }
+      if (h.life-- <= 0) continue;
+      if (!h.started) {
+        h.started = true;
+        if (h.type === "zone" && ["blast", "slash"].includes(h.shape)) {
+          g.emit("slam", { x: h.x, y: h.y, boss: h.boss });
+          g.effects.push({ type: "bossTrail", x: h.x, y: h.y + 35, color: h.color, life: 14 });
+        }
+      }
+      const p = g.player;
+      if (h.type === "force") {
+        const dx = h.x - p.x, dy = h.y - (p.y - 35), r = Math.hypot(dx, dy) || 1;
+        if (r < h.radius && !p.invul) {
+          p.vx += dx / r * h.pull * 1.8;
+          p.vy += dy / r * h.pull * 0.12;
+        }
+      } else if (bossHazardHits(h, p, g.data.bodyHeight)) {
+        const damage = h.lethal ? p.maxHp * 10 : h.damage ?? 1.5, direction = Math.sign(p.x - h.x) || -owner.face;
+        g.hurt(direction, damage, { ...h.status, knockback: h.knockback || 1, unblockable: !!h.unblockable || h.lethal });
+        if (g.enemies !== frameEnemies || !valid(g)) return;
+      }
+    }
+    g.bossHazards = (g.bossHazards || []).filter((h) => h.life > 0);
+    for (const platform3 of g.platforms) if (platform3.bossOwner) {
+      const owner = g.enemies.find((e) => e.boss && ownerOf(e) === platform3.bossOwner);
+      if (!owner || owner.hp <= 0) platform3.tempLife = 0;
+      else if (!owner.frozen && owner.encounterFrozenTick !== g.tick) platform3.tempLife--;
+    }
+    g.platforms = g.platforms.filter((p) => !p.bossOwner || p.tempLife > 0);
+    for (let n2 = g.enemies.length - 1; n2 >= 0; n2--) if (g.enemies[n2].summonedBy && g.enemies[n2].hp <= 0 && !g.enemies[n2].deathTimer) g.enemies.splice(n2, 1);
+  }
+
   // src/roster.js
   var ROSTER = [
     {
@@ -1160,7 +2401,7 @@
     ["dewdrop", 7470],
     ["sproutlet", 7580]
   ];
-  var clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  var clamp2 = (v, a, b) => Math.max(a, Math.min(b, v));
   var AdventureSystems = class {
     initAdventure(id, options = {}) {
       const requested = Array.isArray(id) ? id : options.party || [id];
@@ -1267,7 +2508,7 @@
     damagePlayer(direction = 0, amount = 1, status = {}) {
       const p = this.player;
       if (p.invul || p.respawning) return false;
-      if ((p.guard > 0 || p.fortress) && direction === -p.face) {
+      if (!status.unblockable && (p.guard > 0 || p.fortress) && direction === -p.face) {
         p.stored = Math.min(4, p.stored + 1);
         this.emit("block");
         this.effects.push({ type: "spark", x: p.x + p.face * 28, y: p.y - 25, life: 15 });
@@ -1349,14 +2590,14 @@
           p.armor = 0;
         }
       }
-      for (const zone of this.zones) {
-        zone.life--;
-        for (const e of this.enemies) if (e.hp > 0 && Math.abs(e.x - zone.x) < zone.radius && Math.abs(e.y - zone.y) < 100) {
-          if (zone.type === "wind" && e.kind !== "warden") {
-            e.x += (zone.x - e.x) * 0.04;
+      for (const zone5 of this.zones) {
+        zone5.life--;
+        for (const e of this.enemies) if (e.hp > 0 && Math.abs(e.x - zone5.x) < zone5.radius && Math.abs(e.y - zone5.y) < 100) {
+          if (zone5.type === "wind" && e.kind !== "warden") {
+            e.x += (zone5.x - e.x) * 0.04;
             e.stun = Math.max(e.stun, 2);
           }
-          if (this.tick % 24 === 0) this.strike(e, zone.type === "fire" ? 4 : 3, Math.sign(e.x - zone.x), { source: zone.owner, dot: true, element: zone.type });
+          if (this.tick % 24 === 0) this.strike(e, zone5.type === "fire" ? 4 : 3, Math.sign(e.x - zone5.x), { source: zone5.owner, dot: true, element: zone5.type });
           if (interrupted()) return;
         }
       }
@@ -1370,16 +2611,17 @@
         }
       }
       this.hazards = this.hazards.filter((h) => h.life > 0);
-      for (const shot2 of this.enemyShots) {
-        shot2.x += shot2.vx;
-        shot2.y += shot2.vy;
-        shot2.life--;
-        if (this.decoy && Math.hypot(shot2.x - this.decoy.x, shot2.y - (this.decoy.y - 20)) < 40) {
-          shot2.life = 0;
+      for (const shot4 of this.enemyShots) {
+        shot4.vy += shot4.gravity || 0;
+        shot4.x += shot4.vx;
+        shot4.y += shot4.vy;
+        shot4.life--;
+        if (this.decoy && Math.hypot(shot4.x - this.decoy.x, shot4.y - (this.decoy.y - 20)) < 40) {
+          shot4.life = 0;
           this.burstDecoy();
-        } else if (Math.abs(shot2.x - p.x) < 20 && Math.abs(shot2.y - (p.y - this.data.bodyHeight * 0.5)) < 25) {
-          shot2.life = 0;
-          this.hurt(Math.sign(shot2.vx), shot2.damage ?? 0.5, shot2.status || { burn: 65 });
+        } else if (Math.abs(shot4.x - p.x) < 20 && Math.abs(shot4.y - (p.y - this.data.bodyHeight * 0.5)) < 25) {
+          shot4.life = 0;
+          this.hurt(Math.sign(shot4.vx), shot4.damage ?? 0.5, shot4.status || { burn: 65 });
         }
         if (interrupted()) return;
       }
@@ -1529,7 +2771,7 @@
       if (e.flipped > 0) e.flipped--;
       if (e.stun > 0) {
         e.stun--;
-        e.x = clamp(e.x + e.vx, e.left, e.right);
+        e.x = clamp2(e.x + e.vx, e.left, e.right);
         e.vx *= 0.75;
         return true;
       }
@@ -1557,7 +2799,7 @@
         }
       }
       if (e.state === "patrol" && dist < 500) {
-        e.x = clamp(e.x + e.face * speed, e.left, e.right);
+        e.x = clamp2(e.x + e.face * speed, e.left, e.right);
       }
       if (e.kind === "pebbleback" && !e.flipped) {
         if (dist < 150 && !e.introduced) {
@@ -1584,7 +2826,7 @@
             e.timer = 95;
           }
         } else if (e.state === "pounce") {
-          e.x = clamp(e.x + e.face * 4, e.left, e.right);
+          e.x = clamp2(e.x + e.face * 4, e.left, e.right);
           e.y = e.baseY - Math.sin(Math.max(0, e.timer) / 20 * Math.PI) * 26;
           if (e.timer <= 0) {
             e.state = "patrol";
@@ -1594,7 +2836,7 @@
         }
       }
       if (e.kind === "dewdrop" && e.timer <= 0 && dist < 420) {
-        this.hazards.push({ type: "bubble", x: clamp(e.x + e.face * 65, e.left, e.right), y: 520, life: 350 });
+        this.hazards.push({ type: "bubble", x: clamp2(e.x + e.face * 65, e.left, e.right), y: 520, life: 350 });
         e.timer = 110;
       }
       if (e.kind === "voltlet" && dist < 30 && Math.abs(target.y - e.y) < 55) {
@@ -1644,7 +2886,7 @@
     { x: 7340, y: 405, w: 150, h: 30 }
   ];
   var THORNS = [{ x: 1460, w: 160, y: 605 }, { x: 2620, w: 320, y: 605 }, { x: 3930, w: 390, y: 575 }];
-  var clamp2 = (v, min, max) => Math.max(min, Math.min(max, v));
+  var clamp3 = (v, min, max) => Math.max(min, Math.min(max, v));
   var approach = (a, b, amount) => a < b ? Math.min(b, a + amount) : Math.max(b, a - amount);
   var TrainingEngine = class extends AdventureSystems {
     constructor(id = "pyrojaw", options = {}) {
@@ -1747,8 +2989,8 @@
       p.jumpHeld = false;
       if (p.vy < -4.5) p.vy *= 0.48;
     }
-    say(text2) {
-      this.message = text2;
+    say(text3) {
+      this.message = text3;
       this.messageTime = 150;
     }
     respawn(wipe = false) {
@@ -1840,14 +3082,14 @@
         this.effects.push({ type: "trail", x: p.x, y: p.y, face: p.face, creature: this.data.id, life: 13 });
       } else {
         if (!p.wallLock) {
-          const speed = (this.motor || MOTOR).run * clamp2(0.96 + (this.data.speed - 0.059) * 2, 0.9, 1.08) * slow;
+          const speed = (this.motor || MOTOR).run * clamp3(0.96 + (this.data.speed - 0.059) * 2, 0.9, 1.08) * slow;
           p.vx = approach(p.vx, direction * speed, direction ? p.slick > 0 ? 0.6 : (this.motor || MOTOR).acceleration : p.slick > 0 ? 0.12 : (this.motor || MOTOR).friction);
           if (direction) p.face = direction;
         }
         p.vy = Math.min((this.motor || MOTOR).fall, p.vy + (this.motor || MOTOR).gravity);
         if (p.wall && (!this.campaign || this.abilities.has("claw")) && direction === p.wall && p.vy > 2) p.vy = 2;
       }
-      p.x = clamp2(p.x + p.vx, 24, (this.worldWidth || 8e3) - 40);
+      p.x = clamp3(p.x + p.vx, 24, (this.worldWidth || 8e3) - 40);
       p.wall = 0;
       for (const block of (this.platforms || PLATFORMS).filter((b) => b.solid)) {
         if (p.y <= block.y + 2 || p.y - this.data.bodyHeight >= block.y + block.h - 2) continue;
@@ -1869,18 +3111,18 @@
       }
       p.y += p.vy;
       p.grounded = false;
-      for (const platform of this.platforms || PLATFORMS) {
-        if (p.x + 13 <= platform.x || p.x - 13 >= platform.x + platform.w) continue;
-        if (p.vy >= 0 && oldY <= platform.y + 1 && p.y >= platform.y) {
-          p.y = platform.y;
+      for (const platform3 of this.platforms || PLATFORMS) {
+        if (p.x + 13 <= platform3.x || p.x - 13 >= platform3.x + platform3.w) continue;
+        if (p.vy >= 0 && oldY <= platform3.y + 1 && p.y >= platform3.y) {
+          p.y = platform3.y;
           p.vy = 0;
           p.grounded = true;
           p.jumpCount = 0;
           p.wall = 0;
           p.dashUsed = false;
           p.airDashes = 0;
-        } else if (platform.solid && p.vy < 0 && oldY - this.data.bodyHeight >= platform.y + platform.h && p.y - this.data.bodyHeight <= platform.y + platform.h) {
-          p.y = platform.y + platform.h + this.data.bodyHeight;
+        } else if (platform3.solid && p.vy < 0 && oldY - this.data.bodyHeight >= platform3.y + platform3.h && p.y - this.data.bodyHeight <= platform3.y + platform3.h) {
+          p.y = platform3.y + platform3.h + this.data.bodyHeight;
           p.vy = 0;
         }
       }
@@ -2082,7 +3324,7 @@
           e.state = "patrol";
           e.timer = 45;
         }
-        e.x = clamp2(e.x, e.kind === "warden" ? 6970 : 6320, e.kind === "warden" ? 7630 : 6920);
+        e.x = clamp3(e.x, e.kind === "warden" ? 6970 : 6320, e.kind === "warden" ? 7630 : 6920);
         if (dist < (e.kind === "warden" ? 52 : 32) && Math.abs(target.y - e.y) < (e.kind === "warden" ? 100 : 50)) {
           if (target === p) this.hurt(Math.sign(p.x - e.x));
           else this.burstDecoy();
@@ -2359,7 +3601,7 @@
   }
 
   // src/combat.js
-  var clamp3 = (n2, a, b) => Math.max(a, Math.min(b, n2));
+  var clamp4 = (n2, a, b) => Math.max(a, Math.min(b, n2));
   var CombatDirector = class {
     constructor(game2) {
       this.g = game2;
@@ -2401,14 +3643,14 @@
       if (!s || typeof s !== "object") return;
       const limits = { ...COMBAT.reuse, ...Object.fromEntries(Object.values(POWERS).map((d) => [d.id, d.cooldown])) };
       this.cooldowns = {};
-      for (const [id, max] of Object.entries(limits)) if (Number.isFinite(s.cooldowns?.[id])) this.cooldowns[id] = Math.floor(clamp3(s.cooldowns[id], 0, max));
-      this.recovery = Number.isFinite(s.recovery) ? Math.floor(clamp3(s.recovery, 0, COMBAT.recovery)) : 0;
+      for (const [id, max] of Object.entries(limits)) if (Number.isFinite(s.cooldowns?.[id])) this.cooldowns[id] = Math.floor(clamp4(s.cooldowns[id], 0, max));
+      this.recovery = Number.isFinite(s.recovery) ? Math.floor(clamp4(s.recovery, 0, COMBAT.recovery)) : 0;
       const slots = Array.isArray(s.powerSlots) ? s.powerSlots : [];
       this.powerSlots = [0, 1].map((i) => powerUnlocked(this.g, slots[i]) ? slots[i] : i ? "aegis" : "arcbolt");
       if (this.powerSlots[0] === this.powerSlots[1]) this.powerSlots[1] = this.powerSlots[0] === "aegis" ? "arcbolt" : "aegis";
       this.selectedPower = s.selectedPower === 1 ? 1 : 0;
       this.settings.reducedMotion = s.settings?.reducedMotion === true;
-      for (const k of Object.keys(this.stats)) if (Number.isFinite(s.stats?.[k])) this.stats[k] = Math.floor(clamp3(s.stats[k], 0, 999999));
+      for (const k of Object.keys(this.stats)) if (Number.isFinite(s.stats?.[k])) this.stats[k] = Math.floor(clamp4(s.stats[k], 0, 999999));
     }
     equipPower(slot, id) {
       if (![0, 1].includes(slot) || !powerUnlocked(this.g, id)) return false;
@@ -2483,14 +3725,14 @@
         id = "light" + (this.chainLife ? this.chain % 3 + 1 : 1);
         this.chain = this.chainLife ? this.chain % 3 + 1 : 1;
       }
-      const move = MOVES[id] || MOVES.heavy;
-      p.attack = { ...move, type: action, move: id, frame: 0, dir: move.dir || (g.inputs.down && !p.grounded ? "down" : g.inputs.up ? "up" : "side"), hit: /* @__PURE__ */ new Set(), swing: this.chain };
+      const move2 = MOVES[id] || MOVES.heavy;
+      p.attack = { ...move2, type: action, move: id, frame: 0, dir: move2.dir || (g.inputs.down && !p.grounded ? "down" : g.inputs.up ? "up" : "side"), hit: /* @__PURE__ */ new Set(), swing: this.chain };
       if (id === "plunge") {
         p.vy = 18;
         p.vx *= 0.4;
-      } else if (p.grounded) p.vx += p.face * (move.impulse || 2);
+      } else if (p.grounded) p.vx += p.face * (move2.impulse || 2);
       p.armor = action === "heavy" && ["pyrojaw", "terrakhan", "ferrodrake", "glaciolith"].includes(g.data.id) ? 1 : 0;
-      this.chainLife = COMBAT.chainWindow + move.start + move.active + move.recovery;
+      this.chainLife = COMBAT.chainWindow + move2.start + move2.active + move2.recovery;
       this.commit(action);
       g.swingIndex = this.chain;
       g.emit("slash", { move: id, x: p.x + p.face * 45, y: p.y - 35, element: g.data.types[0] });
@@ -2607,7 +3849,7 @@
       if (e.hp >= before) return;
       const g = this.g, p = g.player;
       if (!options.dot) {
-        this.flow = clamp3(this.flow + 5 + (options.heavy ? 3 : 0), 0, 100);
+        this.flow = clamp4(this.flow + 5 + (options.heavy ? 3 : 0), 0, 100);
         this.flowGrace = 140;
         g.emit("impact", { x: e.x, y: e.y - (e.boss ? 80 : 30), element: options.element || g.data.types[0], heavy: options.heavy, move: options.move });
         e.recoil = 12;
@@ -2644,6 +3886,7 @@
       if (e.recoil > 0) e.recoil--;
       if (e.timeSlowUntil >= this.g.tick && this.g.tick % 10 >= Math.round(e.timeScale * 10)) return true;
       if (e.frozen > 0) {
+        e.encounterFrozenTick = this.g.tick;
         e.frozen--;
         if (e.flash) e.flash--;
         return true;
@@ -2652,7 +3895,7 @@
         e.juggle = Math.max(1, e.juggle - 1);
         e.launchVy += 0.7;
         e.y += e.launchVy;
-        e.x = clamp3(e.x + (e.vx || 0) * 0.5, 40, this.g.worldWidth - 40);
+        e.x = clamp4(e.x + (e.vx || 0) * 0.5, 40, this.g.worldWidth - 40);
         if (e.y >= (e.baseY || 520)) {
           e.y = e.baseY || 520;
           e.juggle = 0;
@@ -2835,117 +4078,11 @@
   }
 
   // src/difficulty.js
-  var clamp4 = (n2, a, b) => Math.max(a, Math.min(b, n2));
+  var clamp5 = (n2, a, b) => Math.max(a, Math.min(b, n2));
   var DUNGEON_HEAL = Object.freeze({ frames: 72, cost: 40, amount: 1 });
   var DUNGEON_MINIONS = ["glassmarauder", "veilwasp", "graveburrower", "chaincaster"];
   var bossHealth = (boss) => Math.round(boss.hp * (boss.miniboss ? 1 : 2.2));
-  var bossPhase = (enemy2) => enemy2.hp <= enemy2.maxHp / 3 ? 3 : enemy2.hp <= enemy2.maxHp * 2 / 3 ? 2 : 1;
-  var shot = (g, e, angle, speed, damage, status = {}) => g.enemyShots.push({ x: e.x, y: e.y - 70, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, life: 145, color: BOSSES[e.boss]?.color || MINIONS[e.kind].color, damage, status });
-  var shockwave = (g, e, direction, speed) => g.waves.push({ x: e.x, y: e.baseY ?? 520, vx: direction * speed, life: 110, color: BOSSES[e.boss].color, damage: e.phase === 3 ? 1.5 : 1 });
-  var aimedFan = (g, e, count) => {
-    const a = Math.atan2((e.targetY ?? g.player.y) - 35 - (e.y - 70), (e.targetX ?? g.player.x) - e.x);
-    for (let i = 0; i < count; i++) shot(g, e, a + (i - (count - 1) / 2) * 0.24, 7 + e.phase, 1, e.elementStatus);
-  };
-  function updateBossEncounter(g, e, definition = BOSSES[e.boss]) {
-    if (!e.introduced) return;
-    const p = g.player, b = definition, base = e.baseY ?? 520, phase = bossPhase(e), frameEnemies = g.enemies;
-    if (e.state !== "windup") e.telegraph = null;
-    if (e.flash > 0) e.flash--;
-    if (e.slow > 0) e.slow--;
-    if (phase > e.phase) {
-      e.phase = phase;
-      e.state = "enrage";
-      e.timer = 54;
-      e.stun = 0;
-      e.poise = 0;
-      e.y = base;
-      e.telegraph = null;
-      g.emit("enrage");
-      g.say(b.name.toUpperCase() + " \xB7 PHASE " + (phase === 2 ? "II \xB7 HUNT" : "III \xB7 LAST BREATH"));
-      g.effects.push({ type: "burst", x: e.x, y: e.y - 70, color: b.color, life: 42 });
-    }
-    if (e.stun > 0) {
-      e.stun--;
-      e.x = clamp4(e.x + (e.vx || 0) * 0.45, e.left, e.right);
-      e.vx *= 0.75;
-      return;
-    }
-    e.timer--;
-    if (e.state === "enrage") {
-      if (e.timer <= 0) {
-        e.state = "patrol";
-        e.timer = 12;
-      }
-      return;
-    }
-    const dx = p.x - e.x, vertical = Math.abs(p.y - base), speed = (1.8 + e.phase * 0.65) * (e.slow > 0 ? 0.6 : 1);
-    e.elementStatus = b.biome === "frost" ? { slow: 100 } : b.biome === "forge" ? { burn: 95 } : b.biome === "reef" ? { slick: 95 } : {};
-    if (e.state === "patrol") {
-      e.face = dx > 0 ? 1 : -1;
-      if (Math.abs(dx) > 125) e.x = clamp4(e.x + e.face * speed, e.left, e.right);
-      if (e.timer <= 0) {
-        e.pattern = (e.pattern || 0) + 1;
-        e.move = (e.pattern + (b.encounter === "reaver" ? 2 : 0)) % 4;
-        e.targetX = clamp4(p.x, e.left, e.right);
-        e.targetY = p.y;
-        e.state = "windup";
-        e.timer = 46 - e.phase * 5;
-        const kind = ["rush", "volley", "sigil", "slam"][e.move];
-        e.telegraph = { kind, x: e.x, y: base, targetX: e.targetX, targetY: e.targetY, radius: e.move === 3 ? 135 : 70 };
-        g.emit("warning");
-      }
-    } else if (e.state === "windup" && e.timer <= 0) {
-      e.telegraph = null;
-      if (e.move === 0) {
-        e.state = "charge";
-        e.timer = 22;
-        e.face = e.targetX > e.x ? 1 : -1;
-      } else if (e.move === 1) {
-        aimedFan(g, e, e.phase === 3 ? 7 : 5);
-        e.state = "recover";
-        e.timer = 38 - e.phase * 3;
-        g.emit("cast");
-      } else if (e.move === 2) {
-        const oathSigil = { memorycascade: "stasis", tidechoir: "lightning", mirrorfuture: "root" }, type = oathSigil[b.mechanic] || (["moss", "rift"].includes(b.biome) ? "root" : b.biome === "frost" ? "stasis" : "lightning");
-        for (let n2 = -1; n2 <= 1; n2++) g.hazards.push({ type, x: clamp4(e.targetX + n2 * 150, e.left, e.right), y: base, timer: 34, life: 62, damage: 1.5, radius: type === "stasis" ? 68 : 38 });
-        if (e.phase === 3) aimedFan(g, e, 3);
-        e.state = "recover";
-        e.timer = 40;
-        g.emit("cast");
-      } else {
-        e.state = "leap";
-        e.timer = 32;
-        e.leapStart = e.x;
-        e.leapTarget = e.targetX;
-      }
-    } else if (e.state === "charge") {
-      e.x = clamp4(e.x + e.face * (10 + e.phase * 2), e.left, e.right);
-      if (g.tick % 3 === 0) g.effects.push({ type: "bossTrail", x: e.x, y: base, color: b.color, life: 20 });
-      if (e.timer <= 0) {
-        if (e.phase === 3) for (const dir of [-1, 1]) shockwave(g, e, dir, 9);
-        e.state = "recover";
-        e.timer = 42 - e.phase * 4;
-      }
-    } else if (e.state === "leap") {
-      const progress = 1 - e.timer / 32;
-      e.x = e.leapStart + (e.leapTarget - e.leapStart) * progress;
-      e.y = base - Math.sin(progress * Math.PI) * 190;
-      if (e.timer <= 0) {
-        e.y = base;
-        e.state = "recover";
-        e.timer = 44 - e.phase * 3;
-        if (Math.abs(p.x - e.x) < 130 && Math.abs(p.y - base) < 70) g.hurt(Math.sign(p.x - e.x) || -e.face, 2, { knockback: 1.4 });
-        if (g.enemies !== frameEnemies || p.respawning) return;
-        for (const dir of [-1, 1]) shockwave(g, e, dir, 6 + e.phase * 2);
-        g.effects.push({ type: "burst", x: e.x, y: base - 10, color: b.color, life: 38 });
-        g.emit("slam");
-      }
-    } else if (e.state === "recover" && e.timer <= 0) {
-      e.state = "patrol";
-      e.timer = e.phase === 3 ? 14 : 24;
-    }
-    if (!["recover", "enrage", "leap", "windup"].includes(e.state) && Math.abs(p.x - e.x) < 65 && vertical < 105) g.hurt(Math.sign(p.x - e.x) || -e.face, e.state === "charge" ? 2 : 1.5, { knockback: e.state === "charge" ? 1.5 : 1.15 });
-  }
+  var shot3 = (g, e, angle, speed, damage, status = {}) => g.enemyShots.push({ x: e.x, y: e.y - 70, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, life: 145, color: BOSSES[e.boss]?.color || MINIONS[e.kind].color, damage, status });
   function updateDungeonMinion(g, e) {
     if (!DUNGEON_MINIONS.includes(e.kind)) return false;
     const p = g.player, d = MINIONS[e.kind], base = e.baseY ?? 520;
@@ -2955,7 +4092,7 @@
     if (e.slow > 0) e.slow--;
     if (e.stun > 0) {
       e.stun--;
-      e.x = clamp4(e.x + (e.vx || 0), e.left, e.right);
+      e.x = clamp5(e.x + (e.vx || 0), e.left, e.right);
       e.vx *= 0.75;
       return true;
     }
@@ -2965,32 +4102,32 @@
     if (e.kind === "veilwasp") e.y = base - 105 + Math.sin(g.tick * 0.05 + e.id) * 28;
     if (e.state === "patrol") {
       const keepAway = e.kind === "chaincaster" && dist < 230 ? -1 : 1;
-      e.x = clamp4(e.x + e.face * d.speed * keepAway * (e.slow > 0 ? 0.5 : 1), e.left, e.right);
+      e.x = clamp5(e.x + e.face * d.speed * keepAway * (e.slow > 0 ? 0.5 : 1), e.left, e.right);
       if (e.timer <= 0 && dist < 650) {
         e.state = "windup";
         e.timer = e.kind === "graveburrower" ? 40 : 30;
         e.targetX = p.x;
         e.targetY = p.y;
         g.emit("warning");
-        if (e.kind === "graveburrower") g.hazards.push({ type: "root", x: clamp4(e.targetX, e.left, e.right), y: base, timer: 40, life: 62, damage: 1.5, radius: 50 });
+        if (e.kind === "graveburrower") g.hazards.push({ type: "root", x: clamp5(e.targetX, e.left, e.right), y: base, timer: 40, life: 62, damage: 1.5, radius: 50 });
       }
     } else if (e.state === "windup" && e.timer <= 0) {
       if (e.kind === "glassmarauder") {
         e.state = "charge";
         e.timer = 20;
       } else if (e.kind === "graveburrower") {
-        e.x = clamp4(e.targetX, e.left, e.right);
+        e.x = clamp5(e.targetX, e.left, e.right);
         e.state = "recover";
         e.timer = 42;
         g.effects.push({ type: "burst", x: e.x, y: base, color: d.color, life: 28 });
       } else {
         const angle = Math.atan2(e.targetY - 35 - (e.y - 70), e.targetX - e.x);
-        for (const offset of e.kind === "veilwasp" ? [-0.25, 0, 0.25] : [-0.14, 0, 0.14]) shot(g, e, angle + offset, e.kind === "chaincaster" ? 9 : 7, 1, e.kind === "chaincaster" ? { root: 12 } : {});
+        for (const offset of e.kind === "veilwasp" ? [-0.25, 0, 0.25] : [-0.14, 0, 0.14]) shot3(g, e, angle + offset, e.kind === "chaincaster" ? 9 : 7, 1, e.kind === "chaincaster" ? { root: 12 } : {});
         e.state = "recover";
         e.timer = e.kind === "chaincaster" ? 46 : 38;
       }
     } else if (e.state === "charge") {
-      e.x = clamp4(e.x + e.face * 11, e.left, e.right);
+      e.x = clamp5(e.x + e.face * 11, e.left, e.right);
       if (e.timer <= 0) {
         e.state = "recover";
         e.timer = 40;
@@ -3004,8 +4141,8 @@
   }
 
   // src/campaign.js
-  var clamp5 = (v, a, b) => Math.max(a, Math.min(b, v));
-  var finite = (v, a, b, fallback = 0) => Number.isFinite(v) ? clamp5(v, a, b) : fallback;
+  var clamp6 = (v, a, b) => Math.max(a, Math.min(b, v));
+  var finite2 = (v, a, b, fallback = 0) => Number.isFinite(v) ? clamp6(v, a, b) : fallback;
   var CAMPAIGN_MOTOR = { ...MOTOR, ...COMBAT.motor };
   var starterIds = ROSTER.slice(0, 8).map((d) => d.id);
   var CampaignEngine = class extends TrainingEngine {
@@ -3096,20 +4233,20 @@
       if (!s || s.version !== 2 || !Array.isArray(s.party) || s.party.length !== 3 || s.party.some((m) => !m || typeof m.id !== "string") || new Set(s.party.map((m) => m.id)).size !== 3 || s.party.some((m) => !ROSTER.some((d) => d.id === m.id)) || !Object.hasOwn(ROOMS, s.room)) return false;
       const requestedUnlocks = /* @__PURE__ */ new Set([...starterIds, ...Array.isArray(s.unlocked) ? s.unlocked : []]);
       if (s.party.some((m) => !requestedUnlocks.has(m.id))) return false;
-      const list = (key, valid) => new Set(Array.isArray(s[key]) ? s[key].filter((x) => typeof x === "string" && (!valid || valid(x))) : []);
+      const list = (key, valid2) => new Set(Array.isArray(s[key]) ? s[key].filter((x) => typeof x === "string" && (!valid2 || valid2(x))) : []);
       this.fragments = list("fragments", (x) => CHAPTERS.some((ch) => ch.boss === x));
       this.abilities = /* @__PURE__ */ new Set(["dash", ...list("abilities", (x) => !!ABILITIES[x])]);
       this.unlocked = /* @__PURE__ */ new Set([...starterIds, ...list("unlocked", (x) => ROSTER.some((d) => d.id === x))]);
       if (s.party.some((m) => !this.unlocked.has(m.id))) return false;
-      this.level = finite(s.level, 1, 5, 1);
-      this.xp = finite(s.xp, 0, 300);
-      this.lumens = finite(s.lumens, 0, 99999);
-      this.upgrades = finite(s.upgrades, 0, 3);
+      this.level = finite2(s.level, 1, 5, 1);
+      this.xp = finite2(s.xp, 0, 300);
+      this.lumens = finite2(s.lumens, 0, 99999);
+      this.upgrades = finite2(s.upgrades, 0, 3);
       this.party = s.party.map((m) => {
         const data = findFighter(m.id), maxHp = data.maxHp + this.level - 1 + this.upgrades;
-        return { data, maxHp, hp: finite(m.hp, 0, maxHp, maxHp), spirit: finite(m.spirit, 0, 100, 100), skillCooldown: 0 };
+        return { data, maxHp, hp: finite2(m.hp, 0, maxHp, maxHp), spirit: finite2(m.spirit, 0, 100, 100), skillCooldown: 0 };
       });
-      this.activeSlot = Math.floor(finite(s.activeSlot, 0, 2));
+      this.activeSlot = Math.floor(finite2(s.activeSlot, 0, 2));
       const pendingDeath = s.death && Object.hasOwn(ROOMS, s.death.room) && ROOMS[s.death.room].biome === s.death.gate;
       if (!this.party.some((m) => m.hp > 0) && !pendingDeath) this.restoreParty();
       if (!this.party[this.activeSlot].hp && this.party.some((m) => m.hp > 0)) this.activeSlot = this.party.findIndex((m) => m.hp > 0);
@@ -3122,20 +4259,20 @@
       this.spentRecovery = list("spentRecovery", (id) => recoveryIds.has(id));
       this.discoveredRecovery = /* @__PURE__ */ new Set([...this.spentRecovery, ...list("discoveredRecovery", (id) => recoveryIds.has(id))]);
       this.discovered = list("discovered", (x) => !!MINIONS[x]);
-      for (const key of Object.keys(this.inventory)) this.inventory[key] = Math.floor(finite(s.inventory?.[key], 0, 999, 0));
+      for (const key of Object.keys(this.inventory)) this.inventory[key] = Math.floor(finite2(s.inventory?.[key], 0, 999, 0));
       this.inventory.pickaxe = 1;
       this.inventory.lantern = 1;
       this.charms = list("charms", (x) => !!CHARMS[x]);
       this.equipped = Array.isArray(s.equipped) ? [...new Set(s.equipped)].filter((x) => this.charms.has(x)).slice(0, 2) : [];
-      this.playtime = finite(s.playtime, 0, 99999999);
-      this.storyStage = finite(s.storyStage, 0, 20);
+      this.playtime = finite2(s.playtime, 0, 99999999);
+      this.storyStage = finite2(s.storyStage, 0, 20);
       this.finished = !!s.finished;
       this.ending = ["restore", "release"].includes(s.ending) ? s.ending : null;
-      for (const key of Object.keys(this.stats)) this.stats[key] = finite(s.stats?.[key], 0, 99999999);
+      for (const key of Object.keys(this.stats)) this.stats[key] = finite2(s.stats?.[key], 0, 99999999);
       this.safeRest = recoverySavePoint(s.safeRest, this.allRecovery());
-      this.loadRoom(s.room, { x: finite(s.checkpoint?.x, 60, ROOMS[s.room].width - 60, 150), y: finite(s.checkpoint?.y, -2400, 520, 520) }, false);
+      this.loadRoom(s.room, { x: finite2(s.checkpoint?.x, 60, ROOMS[s.room].width - 60, 150), y: finite2(s.checkpoint?.y, -2400, 520, 520) }, false);
       if (pendingDeath) {
-        this.death = { gate: s.death.gate, room: s.death.room, returnTo: recoverySavePoint(s.death.returnTo, this.allRecovery()), lostLumens: finite(s.death.lostLumens, 0, 99999), restoredEnemies: finite(s.death.restoredEnemies, 0, 999) };
+        this.death = { gate: s.death.gate, room: s.death.room, returnTo: recoverySavePoint(s.death.returnTo, this.allRecovery()), lostLumens: finite2(s.death.lostLumens, 0, 99999), restoredEnemies: finite2(s.death.restoredEnemies, 0, 999) };
         this.phase = "gameover";
         this.paused = true;
         this.party.forEach((m) => m.hp = 0);
@@ -3148,7 +4285,7 @@
     }
     loadRoom(id, spawn = 150, persist = true) {
       if (!Object.hasOwn(ROOMS, id)) return false;
-      const arrival = typeof spawn === "object" && spawn ? { x: finite(spawn.x, 24, ROOMS[id].width - 40, 150), y: finite(spawn.y, -2400, 520, 520) } : { x: finite(spawn, 24, ROOMS[id].width - 40, 150), y: 520 };
+      const arrival = typeof spawn === "object" && spawn ? { x: finite2(spawn.x, 24, ROOMS[id].width - 40, 150), y: finite2(spawn.y, -2400, 520, 520) } : { x: finite2(spawn, 24, ROOMS[id].width - 40, 150), y: 520 };
       this.roomId = id;
       this.room = ROOMS[id];
       this.worldWidth = this.room.width;
@@ -3178,6 +4315,7 @@
       for (const o of this.room.objects) if (o.kind === "lever" && this.opened.has(id + ":" + o.id)) this.platforms.push({ ...o.bridge });
       this.recoveryPoints = this.recoveryForRoom(id);
       this._insideRecovery = new Set(this.recoveryPoints.filter((r) => Math.abs(r.x - arrival.x) < 46 && Math.abs(r.y - arrival.y) < 24).map((r) => r.id));
+      resetBossEncounters(this);
       this.combat?.reset();
       this.checkpoint = { ...arrival };
       this.transition = 100;
@@ -3252,17 +4390,17 @@
       if (this.comboTimer > 0) this.comboTimer--;
       else this.combo = 0;
       if (this.landing > 0) this.landing--;
-      const wasGrounded = this.player.grounded, vy = this.player.vy;
+      const wasGrounded = this.player.grounded, vy = this.player.vy, encountersStopped = this.hitstop > 0;
       for (const block of this.platforms) if (block.moving) {
         const before = block.x;
         block.x = block.origin + Math.sin(this.tick * block.rate) * block.amplitude;
         if (this.player.grounded && Math.abs(this.player.y - block.y) < 2 && this.player.x > before - 10 && this.player.x < before + block.w + 10) this.player.x += block.x - before;
       }
-      const allPlatforms = this.platforms, frameEnemies = this.enemies;
-      if (this.abilities.has("blink") && this.player.dash > 0) this.platforms = this.platforms.filter((b) => !b.veil);
+      const allPlatforms = this.platforms, frameEnemies = this.enemies, hidingVeils = this.abilities.has("blink") && this.player.dash > 0;
+      if (hidingVeils) this.platforms = this.platforms.filter((b) => !b.veil);
       super.step();
       if (this.enemies !== frameEnemies) return;
-      this.platforms = allPlatforms;
+      if (hidingVeils) this.platforms.push(...allPlatforms.filter((b) => b.veil));
       if (this.player.respawning) return;
       for (const h of this.hazards) if (["root", "lightning", "stasis"].includes(h.type)) {
         h.timer--;
@@ -3271,6 +4409,8 @@
         if (h.timer <= 0 && h.timer > -18 && Math.abs(this.player.x - h.x) < range && dy < 45 && dy > -(h.type === "lightning" ? 360 : 60)) this.hurt(Math.sign(this.player.x - h.x), h.damage ?? 1, h.type === "stasis" ? { slow: 150 } : h.type === "root" ? { root: 18 } : {});
         if (this.enemies !== frameEnemies || this.player.respawning) return;
       }
+      if (!encountersStopped) updateBossHazards(this);
+      if (this.enemies !== frameEnemies || this.player.respawning || this.phase !== "playing") return;
       if (this.equipped.includes("pulse")) this.player.spirit = Math.min(100, this.player.spirit + 0.012);
       if (!wasGrounded && this.player.grounded && vy > 4) {
         this.landing = 10;
@@ -3349,7 +4489,7 @@
     hurt(direction = 0, amount = 1, status = {}) {
       const frameEnemies = this.enemies;
       if (this.player.dash && this.player.invul) this.combat.evade(direction);
-      const defended = this.combat.defend(direction, amount);
+      const defended = status.unblockable ? null : this.combat.defend(direction, amount);
       if (defended !== null) return defended;
       if (this.preventLethal?.(amount, direction)) return true;
       const ok = super.hurt(direction, amount, status);
@@ -3361,6 +4501,12 @@
       return ok;
     }
     awardEnemy(e) {
+      if (e.summonedBy) {
+        e.rewarded = true;
+        this.emit("kill");
+        return;
+      }
+      if (e.boss) clearBossEncounter(this, e);
       if (e.rewarded) {
         this.defeated.add(e.key);
         this.respawnedEnemies.delete(e.key);
@@ -3476,6 +4622,7 @@
       this.grapple = null;
       this.setInputs({});
       Object.assign(this.player, { respawning: 1, invul: 0, vx: 0, vy: 0, attack: null, dash: 0, specialHeld: false, fortress: false, guard: 0, armor: 0 });
+      resetBossEncounters(this);
       this.projectiles = [];
       this.enemyShots = [];
       this.waves = [];
@@ -3551,11 +4698,11 @@
         return true;
       }
       if (near.kind === "memory") {
-        const [title2, text2] = near.text.split("|");
+        const [title2, text3] = near.text.split("|");
         if (!this.memories.has(key)) {
           this.memories.add(key);
           this.gainXP(30);
-          this.emit("memory", { title: title2, text: text2 });
+          this.emit("memory", { title: title2, text: text3 });
         }
         this.say("ECHO RECOVERED \xB7 " + title2 + " \xB7 N: WORLD HISTORY");
         this.save();
@@ -3860,9 +5007,15 @@
           continue;
         }
         if (this.combat.updateEnemy(e)) continue;
+        const shotStart = this.enemyShots.length, hazardStart = this.hazards.length, waveStart = this.waves.length;
         if (e.boss) this.updateBoss(e);
         else if (["sinder", "voltlet", "pebbleback", "dewdrop", "sproutlet"].includes(e.kind)) this.updateMinion(e);
         else this.updateWild(e);
+        if (e.summonedBy) {
+          for (const shot4 of this.enemyShots.slice(shotStart)) shot4.bossOwner = e.summonedBy;
+          for (const h of this.hazards.slice(hazardStart)) h.bossOwner = e.summonedBy;
+          for (const wave of this.waves.slice(waveStart)) wave.bossOwner = e.summonedBy;
+        }
       }
     }
     updateWild(e) {
@@ -3874,7 +5027,7 @@
       if (e.slow) e.slow--;
       if (e.stun > 0) {
         e.stun--;
-        e.x = clamp5(e.x + e.vx, e.left, e.right);
+        e.x = clamp6(e.x + e.vx, e.left, e.right);
         e.vx *= 0.75;
         return;
       }
@@ -3884,14 +5037,14 @@
       const flying = ["ashwing", "inkfin", "stormkite"].includes(e.kind);
       if (flying) e.y = (e.baseY ?? 520) - 80 + Math.sin(this.tick * 0.04 + e.id) * 40;
       if (e.state === "patrol") {
-        e.x = clamp5(e.x + e.face * d.speed * (e.slow ? 0.5 : 1), e.left, e.right);
+        e.x = clamp6(e.x + e.face * d.speed * (e.slow ? 0.5 : 1), e.left, e.right);
         if (e.timer <= 0 && dist < 550) {
           e.state = "windup";
           e.timer = 26;
         }
       } else if (e.state === "windup" && e.timer <= 0) {
         if (e.kind === "riftling") {
-          e.x = clamp5(p.x - p.face * 75, e.left, e.right);
+          e.x = clamp6(p.x - p.face * 75, e.left, e.right);
           e.state = "charge";
           e.timer = 18;
           this.effects.push({ type: "mist", x: e.x, y: e.y - 40, life: 30 });
@@ -3920,7 +5073,7 @@
     }
     snapshot() {
       const s = super.snapshot();
-      return { ...s, mode: "campaign", worldSeed: this.worldSeed, recoveryPoints: this.recoveryPoints.map((r) => ({ ...r })), spentRecovery: [...this.spentRecovery], discoveredRecovery: [...this.discoveredRecovery], death: this.death ? structuredClone(this.death) : null, safeRest: { ...this.safeRest }, combat: this.combat.snapshot(), room: this.roomId, roomName: this.room.name, biome: this.room.biome, chapter: CHAPTERS[Math.min(this.fragments.size, 5)].title, abilities: [...this.abilities], fragments: [...this.fragments], unlocked: [...this.unlocked], visited: [...this.visited], inventory: { ...this.inventory }, charms: [...this.charms], equipped: [...this.equipped], memories: [...this.memories], shrines: [...this.shrines], combo: this.combo, finished: this.finished, ending: this.ending, playtime: this.playtime, enemies: this.enemies.map((e) => ({ id: e.id, boss: e.boss, kind: e.kind, hp: e.hp, maxHp: e.maxHp, state: e.state, x: e.x, y: e.y, phase: e.phase })), nearby: this.room.objects.filter((o) => Math.abs(o.x - this.player.x) < 100).map((o) => o.id) };
+      return { ...s, mode: "campaign", worldSeed: this.worldSeed, recoveryPoints: this.recoveryPoints.map((r) => ({ ...r })), spentRecovery: [...this.spentRecovery], discoveredRecovery: [...this.discoveredRecovery], death: this.death ? structuredClone(this.death) : null, safeRest: { ...this.safeRest }, combat: this.combat.snapshot(), room: this.roomId, roomName: this.room.name, biome: this.room.biome, chapter: CHAPTERS[Math.min(this.fragments.size, 5)].title, abilities: [...this.abilities], fragments: [...this.fragments], unlocked: [...this.unlocked], visited: [...this.visited], inventory: { ...this.inventory }, charms: [...this.charms], equipped: [...this.equipped], memories: [...this.memories], shrines: [...this.shrines], combo: this.combo, finished: this.finished, ending: this.ending, playtime: this.playtime, bossHazards: (this.bossHazards || []).map((h) => structuredClone(h)), enemies: this.enemies.map((e) => ({ id: e.id, boss: e.boss, kind: e.kind, hp: e.hp, maxHp: e.maxHp, state: e.state, x: e.x, y: e.y, phase: e.phase, timer: e.timer, moveId: e.moveId, moveName: e.moveName, attackKind: e.attackKind, counter: e.counter, hint: e.hint, attackFrame: e.attackFrame, windupFrames: e.windupFrames, summonedBy: e.summonedBy, telegraph: e.telegraph ? structuredClone(e.telegraph) : null })), nearby: this.room.objects.filter((o) => Math.abs(o.x - this.player.x) < 100).map((o) => o.id) };
     }
   };
 
@@ -3961,8 +5114,8 @@
   var HUNT_TYPES = { moss: "aurora", forge: "meteor", reef: "aurora", storm: "meteor", frost: "aurora", rift: "eclipse" };
 
   // src/rpg.js
-  var clamp6 = (v, a, b) => Math.max(a, Math.min(b, v));
-  var number = (n2, min = 0, max = 999999) => Number.isFinite(n2) ? clamp6(n2, min, max) : min;
+  var clamp7 = (v, a, b) => Math.max(a, Math.min(b, v));
+  var number = (n2, min = 0, max = 999999) => Number.isFinite(n2) ? clamp7(n2, min, max) : min;
   var array = (value) => Array.isArray(value) ? value : [];
   var own = (obj, key) => typeof key === "string" && Object.hasOwn(obj, key);
   var RPGCampaign = class extends CampaignEngine {
@@ -4045,7 +5198,7 @@
       this.messageTime = 0;
       this.applyFactionBoon();
       if (s.party.some((m) => m.hp > 0)) this.party.forEach((m, i) => {
-        if (Number.isFinite(s.party[i].hp)) m.hp = clamp6(s.party[i].hp, 0, m.maxHp);
+        if (Number.isFinite(s.party[i].hp)) m.hp = clamp7(s.party[i].hp, 0, m.maxHp);
       });
       if (!this.player.hp && this.phase !== "gameover") this.activeSlot = this.party.findIndex((m) => m.hp > 0);
       this.acceptAutostartQuests();
@@ -4145,7 +5298,7 @@
         this.rewardSource = previousSource;
       }
       if (this.enemies !== frameEnemies || this.player.respawning || this.phase !== "playing") return;
-      if (this.rpgReady && e.hp < hp && !options.dot) {
+      if (this.rpgReady && !e.summonedBy && e.hp < hp && !options.dot) {
         const before = this.bondRank(owner);
         this.companionXP[owner] = Math.min(1e3, (this.companionXP[owner] || 0) + 2);
         this.surge = Math.min(100, this.surge + 3 * (this.talents.has("overdrive") ? 1.4 : 1) * (1 + this.equipmentMods().surge));
@@ -4208,6 +5361,12 @@
       }
     }
     awardEnemy(e) {
+      if (e.summonedBy) {
+        e.rewarded = true;
+        this.emit("kill");
+        return;
+      }
+      if (e.boss) clearBossEncounter(this, e);
       if (e.rewarded) {
         super.awardEnemy(e);
         return;
@@ -4530,11 +5689,11 @@
     }
     startWorldEvent(type = HUNT_TYPES[this.room.biome] || "eclipse") {
       if (this.worldEvent || this.eventCleared.has(this.roomId) || this.roomId === "sanctuary" || this.room.enemies.some((e) => e.boss)) return false;
-      this.worldEvent = { type, x: clamp6(this.player.x + 180, 500, this.worldWidth - 300), y: 400, life: 1200, maxLife: 1200, spawned: true };
+      this.worldEvent = { type, x: clamp7(this.player.x + 180, 500, this.worldWidth - 300), y: 400, life: 1200, maxLife: 1200, spawned: true };
       const kind = type === "meteor" ? "clockscarab" : type === "aurora" ? "candlewraith" : "hushling";
       for (let i = 0; i < 3; i++) {
         if (this.defeated.has(this.roomId + ":event:" + i)) continue;
-        const x = clamp6(this.worldEvent.x + (i - 1) * 110, 350, this.worldWidth - 180), n2 = 900 + i, d = MINIONS[kind];
+        const x = clamp7(this.worldEvent.x + (i - 1) * 110, 350, this.worldWidth - 180), n2 = 900 + i, d = MINIONS[kind];
         this.enemies.push({ id: n2, key: this.roomId + ":event:" + i, kind, x, y: 520, home: x, baseY: 520, hp: d.hp, maxHp: d.hp, face: -1, state: "patrol", timer: 35 + i * 15, stun: 0, flash: 0, vx: 0, left: x - 160, right: x + 160, event: true });
       }
       this.say("WORLD EVENT \xB7 " + type.toUpperCase() + " FRACTURE \xB7 DEFEAT THE THREE ECHOES");
@@ -4579,7 +5738,7 @@
       e.face = p.x > e.x ? 1 : -1;
       if (e.kind === "candlewraith") e.y = (e.baseY ?? 520) - 55 + Math.sin(this.tick * 0.05 + e.id) * 25;
       if (e.state === "patrol") {
-        e.x = clamp6(e.x + e.face * d.speed * (e.slow > 0 ? 0.55 : 1), e.left, e.right);
+        e.x = clamp7(e.x + e.face * d.speed * (e.slow > 0 ? 0.55 : 1), e.left, e.right);
         if (e.timer <= 0) {
           e.state = "windup";
           e.timer = e.kind === "oathbound" ? 35 : 24;
@@ -4589,7 +5748,7 @@
           e.state = "charge";
           e.timer = 20;
         } else if (e.kind === "hushling") {
-          e.x = clamp6(p.x - p.face * 95, e.left, e.right);
+          e.x = clamp7(p.x - p.face * 95, e.left, e.right);
           this.hazards.push({ type: "stasis", x: e.x, y: 520, timer: 24, life: 65 });
           e.state = "recover";
           e.timer = 45;
@@ -4602,7 +5761,7 @@
           e.timer = 50;
         }
       } else if (e.state === "charge") {
-        e.x = clamp6(e.x + e.face * (e.kind === "clockscarab" ? 11 : 8), e.left, e.right);
+        e.x = clamp7(e.x + e.face * (e.kind === "clockscarab" ? 11 : 8), e.left, e.right);
         if (e.timer <= 0) {
           e.state = "recover";
           e.timer = 42;
@@ -4635,7 +5794,7 @@
   };
 
   // src/rpg-ui.js
-  var title = (text2, sub) => `<div class="modal-heading"><h2 id="overlay-title">${text2}</h2><p>${sub}</p></div>`;
+  var title = (text3, sub) => `<div class="modal-heading"><h2 id="overlay-title">${text3}</h2><p>${sub}</p></div>`;
   var human = (id) => String(id).replace(/([A-Z])/g, " $1").replace(/^./, (s) => s.toUpperCase());
   var statText = (mods) => Object.entries(mods).map(([k, n2]) => `+${Math.round(n2 * 100)}% ${k === "armor" ? "damage reduction" : k}`).join(" \xB7 ");
   function chronicleHTML(g, tab = "quests", interactive = true) {
@@ -4715,8 +5874,8 @@
       return `<button data-power-equip="${power.id}" data-power-slot="${slot}" class="${chosen ? "chosen" : ""}" aria-pressed="${chosen}" aria-label="${escape((chosen ? "Equipped: " : "Equip ") + power.name + " in slot " + (slot + 1))}" ${!live || !unlocked ? "disabled" : ""}>${chosen ? "\u2713 IN SLOT" : "EQUIP SLOT"} ${slot + 1}</button>`;
     }).join("")}</div></article>`;
   }
-  function moveCardHTML({ id, name, input, description, move, unlocked = true, lock, icon }) {
-    return `<article class="combat-move-card ${unlocked ? "" : "locked"}" data-combat-move="${id}"><div class="combat-move-top"><span aria-hidden="true">${icon}</span><span>${unlocked ? "AVAILABLE" : escape(lock)}</span></div><h4>${name}</h4><div class="combat-move-input">${input.map(keys).join("<span>\u2192</span>")}</div><p>${description}</p>${move ? `<small>${move.start}F STARTUP \xB7 ${move.active}F ACTIVE \xB7 ${move.recovery}F RECOVERY</small>` : ""}</article>`;
+  function moveCardHTML({ id, name, input, description, move: move2, unlocked = true, lock, icon }) {
+    return `<article class="combat-move-card ${unlocked ? "" : "locked"}" data-combat-move="${id}"><div class="combat-move-top"><span aria-hidden="true">${icon}</span><span>${unlocked ? "AVAILABLE" : escape(lock)}</span></div><h4>${name}</h4><div class="combat-move-input">${input.map(keys).join("<span>\u2192</span>")}</div><p>${description}</p>${move2 ? `<small>${move2.start}F STARTUP \xB7 ${move2.active}F ACTIVE \xB7 ${move2.recovery}F RECOVERY</small>` : ""}</article>`;
   }
   function arsenalHTML(g, live = true) {
     const combat = g.combat || {}, stats = combat.stats || {}, flow = Math.round(Math.max(0, Math.min(100, combat.flow || 0))), unlocked = availablePowers(g).length, reduced = Boolean(combat.settings?.reducedMotion ?? g.settings?.reducedMotion);
@@ -4735,18 +5894,18 @@
 
   // src/entity-animation.js
   var TAU = Math.PI * 2;
-  var clamp7 = (n2, a = 0, b = 1) => Math.max(a, Math.min(b, n2));
-  var finite2 = (n2, fallback = 0) => Number.isFinite(n2) ? n2 : fallback;
+  var clamp8 = (n2, a = 0, b = 1) => Math.max(a, Math.min(b, n2));
+  var finite3 = (n2, fallback = 0) => Number.isFinite(n2) ? n2 : fallback;
   var seed = (value) => String(value ?? 0).split("").reduce((n2, s) => (n2 * 31 + s.charCodeAt(0)) % 997, 7);
   var ownRig = (e) => !!(e.boss || e.kind);
   var smooth = (n2) => {
-    n2 = clamp7(n2);
+    n2 = clamp8(n2);
     return n2 * n2 * (3 - 2 * n2);
   };
   function alpha(color, opacity) {
     const hex = typeof color === "string" ? color.replace("#", "") : "";
     const full = hex.length === 3 ? hex.split("").map((n2) => n2 + n2).join("") : hex.slice(0, 6);
-    return /^[\da-f]{6}$/i.test(full) ? `rgba(${parseInt(full.slice(0, 2), 16)},${parseInt(full.slice(2, 4), 16)},${parseInt(full.slice(4, 6), 16)},${clamp7(opacity)})` : `rgba(221,211,182,${clamp7(opacity)})`;
+    return /^[\da-f]{6}$/i.test(full) ? `rgba(${parseInt(full.slice(0, 2), 16)},${parseInt(full.slice(2, 4), 16)},${parseInt(full.slice(4, 6), 16)},${clamp8(opacity)})` : `rgba(221,211,182,${clamp8(opacity)})`;
   }
   function line(c, points, color, width = 1) {
     c.beginPath();
@@ -4799,14 +5958,14 @@
       draw();
       return;
     }
-    const t = finite2(time), x = finite2(e.x), y = finite2(e.y), face = e.face === -1 ? -1 : 1;
+    const t = finite3(time), x = finite3(e.x), y = finite3(e.y), face = e.face === -1 ? -1 : 1;
     const existing = ownRig(e), strength = existing ? e.boss ? 0.52 : 0.64 : 1, boss = !!e.boss;
     const moving = ["patrol", "chase", "charge", "attack"].includes(e.state), wind = e.state === "windup";
-    const hurt = clamp7(finite2(e.recoil) / 12), recoilDir = Math.sign(e.recoilDir) || -face;
+    const hurt = clamp8(finite3(e.recoil) / 12), recoilDir = Math.sign(e.recoilDir) || -face;
     const stunned = e.stun > 0 || e.state === "stagger", dead = e.hp <= 0 && e.deathTimer > 0;
-    const death = dead ? clamp7(1 - finite2(e.deathTimer, 32) / 32) : 0;
-    const windFrames = finite2(e.windupFrames, boss ? 46 - 5 * (e.phase || 1) : e.kind === "graveburrower" ? 40 : 32);
-    const anticipation = wind ? smooth(1 - finite2(e.timer, windFrames) / windFrames) : 0;
+    const death = dead ? clamp8(1 - finite3(e.deathTimer, 32) / 32) : 0;
+    const windFrames = finite3(e.windupFrames, boss ? 46 - 5 * (e.phase || 1) : e.kind === "graveburrower" ? 40 : 32);
+    const anticipation = wind ? smooth(1 - finite3(e.timer, windFrames) / windFrames) : 0;
     const motion = e.reducedMotion || e.frozen > 0 ? 0 : 1, phase = seed(e.id || e.kind || e.boss);
     c.save();
     try {
@@ -4827,7 +5986,7 @@
         c.scale(1 + 0.045 * strength, 1 - 0.025 * strength);
       }
       if (e.state === "recover") {
-        const recovery = clamp7(finite2(e.timer) / 55), squash = recovery * 0.035 * strength;
+        const recovery = clamp8(finite3(e.timer) / 55), squash = recovery * 0.035 * strength;
         c.translate(-face * recovery * 2, recovery * 1.8);
         c.scale(1 + squash, 1 - squash);
       }
@@ -4837,7 +5996,7 @@
       }
       if (stunned && !hurt && !e.frozen) c.rotate(Math.sin(t * 13 + phase) * 0.012 * strength * motion);
       if (e.juggle > 0) {
-        const stretch = clamp7(Math.abs(finite2(e.launchVy)) / 14) * 0.09;
+        const stretch = clamp8(Math.abs(finite3(e.launchVy)) / 14) * 0.09;
         c.scale(1 - stretch * 0.5, 1 + stretch);
         c.rotate(face * Math.sin(t * 8) * 0.035 * motion);
       }
@@ -4887,10 +6046,10 @@
   }
   function drawBossAura(c, e, time, color = "#e9c7ab") {
     if (!e?.boss || e.hp <= 0) return;
-    const t = finite2(time), x = finite2(e.x), y = finite2(e.baseY, finite2(e.y));
+    const t = finite3(time), x = finite3(e.x), y = finite3(e.baseY, finite3(e.y));
     const wind = e.state === "windup", rage = e.phase >= 2, enrage = e.state === "enrage";
     const active = e.introduced !== false && e.state !== "sealed";
-    const anticipation = wind ? smooth(1 - finite2(e.timer, 41) / (46 - 5 * (e.phase || 1))) : 0;
+    const anticipation = wind ? smooth(1 - finite3(e.timer, 41) / (46 - 5 * (e.phase || 1))) : 0;
     const pulse = (Math.sin(t * 3) + 1) / 2, staggered = e.stun > 20 && e.state === "recover";
     c.save();
     try {
@@ -4906,7 +6065,7 @@
         }
       }
       if (wind && active) {
-        const linear = e.move === 0 || e.move == null && finite2(e.pattern) % 3 === 0, face = e.face === -1 ? -1 : 1;
+        const linear = e.move === 0 || e.move == null && finite3(e.pattern) % 3 === 0, face = e.face === -1 ? -1 : 1;
         if (linear) for (let i = 0; i < 4; i++) {
           const xx = x + face * (95 + i * 43), opacity = (0.15 + anticipation * 0.6) * (1 - i * 0.18);
           line(c, [[xx - face * 9, y - 7], [xx + face * 2, y - 2], [xx - face * 9, y + 3]], alpha(color, opacity), 1.5);
@@ -4931,7 +6090,7 @@
         glow(c, x, y - 90, 150, color, 0.12 + pulse * 0.08);
       }
       if (active && (e.poise > 0 || staggered)) {
-        const ratio = clamp7(finite2(e.poise) / 100), yy = y - 295, bar = 82;
+        const ratio = clamp8(finite3(e.poise) / 100), yy = y - 295, bar = 82;
         c.fillStyle = "#09121edb";
         c.fillRect(x - bar / 2 - 2, yy - 2, bar + 4, 8);
         c.fillStyle = alpha(staggered ? "#fff4ca" : color, 0.85);
@@ -4962,9 +6121,9 @@
       draw();
       return;
     }
-    const t = finite2(time), x = finite2(o.x), y = finite2(o.y, 520), p = g?.player || {};
-    const distance = Math.hypot(finite2(p.x, -9999) - x, finite2(p.y, -9999) - y), near = distance < 150;
-    const facing = finite2(p.x, x) >= x ? 1 : -1, s = seed(o.id || o.talk), motion = g?.combat?.settings?.reducedMotion ? 0 : 1;
+    const t = finite3(time), x = finite3(o.x), y = finite3(o.y, 520), p = g?.player || {};
+    const distance = Math.hypot(finite3(p.x, -9999) - x, finite3(p.y, -9999) - y), near = distance < 150;
+    const facing = finite3(p.x, x) >= x ? 1 : -1, s = seed(o.id || o.talk), motion = g?.combat?.settings?.reducedMotion ? 0 : 1;
     const talking = near && (o.speaking || g?.paused || g?.activeNPC === o.id), original = ["vell", "mender", "archivist"].includes(o.talk);
     c.save();
     try {
@@ -5004,7 +6163,7 @@
 
   // src/combat-fx.js
   var TAU2 = Math.PI * 2;
-  var clamp8 = (n2, a, b) => Math.max(a, Math.min(b, n2));
+  var clamp9 = (n2, a, b) => Math.max(a, Math.min(b, n2));
   var fract = (n2) => n2 - Math.floor(n2);
   var noise = (n2) => fract(Math.sin(n2 * 127.1 + 311.7) * 43758.5453);
   var smooth2 = (n2) => 1 - (1 - n2) ** 3;
@@ -5034,12 +6193,12 @@
     c.ellipse(x, y, Math.max(0.01, rx), Math.max(0.01, ry), 0, 0, TAU2);
     c.fill();
   }
-  function glow2(c, x, y, radius, color, alpha3 = 0.2) {
+  function glow2(c, x, y, radius, color, alpha4 = 0.2) {
     const gradient = c.createRadialGradient(x, y, 0, x, y, radius);
     gradient.addColorStop(0, color);
     gradient.addColorStop(1, "transparent");
     c.save();
-    c.globalAlpha *= alpha3;
+    c.globalAlpha *= alpha4;
     c.fillStyle = gradient;
     ellipse(c, x, y, radius, radius);
     c.restore();
@@ -5047,7 +6206,7 @@
   var CombatFX = class {
     constructor({ reducedMotion: reducedMotion2 = false, maxParticles = 420 } = {}) {
       this.reducedMotion = reducedMotion2;
-      this.maxParticles = clamp8(maxParticles, 80, 600);
+      this.maxParticles = clamp9(maxParticles, 80, 600);
       this.particles = [];
       this.rings = [];
       this.slashes = [];
@@ -5184,7 +6343,7 @@
       const x = payload.x ?? target?.x ?? (p.x || 0) + (type === "hit" ? face * 48 : 0);
       const y = payload.y ?? (target ? target.y - (target.boss ? 82 : 28) : (p.y || 520) - 32);
       const heavy = payload.heavy || payload.move?.heavy || p.attack?.type === "heavy";
-      const strength = clamp8(payload.strength || (heavy ? 1.5 : 1), 0.4, 3);
+      const strength = clamp9(payload.strength || (heavy ? 1.5 : 1), 0.4, 3);
       switch (type) {
         case "hit":
         case "impact":
@@ -5380,7 +6539,7 @@
       if (this.slashes.length > 24) this.slashes.splice(0, this.slashes.length - 24);
     }
     update(dtSeconds) {
-      const dt = clamp8(Number.isFinite(dtSeconds) ? dtSeconds : 1 / 60, 0, 0.05);
+      const dt = clamp9(Number.isFinite(dtSeconds) ? dtSeconds : 1 / 60, 0, 0.05);
       this.time += dt;
       this.shake *= Math.exp(-dt * 13);
       this.kickX *= Math.exp(-dt * 19);
@@ -5500,7 +6659,7 @@
       c.lineCap = "round";
       c.lineJoin = "round";
       if (p.shielding || p.shieldHeld || p.guard > 0 || p.fortress) {
-        const strength = clamp8((game2.shield ?? p.shield ?? 100) / (game2.maxShield || p.maxShield || 100), 0.05, 1);
+        const strength = clamp9((game2.shield ?? p.shield ?? 100) / (game2.maxShield || p.maxShield || 100), 0.05, 1);
         const perfect = p.parryFrames > 0 || p.parryWindow > 0;
         const col = perfect ? "#fff6ba" : "#a9f8e8";
         const pulse = this.reducedMotion ? 0 : Math.sin(time * 7) * 2;
@@ -5789,8 +6948,8 @@
   // src/enemy-art.js
   var TAU3 = Math.PI * 2;
   var INK = "#101b23";
-  var clamp9 = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
-  var finite3 = (n2, f = 0) => Number.isFinite(n2) ? n2 : f;
+  var clamp10 = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
+  var finite4 = (n2, f = 0) => Number.isFinite(n2) ? n2 : f;
   var SPECIES = /* @__PURE__ */ new Set(["sinder", "voltlet", "pebbleback", "dewdrop", "sproutlet", "thornling", "ashwing", "inkfin", "stormkite", "frostmite", "riftling", "glassmarauder", "veilwasp", "graveburrower", "chaincaster", "candlewraith", "clockscarab", "oathbound", "hushling"]);
   function mix(hex, other, ratio) {
     const a = /^#[\da-f]{6}$/i.test(hex) ? hex : "#a8cab8", b = /^#[\da-f]{6}$/i.test(other) ? other : "#fff4d6";
@@ -5913,13 +7072,13 @@
       flipped: e.flipped > 0,
       burrow: e.state === "burrow",
       stun: e.stun > 0 || e.state === "stun" || e.state === "stagger",
-      death: dead ? clamp9(1 - finite3(e.deathTimer, 35) / 35) : 0,
+      death: dead ? clamp10(1 - finite4(e.deathTimer, 35) / 35) : 0,
       bob: still || dead ? 0 : Math.sin(time * 3 + s) * 0.9,
       walk: moving && !still && !dead ? Math.sin(time * 11 + s) : 0,
       pace: time * 11 + s,
       flap: still || dead ? 0 : Math.sin(time * 19 + s),
-      anticipation: wind ? clamp9(1 - finite3(e.timer, 30) / 42) : 0,
-      reach: charge ? 1 : attack ? 0.8 : wind ? -0.3 : recover ? -0.14 * clamp9(finite3(e.timer, 20) / 40) : 0,
+      anticipation: wind ? clamp10(1 - finite4(e.timer, 30) / 42) : 0,
+      reach: charge ? 1 : attack ? 0.8 : wind ? -0.3 : recover ? -0.14 * clamp10(finite4(e.timer, 20) / 40) : 0,
       blink: dead || !still && Math.sin(time * 0.72 + s) > 0.992,
       hurt: e.flash > 0
     };
@@ -6299,11 +7458,11 @@
   var RIGS = { sinder, voltlet, pebbleback, dewdrop, sproutlet, thornling, ashwing, inkfin, stormkite, frostmite, riftling, glassmarauder, veilwasp, graveburrower, chaincaster, candlewraith, clockscarab, oathbound, hushling };
   function drawEnemyMinion(c, e, time = 0, data = {}) {
     if (!e || !SPECIES.has(e.kind)) return false;
-    const t = finite3(time), m = pose(e, t), color = /^#[\da-f]{6}$/i.test(data.color) ? data.color : "#a7c3b5";
+    const t = finite4(time), m = pose(e, t), color = /^#[\da-f]{6}$/i.test(data.color) ? data.color : "#a7c3b5";
     const p = { mid: color, dark: mix(color, INK, 0.66), edge: mix(color, "#fff3d5", 0.5), pale: mix(color, "#e8d5b4", 0.68), light: mix(color, "#faffd1", 0.74) };
     c.save();
     try {
-      c.translate(finite3(e.x), finite3(e.y));
+      c.translate(finite4(e.x), finite4(e.y));
       c.scale(e.face === -1 ? -1 : 1, 1);
       oval2(c, 0, 1, ["ashwing", "inkfin", "stormkite", "dewdrop", "veilwasp", "candlewraith", "riftling", "hushling"].includes(e.kind) ? 18 : 27, 4, "#06101570");
       c.translate(m.reach * 2, m.bob);
@@ -6332,9 +7491,376 @@
   }
   var ENEMY_ART_SPECIES = Object.freeze([...SPECIES]);
 
-  // src/boss-art.js
+  // src/boss-encounter-render.js
   var TAU4 = Math.PI * 2;
-  var clamp10 = (v, a = 0, b = 1) => Math.max(a, Math.min(b, Number.isFinite(v) ? v : 0));
+  var finite5 = (v, f = 0) => Number.isFinite(v) ? v : f;
+  var clamp11 = (v, a = 0, b = 1) => Math.max(a, Math.min(b, finite5(v)));
+  var alpha2 = (color, a) => {
+    const raw = String(color || "#f8d69a").replace("#", "").slice(0, 6), hex = raw.length === 3 ? raw.split("").map((x) => x + x).join("") : raw;
+    return /^[0-9a-f]{6}$/i.test(hex) ? `rgba(${parseInt(hex.slice(0, 2), 16)},${parseInt(hex.slice(2, 4), 16)},${parseInt(hex.slice(4, 6), 16)},${clamp11(a)})` : `rgba(248,214,154,${clamp11(a)})`;
+  };
+  function line3(c, points, col, w = 1) {
+    c.beginPath();
+    points.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y));
+    c.strokeStyle = col;
+    c.lineWidth = w;
+    c.lineCap = "round";
+    c.lineJoin = "round";
+    c.stroke();
+  }
+  function poly3(c, points, col, edge, w = 1) {
+    c.beginPath();
+    points.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y));
+    c.closePath();
+    if (col) {
+      c.fillStyle = col;
+      c.fill();
+    }
+    if (edge) {
+      c.strokeStyle = edge;
+      c.lineWidth = w;
+      c.stroke();
+    }
+  }
+  function oval3(c, x, y, rx, ry, col, edge, w = 1) {
+    c.beginPath();
+    c.ellipse(x, y, Math.max(0.05, rx), Math.max(0.05, ry), 0, 0, TAU4);
+    if (col) {
+      c.fillStyle = col;
+      c.fill();
+    }
+    if (edge) {
+      c.strokeStyle = edge;
+      c.lineWidth = w;
+      c.stroke();
+    }
+  }
+  function text(c, value, x, y, col, size = 10) {
+    c.fillStyle = col;
+    c.font = `600 ${size}px Barlow, sans-serif`;
+    c.textAlign = "center";
+    c.fillText(String(value), x, y);
+  }
+  function diamond2(c, x, y, r, col) {
+    poly3(c, [[x, y - r], [x + r * 0.6, y], [x, y + r], [x - r * 0.6, y]], col);
+  }
+  function corners(c, x, y, w, h, col, amount = 10) {
+    const xx = x - w / 2, yy = y - h / 2, l = Math.min(amount, w * 0.25, h * 0.4);
+    for (const sx of [-1, 1]) for (const sy of [-1, 1]) {
+      const a = x + sx * w / 2, b = y + sy * h / 2;
+      line3(c, [[a - sx * l, b], [a, b], [a, b - sy * l]], col, 1.6);
+    }
+  }
+  function hatch(c, x, y, w, h, col) {
+    const left = x - w / 2, top = y - h / 2;
+    c.save();
+    c.beginPath();
+    c.rect(left, top, w, h);
+    c.clip();
+    for (let i = -h; i < w; i += 28) line3(c, [[left + i, top + h], [left + i + h, top]], col, 0.8);
+    c.restore();
+  }
+  var isLethal = (h) => h.damage === "lethal" || h.lethal;
+  function zone4(c, h, time, { preview: preview2 = false, reducedMotion: reducedMotion2 = false } = {}) {
+    const x = finite5(h.x), y = finite5(h.y), w = Math.max(4, finite5(h.w, 120)), height = Math.max(4, finite5(h.h, 70)), shape = h.shape || "blast";
+    const warning = preview2 || finite5(h.delay) > 0, progress = preview2 ? 0.1 : warning ? 1 - clamp11(finite5(h.delay) / Math.max(1, finite5(h.maxDelay, h.delay))) : 1 - clamp11(finite5(h.life) / Math.max(1, finite5(h.maxLife, h.life)));
+    const color = isLethal(h) ? "#ff6f82" : h.color || "#f6cc8d", motion = reducedMotion2 ? 0 : time, pulse = reducedMotion2 ? 0.65 : 0.6 + Math.sin(motion * 10) * 0.18;
+    const opacity = preview2 ? 0.45 : warning ? 0.64 + progress * 0.3 : 1;
+    c.save();
+    c.globalAlpha *= opacity;
+    try {
+      c.strokeStyle = alpha2(color, warning ? 0.8 : 0.95);
+      c.fillStyle = alpha2(color, warning ? 0.055 + progress * 0.045 : 0.16);
+      c.lineWidth = warning ? 1.3 : 2;
+      if (warning) c.setLineDash(preview2 ? [3, 9] : [7, 5]);
+      if (shape === "blast" || shape === "ring") {
+        const rx = w / 2, ry = height / 2, inner = Math.max(0, Math.min(rx - 2, finite5(h.inner)));
+        c.save();
+        c.beginPath();
+        c.ellipse(x, y, rx, ry, 0, 0, TAU4);
+        c.clip();
+        c.beginPath();
+        c.ellipse(x, y, rx, ry, 0, 0, TAU4);
+        if (shape === "ring" && inner > 0) c.ellipse(x, y, inner, inner, 0, 0, TAU4, true);
+        c.fill("evenodd");
+        c.stroke();
+        c.restore();
+        c.setLineDash([]);
+        if (warning) {
+          oval3(c, x, y, Math.max(2, rx * (1 - progress * 0.7)), Math.max(2, ry * (1 - progress * 0.7)), null, alpha2(color, 0.35), 0.8);
+        } else {
+          oval3(c, x, y, Math.max(2, rx * (0.86 + progress * 0.1)), Math.max(2, ry * (0.86 + progress * 0.1)), null, alpha2("#fff6d9", 0.5 * (1 - progress)), 1.3);
+          for (let i = 0; i < 12; i++) {
+            const a = i * TAU4 / 12 + motion * 0.12, r = 1 - progress * 0.12;
+            line3(c, [[x + Math.cos(a) * rx * 0.8 * r, y + Math.sin(a) * ry * 0.8 * r], [x + Math.cos(a) * rx * r, y + Math.sin(a) * ry * r]], alpha2(color, 0.6), 1.2);
+          }
+        }
+        if (shape === "ring" && inner > 0) {
+          oval3(c, x, y, inner, inner, alpha2("#bcebc5", 0.04), "#bcebc599", 1.3);
+          if (warning) text(c, "SAFE CENTER", x, y + 3, "#d3f3d2", 8);
+        }
+      } else {
+        c.fillRect(x - w / 2, y - height / 2, w, height);
+        c.strokeRect(x - w / 2, y - height / 2, w, height);
+        c.setLineDash([]);
+        corners(c, x, y, w, height, alpha2(color, 0.95));
+        if (warning) hatch(c, x, y, w, height, alpha2(color, 0.12));
+        if (shape === "beam") {
+          const vertical = height > w;
+          const beamCore = warning ? 0.75 : Math.max(1, (vertical ? w : height) * 0.22);
+          line3(c, vertical ? [[x, y - height / 2], [x, y + height / 2]] : [[x - w / 2, y], [x + w / 2, y]], alpha2(warning ? color : "#fff5d2", warning ? 0.8 : 0.93), beamCore);
+          if (!warning) for (const side of [-1, 1]) {
+            const offset = (vertical ? w : height) * (0.24 + Math.sin(motion * 17) * 0.03 * (reducedMotion2 ? 0 : 1));
+            line3(c, vertical ? [[x + side * offset, y - height / 2], [x + side * offset, y + height / 2]] : [[x - w / 2, y + side * offset], [x + w / 2, y + side * offset]], alpha2(color, 0.75), 1.5);
+          }
+        } else if (shape === "slash") {
+          c.save();
+          c.beginPath();
+          c.rect(x - w / 2, y - height / 2, w, height);
+          c.clip();
+          c.strokeStyle = alpha2(warning ? color : "#fff1d0", warning ? 0.5 : 0.9);
+          c.lineWidth = warning ? 1.4 : Math.max(3, height * 0.09);
+          c.beginPath();
+          c.moveTo(x - w * 0.48, y + height * 0.4);
+          c.bezierCurveTo(x - w * 0.15, y - height * 0.55, x + w * 0.25, y - height * 0.45, x + w * 0.48, y - height * 0.35);
+          c.stroke();
+          c.restore();
+        } else if (shape === "pillar") {
+          for (let i = 0; i < Math.min(7, Math.ceil(w / 18)); i++) {
+            const xx = x - w * 0.42 + i * w / Math.max(1, Math.ceil(w / 18) - 1) * 0.84, peak = y - height * 0.46 + i % 3 * 5;
+            if (!warning) poly3(c, [[xx - 7, y + height * 0.48], [xx - 5, peak + 15], [xx, peak], [xx + 7, peak + 17], [xx + 10, y + height * 0.48]], alpha2(color, 0.5), alpha2("#f6f4d8", 0.55), 0.8);
+            else line3(c, [[xx, y + height * 0.45], [xx, peak]], alpha2(color, 0.2), 0.8);
+          }
+        } else if (shape === "floor") {
+          for (let i = 0; i < Math.min(18, Math.floor(w / 26)); i++) {
+            const xx = x - w / 2 + 17 + i * 26;
+            diamond2(c, xx, y, warning ? 3 : 5, alpha2(color, warning ? 0.65 : 0.9));
+            line3(c, [[xx - 7, y + height * 0.34], [xx + 7, y + height * 0.34]], alpha2(color, 0.4), 0.8);
+          }
+          if (!warning) for (let i = 0; i < Math.min(16, Math.floor(w / 30)); i++) {
+            const xx = x - w / 2 + 15 + i * 30;
+            line3(c, [[xx, y + height * 0.4], [xx + 5, y - height * 0.35]], alpha2("#fff3ce", 0.65), 1.6);
+          }
+        }
+      }
+      if (shape === "mine") {
+        oval3(c, x, y, Math.min(w, height) * 0.28, Math.min(w, height) * 0.28, alpha2(color, warning ? 0.15 : 0.55), alpha2(color, 0.8), 1.5);
+        for (let i = 0; i < 6; i++) {
+          const a = i * TAU4 / 6 + motion * 0.15;
+          diamond2(c, x + Math.cos(a) * w * 0.36, y + Math.sin(a) * height * 0.36, warning ? 2.5 : 4, alpha2(color, 0.85));
+        }
+        if (warning) {
+          line3(c, [[x, y - 5], [x, y + 3]], "#ffe6bc", 1.8);
+          oval3(c, x, y + 7, 1.3, 1.3, "#ffe6bc");
+        }
+      }
+      if (!preview2 && warning) {
+        const label2 = isLethal(h) ? "EXECUTION \xB7 " + (h.hint || "LEAVE THE RED LANE") : h.label || "";
+        if (label2) text(c, label2.toUpperCase().slice(0, 64), x, y - height / 2 - 12, isLethal(h) ? "#ffadbb" : alpha2("#f7e6bc", 0.9), isLethal(h) ? 10 : 8);
+        if (isLethal(h)) {
+          diamond2(c, x - w / 2 + 8, y - height / 2 - 10, 4, "#ff7f94");
+          diamond2(c, x + w / 2 - 8, y - height / 2 - 10, 4, "#ff7f94");
+        }
+      }
+    } finally {
+      c.restore();
+    }
+  }
+  function force(c, h, time, reducedMotion2) {
+    const x = finite5(h.x), y = finite5(h.y), r = Math.max(1, finite5(h.radius, 220)), col = h.color || "#bceee1", clock = reducedMotion2 ? 0 : time;
+    c.save();
+    try {
+      oval3(c, x, y, r, r, null, alpha2(col, 0.15), 1);
+      oval3(c, x, y, r * 0.4, r * 0.4, null, alpha2(col, 0.3), 1.3);
+      for (let i = 0; i < 8; i++) {
+        const a = i * TAU4 / 8 + clock * 0.7, p = reducedMotion2 ? 0.55 : (clock * 0.5 + i / 8) % 1, rr = r * (1 - p * 0.8), xx = x + Math.cos(a) * rr, yy = y + Math.sin(a) * rr;
+        line3(c, [[xx + Math.cos(a) * 15, yy + Math.sin(a) * 15], [xx, yy], [xx + Math.cos(a + 0.6) * 7, yy + Math.sin(a + 0.6) * 7]], alpha2(col, 0.3 + p * 0.3), 1.2);
+      }
+      diamond2(c, x, y, 5, alpha2(col, 0.5));
+    } finally {
+      c.restore();
+    }
+  }
+  function drawBossEncounterWorld(c, g, time = 0) {
+    const reduced = !!g?.combat?.settings?.reducedMotion, t = finite5(time);
+    for (const h of g?.bossHazards || []) {
+      if (h.type === "force") force(c, h, t, reduced);
+      else zone4(c, h, t, { reducedMotion: reduced });
+    }
+  }
+  function drawBossMoveTelegraph(c, e, time = 0) {
+    if (!e?.moveId) return false;
+    if (e.hp <= 0 || e.state !== "windup" || !e.telegraph) return true;
+    const cue = e.telegraph, x = finite5(e.x), y = finite5(e.baseY, e.y), tx = finite5(cue.targetX, x), ty = finite5(cue.targetY, y), wind = clamp11(1 - finite5(e.timer) / Math.max(1, finite5(e.windupFrames, 46))), reduced = !!e.reducedMotion, t = reduced ? 0 : finite5(time);
+    const col = cue.lethal ? "#ff7d95" : e.phase >= 3 ? "#ffc0a0" : "#f6d295";
+    c.save();
+    try {
+      const previews = cue.events || cue.preview || [];
+      for (const h of previews.filter((h2) => h2.type === "zone" && finite5(h2.at) < 50).slice(0, 8)) zone4(c, { ...h, color: h.color || col }, t, { preview: true, reducedMotion: reduced });
+      const kind = String(e.attackKind || cue.kind || "");
+      if (/dash|charge|rush|lunge|stampede|dive|leap|pounce|jump/.test(kind) || ["jump", "dodge", "behind"].includes(e.counter)) {
+        const height = /leap|dive|jump|pounce/.test(kind) ? 130 : 0;
+        c.setLineDash([7, 7]);
+        c.strokeStyle = alpha2(col, 0.55);
+        c.lineWidth = 1.3;
+        c.beginPath();
+        c.moveTo(x, y - 12);
+        c.quadraticCurveTo((x + tx) / 2, Math.min(y, ty) - height, tx, ty - 12);
+        c.stroke();
+        c.setLineDash([]);
+        oval3(c, tx, ty - 3, 35 + wind * 8, 8, null, alpha2(col, 0.6), 1.2);
+      } else if (e.counter === "shield") {
+        c.setLineDash([4, 7]);
+        line3(c, [[x, y - 112], [tx, ty - 38]], alpha2(col, 0.5), 1);
+        c.setLineDash([]);
+        diamond2(c, tx, ty - 38, 10, col);
+      }
+      c.strokeStyle = alpha2(col, 0.8);
+      c.lineWidth = 2;
+      c.beginPath();
+      c.arc(x, y - 272, 11, -Math.PI / 2, -Math.PI / 2 + TAU4 * wind);
+      c.stroke();
+      if (wind > 0.8) diamond2(c, x, y - 272, 3, col);
+      const name = String(e.moveName || cue.name || "").toUpperCase();
+      if (name) text(c, name, x, y - 293, "#f7eacb", 10);
+      const hint = String(e.hint || cue.hint || "");
+      if (hint) text(c, hint, x, y - 309, alpha2("#dcdfcd", 0.86), 8);
+    } finally {
+      c.restore();
+    }
+    return true;
+  }
+  function drawBossPlatform(c, p, time = 0) {
+    if (!p?.bossOwner) return false;
+    const x = finite5(p.x), y = finite5(p.y), w = Math.max(1, finite5(p.w, 120)), h = Math.max(8, finite5(p.h, 18)), style = p.style || "stone";
+    const colors = { root: ["#526d4d", "#c5e7a4"], ice: ["#63899e", "#d9fbff"], stone: ["#6f7471", "#e4dbb6"], memory: ["#5c557b", "#ede0ff"], metal: ["#665557", "#f2c798"], water: ["#3f7283", "#b6f8ed"] }, [dark, light] = colors[style] || colors.stone;
+    c.save();
+    try {
+      c.fillStyle = dark;
+      c.fillRect(x, y, w, h);
+      c.fillStyle = alpha2("#061522", 0.4);
+      c.fillRect(x, y + h * 0.5, w, h * 0.5);
+      line3(c, [[x, y], [x + w, y]], light, 2.5);
+      line3(c, [[x + 4, y + 4], [x + w - 4, y + 4]], alpha2(light, 0.4), 0.8);
+      if (style === "ice") for (let i = 0; i < w / 21; i++) {
+        const xx = x + 9 + i * 21;
+        poly3(c, [[xx - 8, y + h], [xx, y + h + 13 + i % 3 * 5], [xx + 9, y + h]], alpha2(light, 0.5), alpha2(light, 0.7), 0.7);
+      }
+      else if (style === "root") for (let i = 0; i < w / 25; i++) {
+        const xx = x + 12 + i * 25;
+        c.beginPath();
+        c.moveTo(xx, y + h);
+        c.bezierCurveTo(xx - 13, y + h + 17, xx + 15, y + h + 18, xx + 6, y + h + 28);
+        c.strokeStyle = dark;
+        c.lineWidth = 5;
+        c.stroke();
+        line3(c, [[xx - 5, y + 6], [xx + 7, y + 12]], alpha2(light, 0.28), 1);
+      }
+      else if (style === "metal") for (let i = 0; i < w / 27; i++) {
+        const xx = x + 9 + i * 27;
+        oval3(c, xx, y + 9, 2, 2, light);
+        line3(c, [[xx + 7, y + 2], [xx + 7, y + h - 2]], alpha2(light, 0.3), 1);
+      }
+      else if (style === "memory") for (let i = 0; i < w / 23; i++) {
+        const xx = x + 9 + i * 23;
+        poly3(c, [[xx - 6, y + h], [xx + 7, y + h], [xx + 9, y + h + 14], [xx - 5, y + h + 11]], alpha2(light, 0.35));
+        line3(c, [[xx - 2, y + 7], [xx + 5, y + 7]], light, 0.8);
+      }
+      else if (style === "water") {
+        for (let i = 0; i < w / 25; i++) {
+          const xx = x + 13 + i * 25;
+          oval3(c, xx, y + 12, 8, 3, null, alpha2(light, 0.5), 1);
+          oval3(c, xx + 3, y + h + 9, 2, 3, alpha2(light, 0.3));
+        }
+      } else for (let i = 0; i < w / 32; i++) line3(c, [[x + 12 + i * 32, y + 5], [x + 17 + i * 32, y + h]], alpha2(light, 0.35), 1);
+      const remaining = finite5(p.tempLife, p.life || 500);
+      if (remaining < 75) {
+        line3(c, [[x + 3, y - 5], [x + w - 3, y - 5]], "#ffd6a7", 1);
+        text(c, "FADING", x + w / 2, y - 11, "#ffe3ba", 8);
+      }
+    } finally {
+      c.restore();
+    }
+    return true;
+  }
+  function drawBossProjectile(c, shot4, time = 0) {
+    if (!shot4?.bossOwner) return false;
+    const x = finite5(shot4.x), y = finite5(shot4.y), r = Math.max(3, finite5(shot4.radius, 7)), col = shot4.color || "#f9d39d", angle = Math.atan2(finite5(shot4.vy), finite5(shot4.vx, 1));
+    c.save();
+    try {
+      c.translate(x, y);
+      c.rotate(angle);
+      if (shot4.kind === "blade" || shot4.kind === "needle") {
+        poly3(c, [[-r * 2, 0], [r * 1.6, -r * 0.45], [r * 2.4, 0], [r * 1.6, r * 0.45]], alpha2(col, 0.8), "#fff0d0", 0.8);
+        line3(c, [[-r * 3, 0], [-r * 1.6, 0]], alpha2(col, 0.4), 1.5);
+      } else if (shot4.kind === "droplet") {
+        c.beginPath();
+        c.moveTo(r * 1.6, 0);
+        c.quadraticCurveTo(-r * 0.7, -r * 1.3, -r, 0);
+        c.quadraticCurveTo(-r * 0.7, r * 1.3, r * 1.6, 0);
+        c.fillStyle = alpha2(col, 0.75);
+        c.fill();
+        c.strokeStyle = alpha2("#e7fff4", 0.8);
+        c.lineWidth = 0.9;
+        c.stroke();
+      } else {
+        oval3(c, 0, 0, r, r, alpha2(col, 0.5), alpha2(col, 0.9), 1.3);
+        diamond2(c, 0, 0, r * 0.65, "#fff0d1");
+        line3(c, [[-r * 2.4, 0], [-r * 1.2, 0]], alpha2(col, 0.4), 2);
+      }
+    } finally {
+      c.restore();
+    }
+    return true;
+  }
+  function drawBossWeapon(c, e, time = 0) {
+    if (!e?.moveId || e.hp <= 0 || !["windup", "attack", "charge", "leap", "recover"].includes(e.state)) return;
+    const kind = e.attackKind || "", id = e.boss || "", weapon = /axe|hammer|sword|cleaver|spear|guillotine|headsman/.test(kind) || ["crown", "moss-warden", "forge-warden", "frost-warden", "storm-warden", "rift-reaver"].includes(id);
+    const wind = e.state === "windup", progress = wind ? clamp11(1 - e.timer / Math.max(1, e.windupFrames)) : clamp11((e.attackFrame || 0) / Math.max(1, e.moveDuration)), face = e.face || 1, color = { crown: "#ffd0df", "moss-warden": "#c9e7a2", "forge-warden": "#ffd4a0", "frost-warden": "#d5f8ff", "storm-warden": "#ead9ff", "rift-reaver": "#f4b6dd" }[id] || "#e4e7ce";
+    c.save();
+    try {
+      c.translate(e.x, e.y);
+      c.scale(face, 1);
+      if (weapon) {
+        const axe = /axe/.test(kind) || id === "moss-warden", hammer = /hammer/.test(kind) || id === "forge-warden", spear = /spear/.test(kind) || id === "storm-warden";
+        const swing = wind ? -0.7 - progress * 0.7 : e.state === "recover" ? 0.35 : -1.4 + Math.sin(Math.min(1, progress * 2.7) * Math.PI * 0.78) * 2.4;
+        c.translate(35, -135);
+        c.rotate(swing);
+        line3(c, [[0, 26], [0, -110]], "#131f2d", 12);
+        line3(c, [[0, 22], [0, -110]], "#8c9e93", 6);
+        if (hammer) {
+          poly3(c, [[-36, -137], [38, -137], [45, -82], [-42, -82]], "#65585b", color, 2);
+          line3(c, [[-28, -129], [29, -129]], color, 2);
+          diamond2(c, 0, -108, 13, color);
+        } else if (axe) {
+          poly3(c, [[-8, -158], [49, -146], [72, -101], [21, -76], [-7, -100], [-26, -80], [-42, -109], [-25, -143]], "#587363", color, 2);
+          line3(c, [[45, -137], [60, -105], [22, -86]], color, 3);
+        } else if (spear) {
+          poly3(c, [[0, -188], [18, -143], [7, -126], [-7, -126], [-18, -143]], "#827397", color, 2);
+          line3(c, [[0, -177], [0, -117]], color, 1.5);
+        } else {
+          poly3(c, [[-11, -21], [-18, -150], [0, -194], [19, -150], [12, -21]], id === "frost-warden" ? "#80a8bc" : "#8d6d91", color, 2.2);
+          line3(c, [[0, -179], [0, -35]], "#f7e8d8", 1.7);
+          line3(c, [[-28, -20], [26, -20]], color, 6);
+          diamond2(c, 0, 20, 8, color);
+        }
+      } else if (wind) {
+        const radius = 17 + progress * 15;
+        c.globalAlpha *= 0.5 + progress * 0.3;
+        oval3(c, 0, -120, radius, radius, null, color, 1.4);
+        for (let i = 0; i < 4; i++) {
+          const a = i * TAU4 / 4 + (e.reducedMotion ? 0 : time) * 0.5;
+          diamond2(c, Math.cos(a) * radius, -120 + Math.sin(a) * radius, 3, color);
+        }
+      }
+    } finally {
+      c.restore();
+    }
+  }
+
+  // src/boss-art.js
+  var TAU5 = Math.PI * 2;
+  var clamp12 = (v, a = 0, b = 1) => Math.max(a, Math.min(b, Number.isFinite(v) ? v : 0));
   var n = (v, f = 0) => Number.isFinite(v) ? v : f;
   var INK2 = "#101b24";
   var PAPER = "#e9ddbf";
@@ -6349,7 +7875,7 @@
   };
   function rgba(color, opacity) {
     const s = String(color || "#e9ddbf").replace("#", "").slice(0, 6), h = s.length === 3 ? s.split("").map((x) => x + x).join("") : s;
-    return /^[0-9a-f]{6}$/i.test(h) ? `rgba(${parseInt(h.slice(0, 2), 16)},${parseInt(h.slice(2, 4), 16)},${parseInt(h.slice(4, 6), 16)},${clamp10(opacity)})` : `rgba(233,221,191,${clamp10(opacity)})`;
+    return /^[0-9a-f]{6}$/i.test(h) ? `rgba(${parseInt(h.slice(0, 2), 16)},${parseInt(h.slice(2, 4), 16)},${parseInt(h.slice(4, 6), 16)},${clamp12(opacity)})` : `rgba(233,221,191,${clamp12(opacity)})`;
   }
   function path2(c, points, fill, edge = INK2, width = 1.5) {
     c.beginPath();
@@ -6366,9 +7892,9 @@
       c.stroke();
     }
   }
-  function oval3(c, x, y, rx, ry, fill, edge, width = 1.4) {
+  function oval4(c, x, y, rx, ry, fill, edge, width = 1.4) {
     c.beginPath();
-    c.ellipse(x, y, Math.max(0.05, rx), Math.max(0.05, ry), 0, 0, TAU4);
+    c.ellipse(x, y, Math.max(0.05, rx), Math.max(0.05, ry), 0, 0, TAU5);
     if (fill) {
       c.fillStyle = fill;
       c.fill();
@@ -6379,7 +7905,7 @@
       c.stroke();
     }
   }
-  function line3(c, points, color, width = 2) {
+  function line4(c, points, color, width = 2) {
     c.beginPath();
     points.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y));
     c.strokeStyle = color;
@@ -6412,16 +7938,16 @@
     g.addColorStop(1, t.dark);
     return g;
   }
-  function glow4(c, x, y, r, color, alpha3 = 0.2) {
+  function glow4(c, x, y, r, color, alpha4 = 0.2) {
     const g = c.createRadialGradient(x, y, 0, x, y, Math.max(1, r));
-    g.addColorStop(0, rgba(color, alpha3));
+    g.addColorStop(0, rgba(color, alpha4));
     g.addColorStop(1, rgba(color, 0));
-    oval3(c, x, y, r, r, g);
+    oval4(c, x, y, r, r, g);
   }
   function gem(c, x, y, r, t, hot = false) {
     path2(c, [[x, y - r], [x + r * 0.67, y - r * 0.1], [x + r * 0.4, y + r * 0.7], [x, y + r], [x - r * 0.65, y + r * 0.1]], hot ? t.energy : t.mid, t.dark, 1);
     path2(c, [[x, y - r], [x + r * 0.15, y + r * 0.2], [x - r * 0.65, y + r * 0.1]], t.light, null);
-    line3(c, [[x, y - r * 0.75], [x + r * 0.1, y + r * 0.45]], hot ? PAPER : t.light, 0.9);
+    line4(c, [[x, y - r * 0.75], [x + r * 0.1, y + r * 0.45]], hot ? PAPER : t.light, 0.9);
   }
   function ring(c, x, y, rx, ry, color, width = 1, a = 0) {
     c.save();
@@ -6430,32 +7956,32 @@
     c.strokeStyle = color;
     c.lineWidth = width;
     c.beginPath();
-    c.ellipse(0, 0, rx, ry, 0, 0, TAU4);
+    c.ellipse(0, 0, rx, ry, 0, 0, TAU5);
     c.stroke();
     c.restore();
   }
   function eye2(c, x, y, t, size = 4) {
-    oval3(c, x, y, size * 1.5, size * 0.8, INK2);
-    oval3(c, x + 1, y, size * 0.75, size * 0.6, t.energy);
-    oval3(c, x + size * 0.35, y - 1, size * 0.23, size * 0.23, "#fff7df");
+    oval4(c, x, y, size * 1.5, size * 0.8, INK2);
+    oval4(c, x + 1, y, size * 0.75, size * 0.6, t.energy);
+    oval4(c, x + size * 0.35, y - 1, size * 0.23, size * 0.23, "#fff7df");
   }
   function rib(c, points, t, w = 12) {
-    line3(c, points, INK2, w + 3);
-    line3(c, points, t.dark, w + 1);
-    line3(c, points, t.base, w);
-    line3(c, points.map(([x, y]) => [x - 2, y - 2]), rgba(t.light, 0.45), Math.max(1, w * 0.17));
+    line4(c, points, INK2, w + 3);
+    line4(c, points, t.dark, w + 1);
+    line4(c, points, t.base, w);
+    line4(c, points.map(([x, y]) => [x - 2, y - 2]), rgba(t.light, 0.45), Math.max(1, w * 0.17));
   }
   function thorn(c, x, y, length, angle, t) {
     joint2(c, x, y, angle, () => {
       path2(c, [[-5, 3], [-5, -length * 0.36], [0, -length], [7, -length * 0.3], [8, 3]], metal(c, 0, -length * 0.4, 6, length * 0.5, t));
-      line3(c, [[0, -length + 6], [0, 0]], rgba(t.light, 0.65), 1);
+      line4(c, [[0, -length + 6], [0, 0]], rgba(t.light, 0.65), 1);
     });
   }
   function plates(c, x, y, count, spacing, t, scale = 1) {
     for (let i = 0; i < count; i++) {
       const xx = x + i * spacing;
       path2(c, [[xx - 11 * scale, y + 4], [xx - 12 * scale, y - 12 * scale], [xx, y - 22 * scale], [xx + 13 * scale, y - 10 * scale], [xx + 10 * scale, y + 6]], metal(c, xx, y, 14, 20, t));
-      line3(c, [[xx - 7 * scale, y - 10 * scale], [xx, y - 17 * scale], [xx + 7 * scale, y - 8 * scale]], rgba(t.light, 0.6), 1);
+      line4(c, [[xx - 7 * scale, y - 10 * scale], [xx, y - 17 * scale], [xx + 7 * scale, y - 8 * scale]], rgba(t.light, 0.6), 1);
     }
   }
   function cloth(c, x, y, w, h, t, time, bend = 0) {
@@ -6478,7 +8004,7 @@
   }
   function hand(c, x, y, t, open = 0, scale = 1) {
     joint2(c, x, y, -open * 0.15, () => {
-      oval3(c, 0, 0, 9 * scale, 11 * scale, metal(c, 0, 0, 10, 12, t), INK2);
+      oval4(c, 0, 0, 9 * scale, 11 * scale, metal(c, 0, 0, 10, 12, t), INK2);
       for (let i = 0; i < 3; i++) curve2(c, [-6 * scale + i * 6 * scale, -2 * scale, (-9 + i * 8) * scale, -14 * scale, (-7 + i * 8) * scale, -18 * scale - open * 9, (i * 8 - 5) * scale, -15 * scale - open * 11], t.light, 3 * scale);
     });
   }
@@ -6486,7 +8012,7 @@
     const lift = m.wind * (weapon ? 0.95 : 0.65) + (m.cast ? 0.8 : 0) - m.strike * (weapon ? 1.4 : 0.8);
     joint2(c, x, y, side * lift, () => {
       rib(c, [[0, 0], [side * 24, 34], [side * 39, 61]], t, 13);
-      oval3(c, side * 23, 33, 10, 10, t.dark, t.mid);
+      oval4(c, side * 23, 33, 10, 10, t.dark, t.mid);
       path2(c, [[side * 14, 25], [side * 37, 23], [side * 47, 54], [side * 31, 67], [side * 17, 49]], metal(c, side * 29, 43, 18, 25, t));
       hand(c, side * 39, 64, t, m.cast, 0.95);
     });
@@ -6498,13 +8024,13 @@
         rib(c, [[0, 0], [side * 9 + stride, -height * 0.38 + height], [side * 15 - stride, height - raise - 5]], t, bulk);
         path2(c, [[side * 4 + stride, 20], [side * 22 + stride, 22], [side * 24 - stride, height - 8], [side * 3 - stride, height - 5]], metal(c, side * 14, height * 0.55, 15, height * 0.5, t));
         path2(c, [[side * 4 - stride, height - 11], [side * 24 - stride, height - 11], [side * 37 - stride, height], [side * 1 - stride, height]], t.dark);
-        line3(c, [[side * 9 - stride, height - 6], [side * 29 - stride, height - 2]], rgba(t.light, 0.5), 2);
+        line4(c, [[side * 9 - stride, height - 6], [side * 29 - stride, height - 2]], rgba(t.light, 0.5), 2);
       });
     }
   }
   function pose2(e, time) {
-    const motion = e.reducedMotion || e.frozen > 0 ? 0 : 1, phase = Math.max(1, Math.min(3, n(e.phase, 1))), wind = e.state === "windup" ? clamp10(1 - n(e.timer) / Math.max(1, 46 - phase * 5)) : 0, walk = ["patrol", "charge", "chase"].includes(e.state) ? motion : 0;
-    return { phase, wind, walk, gait: time * (e.state === "charge" ? 15 : 7) + n(e.id), breath: Math.sin(time * 2.2 + n(e.id)) * 0.012 * motion, strike: e.state === "charge" ? 1 : e.state === "recover" ? clamp10(n(e.timer) / 42) * 0.4 : 0, cast: e.state === "windup" && (e.move === 1 || e.move === 2), crouch: e.state === "leap" ? 0.65 : e.state === "recover" ? 0.35 : wind * 0.2, flutter: Math.sin(time * 4.5) * motion, clock: time * motion, motion };
+    const motion = e.reducedMotion || e.frozen > 0 ? 0 : 1, phase = Math.max(1, Math.min(3, n(e.phase, 1))), wind = e.state === "windup" ? clamp12(1 - n(e.timer) / Math.max(1, e.windupFrames || 46 - phase * 5)) : 0, walk = ["patrol", "charge", "chase"].includes(e.state) ? motion : 0;
+    return { phase, wind, walk, gait: time * (e.state === "charge" ? 15 : 7) + n(e.id), breath: Math.sin(time * 2.2 + n(e.id)) * 0.012 * motion, strike: e.state === "charge" ? 1 : e.state === "attack" ? Math.sin(clamp12(n(e.attackFrame) / Math.max(1, n(e.moveDuration, 60))) * Math.PI) : e.state === "recover" ? clamp12(n(e.timer) / 42) * 0.4 : 0, cast: e.state === "windup" && (e.move === 1 || e.move === 2), crouch: e.state === "leap" ? 0.65 : e.state === "recover" ? 0.35 : wind * 0.2, flutter: Math.sin(time * 4.5) * motion, clock: time * motion, motion };
   }
   function ribs(c, t, width = 38, y = -117, count = 5) {
     for (let i = 0; i < count; i++) {
@@ -6523,7 +8049,7 @@
     ring(c, x, y, r, r * 0.93, rgba(t.light, 0.24), 1.2);
     ring(c, x, y, r + 7, r * 0.99, rgba(t.energy, 0.25), 0.7, m.clock * 0.08);
     for (let i = 0; i < 9; i++) {
-      const a = i * TAU4 / 9 + m.clock * 0.07;
+      const a = i * TAU5 / 9 + m.clock * 0.07;
       gem(c, x + Math.cos(a) * (r + 7), y + Math.sin(a) * (r + 7), 2.5, t, i % 3 === 0);
     }
   }
@@ -6534,15 +8060,15 @@
       for (let i = 0; i < 3; i++) curve2(c, [xx + side * 26, -8, xx + side * (35 + i * 6), -2, xx + side * (40 + i * 4), 0, xx + side * (47 + i * 6), -1], t.dark, 3);
     }
     joint2(c, 0, -108, m.breath - m.wind * 0.06, () => {
-      oval3(c, -5, 2, 70, 60, metal(c, -10, 0, 75, 65, t), INK2, 2.6);
+      oval4(c, -5, 2, 70, 60, metal(c, -10, 0, 75, 65, t), INK2, 2.6);
       for (let i = 0; i < 7; i++) {
         const xx = -62 + i * 19;
         path2(c, [[xx, 12], [xx - 9, -29], [xx + 1, -55 - i % 2 * 10], [xx + 21, -28], [xx + 18, 22]], i % 2 ? t.dark : t.base, INK2);
         curve2(c, [xx + 2, -40, xx + 15, -12, xx + 5, 2, xx + 12, 17], rgba(t.light, 0.65), 1.2);
       }
-      oval3(c, 8, 11, 28, 39, t.dark, t.mid, 2);
+      oval4(c, 8, 11, 28, 39, t.dark, t.mid, 2);
       for (let i = 0; i < 4; i++) {
-        const a = i * TAU4 / 4 + m.clock * 0.1;
+        const a = i * TAU5 / 4 + m.clock * 0.1;
         path2(c, [[8, 14], [8 + Math.cos(a) * 35, 14 + Math.sin(a) * 40], [8 + Math.cos(a + 0.7) * 29, 14 + Math.sin(a + 0.7) * 37]], t.base, t.light, 1);
       }
       glow4(c, 8, 12, 45, t.energy, 0.2 + m.phase * 0.04);
@@ -6553,7 +8079,7 @@
       for (let i = 0; i < 4; i++) {
         const yy = -21 - i * 13;
         rib(c, [[side * (8 + i * 6), yy], [side * (27 + i * 8), yy - 21], [side * (35 + i * 9), yy - 30]], t, 3.5);
-        oval3(c, side * (31 + i * 9), yy - 28, 8, 4, t.mid);
+        oval4(c, side * (31 + i * 9), yy - 28, 8, 4, t.mid);
       }
     });
     joint2(c, 13, -150, -m.wind * 0.2 + m.strike * 0.16, () => {
@@ -6564,8 +8090,8 @@
       for (const side of [-1, 1]) curve2(c, [side * 31, -18, side * 49, -6, side * 48, 3, side * 43, 16], t.dark, 6);
     });
     if (m.phase >= 2) for (let i = 0; i < 5; i++) {
-      const a = i * TAU4 / 5 + m.clock * 0.3, xx = Math.cos(a) * 61, yy = -145 + Math.sin(a) * 23;
-      oval3(c, xx, yy, 10, 5, t.mid);
+      const a = i * TAU5 / 5 + m.clock * 0.3, xx = Math.cos(a) * 61, yy = -145 + Math.sin(a) * 23;
+      oval4(c, xx, yy, 10, 5, t.mid);
       gem(c, xx, yy, 3, t, true);
     }
   }
@@ -6589,12 +8115,12 @@
         const xx = (i - 2) * 20;
         path2(c, [[xx - 5, 25], [xx - 4, -38], [xx, -49], [xx + 5, -38], [xx + 6, 25]], "#1c2531", rgba(t.mid, 0.6));
         glow4(c, xx, -2, 18, t.energy, 0.12);
-        line3(c, [[xx, -30], [xx, 16]], rgba(t.energy, 0.55), 2);
+        line4(c, [[xx, -30], [xx, 16]], rgba(t.energy, 0.55), 2);
       }
-      oval3(c, 0, 49, 80, 12, t.dark, t.mid, 3);
+      oval4(c, 0, 49, 80, 12, t.dark, t.mid, 3);
       ring(c, 0, 46, 75, 9, t.light, 2);
-      for (let i = 0; i < 9; i++) oval3(c, -64 + i * 16, 42, 2, 2, t.light);
-      oval3(c, 0, -12, 25, 33, t.dark, t.light, 2);
+      for (let i = 0; i < 9; i++) oval4(c, -64 + i * 16, 42, 2, 2, t.light);
+      oval4(c, 0, -12, 25, 33, t.dark, t.light, 2);
       glow4(c, 0, -12, 36, t.energy, 0.3);
       for (let i = 0; i < 4; i++) curve2(c, [-12 + i * 7, 12, -18 + i * 10, -3, 2 + i * 5, -18, -2 + i * 7, -35 - Math.sin(m.clock * 9 + i) * 5], t.energy, 3);
     });
@@ -6604,11 +8130,11 @@
       hand(c, side * 29, 78, t, 0, 1.3);
     });
     for (const side of twin ? [-1, 1] : [1]) joint2(c, side * (twin ? 24 : 0), -195, side * m.flutter * 0.03, () => {
-      oval3(c, 0, 0, twin ? 24 : 29, 33, metal(c, 0, 0, 30, 35, t), INK2, 2);
+      oval4(c, 0, 0, twin ? 24 : 29, 33, metal(c, 0, 0, 30, 35, t), INK2, 2);
       path2(c, [[-20, -12], [0, -27], [20, -12], [17, 9], [0, 23], [-17, 8]], t.light);
       eye2(c, -10, -4, t, 2.8);
       eye2(c, 10, -4, t, 2.8);
-      line3(c, [[-8, 14], [8, 14]], t.dark, 1.5);
+      line4(c, [[-8, 14], [8, 14]], t.dark, 1.5);
       thorn(c, -17, -22, 23, -0.24, t);
       thorn(c, 17, -22, 23, 0.24, t);
     });
@@ -6616,15 +8142,15 @@
       for (const side of [-1, 1]) {
         const a = side * (0.25 + m.flutter * 0.1 + m.wind * 0.4);
         joint2(c, side * 62, -168, a, () => {
-          line3(c, [[0, 0], [side * 24, 31]], t.mid, 3);
+          line4(c, [[0, 0], [side * 24, 31]], t.mid, 3);
           path2(c, [[side * 12, 44], [side * 15, 24], [side * 23, 15], [side * 32, 25], [side * 38, 44]], metal(c, side * 25, 32, 16, 20, t));
-          oval3(c, side * 25, 44, 15, 4, t.dark, t.light);
+          oval4(c, side * 25, 44, 15, 4, t.dark, t.light);
         });
       }
     } else {
       for (const xx of [-22, 0, 22]) {
-        line3(c, [[xx, -217], [xx, -239]], t.dark, 8);
-        oval3(c, xx, -240, 8, 3, t.mid, t.light);
+        line4(c, [[xx, -217], [xx, -239]], t.dark, 8);
+        oval4(c, xx, -240, 8, 3, t.mid, t.light);
         if (m.phase >= 2) glow4(c, xx, -246, 15, t.energy, 0.13);
       }
     }
@@ -6635,7 +8161,7 @@
       const xx = -73 + i * 23, side = i < 3 ? -1 : 1;
       curve2(c, [xx, -57, xx + side * 41, -34, xx - side * 28 + Math.sin(m.clock * 3 + i) * 24, -7, xx + side * (37 + Math.sin(m.clock * 2 + i) * 20), -2], t.dark, 14);
       curve2(c, [xx, -57, xx + side * 37, -34, xx - side * 28 + Math.sin(m.clock * 3 + i) * 24, -8, xx + side * (36 + Math.sin(m.clock * 2 + i) * 20), -3], t.mid, 8);
-      for (let j = 0; j < 3; j++) oval3(c, xx + side * 9, -40 + j * 11, 2.5, 2, t.light);
+      for (let j = 0; j < 3; j++) oval4(c, xx + side * 9, -40 + j * 11, 2.5, 2, t.light);
     }
     for (const side of [-1, 1]) joint2(c, side * 35, -131, side * (m.flutter * 0.08 + m.wind * 0.2 - m.strike * 0.3), () => {
       c.beginPath();
@@ -6667,7 +8193,7 @@
         curve2(c, [-46, yy, -17, yy + 16, 18, yy + 16, 47, yy], rgba(t.mid, 0.9), 2);
       }
       path2(c, [[-27, -56], [0, -81], [28, -56], [36, 30], [0, 52], [-35, 30]], t.dark, t.mid, 1.5);
-      for (let i = 0; i < 5; i++) line3(c, [[-20, -44 + i * 14], [20, -44 + i * 14]], rgba(t.light, 0.45), 1);
+      for (let i = 0; i < 5; i++) line4(c, [[-20, -44 + i * 14], [20, -44 + i * 14]], rgba(t.light, 0.45), 1);
       gem(c, 0, -7, 17, t, true);
       for (const side of [-1, 1]) {
         eye2(c, side * 40, -45, t, 5);
@@ -6688,7 +8214,7 @@
       for (let i = 6; i >= 0; i--) {
         const length = 86 + i * 9;
         path2(c, [[0, 12], [side * (30 + i * 7), -49 - i * 7], [side * length, -42 + i * 10], [side * (length - 11), 8 + i * 11], [side * 24, 52]], metal(c, side * 55, -5, 65, 75, { ...t, base: i % 2 ? t.base : t.mid }), INK2);
-        line3(c, [[side * 25, -13], [side * (length - 19), -27 + i * 10]], rgba(t.light, 0.5), 1);
+        line4(c, [[side * 25, -13], [side * (length - 19), -27 + i * 10]], rgba(t.light, 0.5), 1);
       }
     });
     path2(c, [[-33, -133], [-12, -168], [16, -167], [37, -126], [24, -57], [0, -43], [-25, -65]], metal(c, 0, -108, 40, 60, t));
@@ -6699,14 +8225,14 @@
       hand(c, -28, 61, t, m.cast, 0.8);
     });
     joint2(c, 0, -176, m.breath - m.wind * 0.16 + m.strike * 0.12, () => {
-      oval3(c, 0, -13, 25, 30, t.light, INK2, 2);
+      oval4(c, 0, -13, 25, 30, t.light, INK2, 2);
       path2(c, [[-26, -23], [-20, -45], [-7, -36], [3, -56], [12, -35], [31, -44], [24, -19], [3, -27]], t.mid);
       path2(c, [[17, -19], [45, -9], [23, 1], [10, -3]], t.dark, t.light);
       eye2(c, 9, -17, t, 3.5);
       for (const side of [-1, 1]) curve2(c, [side * 14, -34, side * 30, -65, side * 49, -64, side * 51, -80], t.mid, 5);
     });
     joint2(c, 67, -79, -0.2 - m.wind * 0.65 + m.strike * 0.7, () => {
-      line3(c, [[0, 0], [31, -102]], t.light, 4);
+      line4(c, [[0, 0], [31, -102]], t.light, 4);
       gem(c, 32, -106, 7, t, true);
     });
     if (m.phase >= 2) {
@@ -6724,7 +8250,7 @@
       path2(c, [[x - 10 - step, -11], [x + 9 - step, -11], [x + 15 - step, -1], [x - 13 - step, -1]], t.light);
     }
     joint2(c, 0, -117, m.breath, () => {
-      oval3(c, 0, 20, 69, 39, metal(c, 0, 0, 80, 65, t), INK2, 2);
+      oval4(c, 0, 20, 69, 39, metal(c, 0, 0, 80, 65, t), INK2, 2);
       path2(c, [[-57, -2], [-25, -28], [26, -29], [62, -4], [47, 26], [-48, 29]], t.dark, t.mid);
       for (let i = 0; i < 7; i++) gem(c, -46 + i * 15, -9, 8, t, i % 2 === 0 && m.phase >= 2);
       cloth(c, 0, -2, 80, 65, { ...t, dark: rgba(t.mid, 0.5) }, m.clock);
@@ -6742,10 +8268,10 @@
     });
     aureole(c, t, m, 27, -164, 44);
     ring(c, 27, -164, 35, 35, rgba(t.light, 0.65), 1);
-    line3(c, [[27, -164], [27 + Math.sin(m.clock * 0.15) * 21, -164 - Math.cos(m.clock * 0.15) * 21]], t.light, 2);
-    line3(c, [[27, -164], [42, -151]], t.mid, 1.5);
+    line4(c, [[27, -164], [27 + Math.sin(m.clock * 0.15) * 21, -164 - Math.cos(m.clock * 0.15) * 21]], t.light, 2);
+    line4(c, [[27, -164], [42, -151]], t.mid, 1.5);
     if (m.phase >= 2) for (let i = 0; i < 6; i++) {
-      const a = i * TAU4 / 6 + m.clock * 0.1;
+      const a = i * TAU5 / 6 + m.clock * 0.1;
       gem(c, 27 + Math.cos(a) * 60, -164 + Math.sin(a) * 57, 5, t, true);
     }
     if (m.phase === 3) for (const side of [-1, 1]) thorn(c, side * 60, -92, 46, side * 0.6, t);
@@ -6785,7 +8311,7 @@
     });
     if (m.phase >= 2) aureole(c, t, m, 0, -162, 95);
     if (m.phase === 3) for (let i = 0; i < 6; i++) {
-      const a = i * TAU4 / 6 + m.clock * 0.08;
+      const a = i * TAU5 / 6 + m.clock * 0.08;
       gem(c, Math.cos(a) * 108, -153 + Math.sin(a) * 91, 9, t, true);
     }
   }
@@ -6810,16 +8336,16 @@
         eye2(c, side * 37, -9, t, 5);
         curve2(c, [side * 18, 22, side * 30, 33, side * 49, 32, side * 61, 19], t.dark, 3);
       });
-      line3(c, [[0, -72], [0, 78]], t.mid, 8);
-      line3(c, [[0, -66], [0, 69]], t.light, 2);
+      line4(c, [[0, -72], [0, 78]], t.mid, 8);
+      line4(c, [[0, -66], [0, 69]], t.light, 2);
       for (let i = 0; i < 3; i++) cloth(c, (i - 1) * 14, 64, 8, 39 + i * 8, { ...t, dark: i % 2 ? t.base : t.mid }, m.clock + i);
     });
     if (m.phase >= 2) for (let i = 0; i < 5; i++) {
-      const a = i * TAU4 / 5 + m.clock * 0.2, x = Math.cos(a) * 105, y = -150 + Math.sin(a) * 75;
+      const a = i * TAU5 / 5 + m.clock * 0.2, x = Math.cos(a) * 105, y = -150 + Math.sin(a) * 75;
       joint2(c, x, y, Math.sin(m.clock + i) * 0.2, () => {
         path2(c, [[-8, -13], [8, -13], [12, -6], [10, 13], [-8, 13]], PAPER, t.dark, 0.8);
-        line3(c, [[-4, -6], [6, -6]], t.dark, 0.7);
-        line3(c, [[-4, 0], [5, 0]], t.dark, 0.7);
+        line4(c, [[-4, -6], [6, -6]], t.dark, 0.7);
+        line4(c, [[-4, 0], [5, 0]], t.dark, 0.7);
       });
     }
   }
@@ -6829,7 +8355,7 @@
         cloth(c, side * 17, -155, 44, 143, t, m.clock + side, m.flutter * 7);
         for (let i = 0; i < 3; i++) joint2(c, side * (48 + i * 18), -137 + i * 37, side * (0.15 + m.flutter * 0.03 + i * 0.08), () => {
           path2(c, [[-13, -20], [9, -20], [17, 7], [-10, 22]], rgba(t.light, 0.48), rgba(t.mid, 0.65));
-          line3(c, [[-7, -6], [9, -6]], rgba(t.dark, 0.6), 1);
+          line4(c, [[-7, -6], [9, -6]], rgba(t.dark, 0.6), 1);
         });
       }
       legs(c, t, m, 15, 57, 7);
@@ -6837,23 +8363,23 @@
       ribs(c, t, 22, -151, 5);
       for (const side of [-1, 1]) arm(c, side * 21, -162, side, t, m, true);
       joint2(c, 0, -190, m.breath, () => {
-        oval3(c, 0, -13, 23, 30, t.light, INK2);
+        oval4(c, 0, -13, 23, 30, t.light, INK2);
         path2(c, [[-27, -26], [-15, -45], [16, -42], [29, -20], [13, -29], [-15, -28]], t.mid);
         eye2(c, -8, -14, t, 2.6);
         eye2(c, 8, -14, t, 2.6);
-        line3(c, [[-7, 5], [7, 5]], t.base, 1);
+        line4(c, [[-7, 5], [7, 5]], t.base, 1);
         crown(c, 0, -48, t, m.phase);
       });
       aureole(c, t, m, 0, -164, 76);
     } else if (mechanic === "tidechoir") {
       for (const side of [-1, 1]) for (let i = 0; i < 4; i++) curve2(c, [side * 18, -164, side * (80 + i * 9), -137 + i * 17, side * (43 + i * 13), -48, side * (66 + i * 11), -6], i % 2 ? t.mid : t.dark, 11 - i);
-      oval3(c, 0, -112, 49, 78, metal(c, 0, -100, 60, 90, t), INK2, 2);
+      oval4(c, 0, -112, 49, 78, metal(c, 0, -100, 60, 90, t), INK2, 2);
       for (let i = 0; i < 9; i++) {
-        const a = i * TAU4 / 9 + m.clock * 0.05, x = Math.cos(a) * 55, y = -140 + Math.sin(a) * 70;
-        oval3(c, x, y, 13, 18, t.light, t.dark);
+        const a = i * TAU5 / 9 + m.clock * 0.05, x = Math.cos(a) * 55, y = -140 + Math.sin(a) * 70;
+        oval4(c, x, y, 13, 18, t.light, t.dark);
         eye2(c, x - 4, y - 3, t, 1.8);
         eye2(c, x + 4, y - 3, t, 1.8);
-        oval3(c, x, y + 6, 2.5, 4, t.dark);
+        oval4(c, x, y + 6, 2.5, 4, t.dark);
       }
       gem(c, 0, -112, 23, t, true);
       crown(c, 0, -213, t, m.phase);
@@ -6862,7 +8388,7 @@
       for (const side of [-1, 1]) joint2(c, side * 20, -155, side * (m.wind * 0.25 + m.flutter * 0.035), () => {
         for (let i = 0; i < 3; i++) {
           curve2(c, [0, 0, side * 25, -38, side * (68 + i * 13), -62 + i * 26, side * (79 + i * 8), -25 + i * 31], t.mid, 3);
-          line3(c, [[side * (79 + i * 8), -25 + i * 31], [side * (55 + i * 5), 24 + i * 17]], rgba(t.energy, 0.6), 1);
+          line4(c, [[side * (79 + i * 8), -25 + i * 31], [side * (55 + i * 5), 24 + i * 17]], rgba(t.energy, 0.6), 1);
         }
       });
       legs(c, t, m, 17, 65, 9);
@@ -6881,7 +8407,7 @@
       aureole(c, t, m, 0, -156, 83);
     }
     if (m.phase >= 2) for (let i = 0; i < 3 + m.phase; i++) {
-      const a = i * TAU4 / (3 + m.phase) + m.clock * 0.15;
+      const a = i * TAU5 / (3 + m.phase) + m.clock * 0.15;
       gem(c, Math.cos(a) * 108, -135 + Math.sin(a) * 97, 5 + m.phase, t, true);
     }
   }
@@ -6905,17 +8431,17 @@
       joint2(c, -65, -81, -0.1 - m.wind * 0.15, () => {
         path2(c, [[-27, -28], [0, -52], [31, -23], [25, 33], [0, 54], [-29, 28]], metal(c, 0, 0, 35, 55, t));
         rib(c, [[0, -40], [-2, 38]], t, 5);
-        for (const side of [-1, 1]) for (let i = 0; i < 3; i++) line3(c, [[0, -20 + i * 18], [side * 19, -32 + i * 17]], t.light, 1.1);
+        for (const side of [-1, 1]) for (let i = 0; i < 3; i++) line4(c, [[0, -20 + i * 18], [side * 19, -32 + i * 17]], t.light, 1.1);
       });
       joint2(c, 40, -130, -m.wind * 0.75 + m.strike * 0.85, () => {
         rib(c, [[0, 0], [25, 37], [37, 15]], t, 11);
-        line3(c, [[37, -51], [37, 76]], t.dark, 7);
+        line4(c, [[37, -51], [37, 76]], t.dark, 7);
         path2(c, [[16, -63], [50, -68], [72, -36], [49, -10], [18, -22]], metal(c, 40, -36, 40, 40, t));
       });
     } else if (biome === "forge") {
       for (const x of [-28, 22]) {
         path2(c, [[x - 9, -133], [x - 9, -210], [x + 9, -210], [x + 12, -134]], metal(c, x, -173, 15, 55, t));
-        oval3(c, x, -211, 11, 4, t.dark, t.light);
+        oval4(c, x, -211, 11, 4, t.dark, t.light);
       }
       path2(c, [[-47, -130], [-29, -158], [32, -159], [49, -124], [42, -60], [-39, -60]], metal(c, 0, -110, 55, 65, t));
       for (let i = 0; i < 5; i++) path2(c, [[-28 + i * 14, -126], [-25 + i * 14, -132], [-22 + i * 14, -85], [-29 + i * 14, -85]], t.dark, t.mid);
@@ -6923,20 +8449,20 @@
       gem(c, 0, -83, 15, t, true);
       joint2(c, 0, -174, -m.wind * 0.08, () => {
         path2(c, [[-24, -20], [-12, -40], [18, -34], [29, -12], [24, 17], [-23, 17]], metal(c, 0, -10, 28, 35, t));
-        line3(c, [[-18, -11], [20, -11]], t.dark, 9);
-        line3(c, [[-14, -11], [16, -11]], t.energy, 3);
+        line4(c, [[-18, -11], [20, -11]], t.dark, 9);
+        line4(c, [[-14, -11], [16, -11]], t.energy, 3);
         path2(c, [[-11, 1], [13, 1], [9, 17], [-8, 17]], t.dark);
       });
       arm(c, -38, -136, -1, t, m);
       joint2(c, 39, -134, -m.wind * 0.8 + m.strike, () => {
         rib(c, [[0, 0], [25, 33], [38, 27]], t, 15);
-        line3(c, [[38, -45], [38, 81]], t.dark, 8);
+        line4(c, [[38, -45], [38, 81]], t.dark, 8);
         path2(c, [[8, -44], [15, -75], [69, -75], [76, -42], [67, -18], [16, -18]], metal(c, 40, -45, 45, 37, t));
-        for (const xx of [23, 40, 57]) oval3(c, xx, -47, 3, 3, t.dark);
+        for (const xx of [23, 40, 57]) oval4(c, xx, -47, 3, 3, t.dark);
       });
     } else if (biome === "reef") {
       for (let i = 0; i < 5; i++) curve2(c, [-35, -133, -62 - i * 5, -111, -69 - i * 4, -82, -94 - i * 4, -87], t.mid, 4);
-      oval3(c, -8, -118, 42, 49, metal(c, 0, -115, 50, 60, t), INK2, 2);
+      oval4(c, -8, -118, 42, 49, metal(c, 0, -115, 50, 60, t), INK2, 2);
       for (let i = 0; i < 5; i++) curve2(c, [-33, -144 + i * 15, -10, -137 + i * 15, 12, -137 + i * 15, 34, -149 + i * 15], rgba(t.light, 0.65), 2);
       gem(c, 0, -107, 16, t, true);
       joint2(c, 0, -174, -m.wind * 0.12, () => {
@@ -6948,7 +8474,7 @@
       arm(c, -34, -134, -1, t, m);
       joint2(c, 32, -133, -m.wind * 0.7 + m.strike * 0.9, () => {
         rib(c, [[0, 0], [27, 37], [45, 30]], t, 11);
-        line3(c, [[45, -62], [45, 72]], t.dark, 7);
+        line4(c, [[45, -62], [45, 72]], t.dark, 7);
         curve2(c, [17, 31, 12, 74, 76, 80, 75, 31], t.mid, 10);
         path2(c, [[5, 28], [30, 20], [21, 46]], t.light);
         path2(c, [[85, 28], [60, 20], [69, 46]], t.light);
@@ -6959,14 +8485,14 @@
       ribs(c, t, 24, -124, 5);
       gem(c, 0, -103, 11, t, true);
       joint2(c, 0, -179, -m.wind * 0.2, () => {
-        oval3(c, 0, -12, 23, 29, t.light, INK2);
+        oval4(c, 0, -12, 23, 29, t.light, INK2);
         path2(c, [[-22, -29], [-31, -53], [-6, -39], [6, -60], [18, -33], [36, -41], [25, -15]], t.mid);
         path2(c, [[14, -16], [46, -7], [22, 6], [10, 1]], t.dark, t.light);
         eye2(c, 8, -16, t, 3);
       });
       for (const side of [-1, 1]) arm(c, side * 30, -139, side, t, m, side > 0);
       joint2(c, 71, -75, -m.wind * 0.75, () => {
-        line3(c, [[0, 0], [14, -118]], t.light, 4);
+        line4(c, [[0, 0], [14, -118]], t.light, 4);
         path2(c, [[-2, -115], [15, -138], [29, -112], [15, -102]], t.mid, t.light);
         gem(c, 15, -119, 5, t, true);
       });
@@ -6987,9 +8513,9 @@
       arm(c, -31, -140, -1, t, m);
       joint2(c, 35, -138, -m.wind * 0.85 + m.strike, () => {
         rib(c, [[0, 0], [22, 38], [37, 29]], t, 11);
-        line3(c, [[37, -59], [37, 77]], t.dark, 7);
+        line4(c, [[37, -59], [37, 77]], t.dark, 7);
         path2(c, [[17, -58], [43, -84], [83, -62], [76, -19], [45, -7], [27, -23]], metal(c, 50, -44, 38, 45, t));
-        line3(c, [[41, -67], [67, -58], [63, -26]], t.light, 2);
+        line4(c, [[41, -67], [67, -58], [63, -26]], t.light, 2);
       });
     } else {
       for (const side of [-1, 1]) cloth(c, side * 28, -173, 25, 151, t, m.clock + side, m.flutter * 5);
@@ -7004,7 +8530,7 @@
       for (const side of [-1, 1]) arm(c, side * 31, -142, side, t, m, true);
       aureole(c, t, m, 0, -175, 59);
       for (const side of [-1, 1]) joint2(c, side * 63, -84, side * m.wind * 0.5, () => {
-        line3(c, [[0, 0], [side * 17, -69]], t.mid, 5);
+        line4(c, [[0, 0], [side * 17, -69]], t.mid, 5);
         path2(c, [[side * 11, -66], [side * 30, -109], [side * 39, -59], [side * 21, -28]], t.light, t.dark);
       });
     }
@@ -7023,12 +8549,12 @@
         const xx = (i - 1) * 31, step = Math.sin(m.gait + i * 1.5 + side) * m.walk * 7;
         rib(c, [[xx, -63], [xx + side * (31 + i * 4), -34 + step], [xx + side * (38 + i * 5), -2]], t, 7);
       }
-      oval3(c, -7, -77, 69, 43, metal(c, 0, -77, 80, 50, t), INK2, 2);
+      oval4(c, -7, -77, 69, 43, metal(c, 0, -77, 80, 50, t), INK2, 2);
       for (let i = 0; i < 6; i++) {
         const xx = -58 + i * 22, hh = 24 + i % 3 * 14;
-        line3(c, [[xx, -91], [xx + Math.sin(m.clock * 3 + i) * 2, -91 - hh]], t.dark, 4);
-        oval3(c, xx, -91 - hh, 17, 6, i % 2 ? t.mid : t.light, INK2);
-        for (let j = 0; j < 3; j++) oval3(c, xx - 8 + j * 7, -92 - hh, 1.2, 1.2, t.dark);
+        line4(c, [[xx, -91], [xx + Math.sin(m.clock * 3 + i) * 2, -91 - hh]], t.dark, 4);
+        oval4(c, xx, -91 - hh, 17, 6, i % 2 ? t.mid : t.light, INK2);
+        for (let j = 0; j < 3; j++) oval4(c, xx - 8 + j * 7, -92 - hh, 1.2, 1.2, t.dark);
       }
       joint2(c, 48, -88, -m.wind * 0.2 + m.strike * 0.25, () => {
         path2(c, [[-17, -18], [2, -38], [35, -28], [54, -7], [38, 16], [0, 17]], metal(c, 17, -11, 45, 35, t));
@@ -7047,12 +8573,12 @@
       path2(c, [[-70, -63], [-64, -115], [-43, -151], [23, -149], [57, -116], [67, -57], [29, -37], [-35, -36]], metal(c, 0, -92, 85, 65, t));
       for (const xx of [-32, -5, 22]) {
         path2(c, [[xx - 7, -137], [xx - 7, -193], [xx + 8, -193], [xx + 11, -141]], t.base, t.dark);
-        oval3(c, xx, -194, 10, 4, t.dark, t.mid);
+        oval4(c, xx, -194, 10, 4, t.dark, t.mid);
       }
       for (let i = 0; i < 5; i++) path2(c, [[-45 + i * 20, -112], [-42 + i * 20, -120], [-37 + i * 20, -65], [-48 + i * 20, -65]], t.dark, t.mid);
       glow4(c, 0, -94, 43, t.energy, 0.2);
-      oval3(c, 0, -92, 20, 25, t.dark, t.light);
-      for (let i = 0; i < 4; i++) line3(c, [[-13 + i * 8, -109], [-13 + i * 8, -75]], t.energy, 2);
+      oval4(c, 0, -92, 20, 25, t.dark, t.light);
+      for (let i = 0; i < 4; i++) line4(c, [[-13 + i * 8, -109], [-13 + i * 8, -75]], t.energy, 2);
       joint2(c, 58, -95, -m.wind * 0.3 + m.strike * 0.5, () => {
         path2(c, [[-9, -18], [15, -31], [47, -18], [59, 3], [35, 26], [-5, 21]], t.mid, t.dark);
         eye2(c, 28, -8, t, 4);
@@ -7062,9 +8588,9 @@
     } else if (biome === "reef") {
       for (const side of [-1, 1]) joint2(c, side * 10, -102, side * (m.flutter * 0.07 + m.wind * 0.25), () => {
         path2(c, [[0, 0], [side * 61, -89], [side * 120, -31], [side * 89, 39], [side * 16, 54]], metal(c, side * 60, -5, 75, 80, t));
-        for (let i = 0; i < 5; i++) line3(c, [[side * 13, 12], [side * (52 + i * 13), -45 + i * 14]], rgba(t.light, 0.6), 1.2);
+        for (let i = 0; i < 5; i++) line4(c, [[side * 13, 12], [side * (52 + i * 13), -45 + i * 14]], rgba(t.light, 0.6), 1.2);
       });
-      oval3(c, 0, -96, 49, 57, metal(c, 0, -95, 60, 65, t), INK2, 2);
+      oval4(c, 0, -96, 49, 57, metal(c, 0, -95, 60, 65, t), INK2, 2);
       for (const side of [-1, 1]) eye2(c, side * 20, -117, t, 5);
       path2(c, [[-32, -83], [0, -95], [32, -82], [27, -54], [0, -43], [-29, -55]], t.dark, t.light);
       for (const side of [-1, 1]) for (let i = 0; i < 5; i++) path2(c, [[side * (2 + i * 6), -85], [side * (4 + i * 5), -65], [side * (8 + i * 5), -84]], PAPER, null);
@@ -7075,12 +8601,12 @@
     } else if (biome === "storm") {
       for (const side of [-1, 1]) {
         rib(c, [[side * 19, -58], [side * 25, -22], [side * 39, -2]], t, 9);
-        for (let i = 0; i < 3; i++) line3(c, [[side * 39, -3], [side * (48 + i * 7), -1]], t.light, 3);
+        for (let i = 0; i < 3; i++) line4(c, [[side * 39, -3], [side * (48 + i * 7), -1]], t.light, 3);
       }
       for (const side of [-1, 1]) joint2(c, side * 19, -111, side * (m.flutter * 0.09 + m.wind * 0.25 - m.strike * 0.3), () => {
         for (let i = 4; i >= 0; i--) path2(c, [[0, 0], [side * (56 + i * 13), -87 + i * 12], [side * (96 + i * 9), -45 + i * 19], [side * (52 + i * 8), 30 + i * 10], [side * 7, 33]], i % 2 ? t.mid : t.dark, t.light, 0.8);
       });
-      oval3(c, 0, -96, 36, 57, metal(c, 0, -99, 45, 65, t), INK2, 2);
+      oval4(c, 0, -96, 36, 57, metal(c, 0, -99, 45, 65, t), INK2, 2);
       plates(c, -20, -105, 3, 20, t, 0.8);
       joint2(c, 12, -151, -m.wind * 0.23 + m.strike * 0.2, () => {
         path2(c, [[-21, -4], [-18, -38], [7, -51], [37, -28], [28, 9], [2, 19]], t.mid, t.dark);
@@ -7095,10 +8621,10 @@
         for (let i = 0; i < 5; i++) curve2(c, [side * 7, 12, side * 29, -15 + i * 7, side * 61, -40 + i * 21, side * (85 - i * 7), -10 + i * 19], rgba(t.light, 0.55), 1.1);
         gem(c, side * 55, -9, 13, t, m.phase >= 2);
       });
-      oval3(c, 0, -111, 26, 61, t.dark, t.mid, 2);
-      for (let i = 0; i < 5; i++) oval3(c, 0, -139 + i * 20, 27 - i * 3, 8, metal(c, 0, -130 + i * 20, 28, 13, t), INK2);
+      oval4(c, 0, -111, 26, 61, t.dark, t.mid, 2);
+      for (let i = 0; i < 5; i++) oval4(c, 0, -139 + i * 20, 27 - i * 3, 8, metal(c, 0, -130 + i * 20, 28, 13, t), INK2);
       gem(c, 0, -121, 16, t, true);
-      oval3(c, 0, -181, 22, 25, t.light, INK2);
+      oval4(c, 0, -181, 22, 25, t.light, INK2);
       for (const side of [-1, 1]) {
         eye2(c, side * 9, -182, t, 3);
         rib(c, [[side * 13, -198], [side * 20, -222], [side * 37, -239]], t, 4);
@@ -7127,7 +8653,7 @@
     if (m.phase >= 2) {
       glow4(c, 0, -101, 60, t.energy, 0.07 * m.phase);
       for (let i = 0; i < m.phase + 2; i++) {
-        const a = i * TAU4 / (m.phase + 2) + m.clock * 0.22;
+        const a = i * TAU5 / (m.phase + 2) + m.clock * 0.22;
         gem(c, Math.cos(a) * 78, -113 + Math.sin(a) * 47, 4, t, true);
       }
     }
@@ -7140,7 +8666,7 @@
     try {
       c.translate(n(e.x), n(e.y));
       c.scale(e.face === -1 ? -1 : 1, 1);
-      oval3(c, 0, 1, e.boss === "leviathan" ? 110 : 74, 9, "#03101770");
+      oval4(c, 0, 1, e.boss === "leviathan" ? 110 : 74, 9, "#03101770");
       if (m.phase >= 2 || e.state === "enrage") glow4(c, 0, -110, 100, t.energy, e.state === "enrage" ? 0.13 : 0.035 * m.phase);
       if (e.flash) c.globalAlpha *= 0.8;
       if (e.state === "sealed") {
@@ -7162,7 +8688,7 @@
       if (m.phase === 3) {
         for (let i = 0; i < 4; i++) {
           const x = (i - 1.5) * 19, yy = -93 - i % 2 * 21;
-          line3(c, [[x, yy - 12], [x - 3, yy], [x + 4, yy + 9]], rgba(t.energy, 0.58), 1.3);
+          line4(c, [[x, yy - 12], [x - 3, yy], [x + 4, yy + 9]], rgba(t.energy, 0.58), 1.3);
         }
       }
     } finally {
@@ -7172,20 +8698,20 @@
   }
 
   // src/chronicle-art.js
-  var TAU5 = Math.PI * 2;
-  var clamp11 = (n2, a = 0, b = 1) => Math.max(a, Math.min(b, n2));
-  var finite4 = (n2, fallback = 0) => Number.isFinite(n2) ? n2 : fallback;
+  var TAU6 = Math.PI * 2;
+  var clamp13 = (n2, a = 0, b = 1) => Math.max(a, Math.min(b, n2));
+  var finite6 = (n2, fallback = 0) => Number.isFinite(n2) ? n2 : fallback;
   var seed2 = (value) => String(value ?? 0).split("").reduce((n2, ch) => (n2 * 31 + ch.charCodeAt(0)) % 997, 7);
   var hash = (n2) => {
     const x = Math.sin(n2 * 127.1 + 311.7) * 43758.5453;
     return x - Math.floor(x);
   };
-  var alpha2 = (color, opacity) => {
+  var alpha3 = (color, opacity) => {
     const hex = typeof color === "string" ? color.replace("#", "") : "";
     const full = hex.length === 3 ? hex.split("").map((n2) => n2 + n2).join("") : hex.slice(0, 6);
-    return /^[\da-f]{6}$/i.test(full) ? `rgba(${parseInt(full.slice(0, 2), 16)},${parseInt(full.slice(2, 4), 16)},${parseInt(full.slice(4, 6), 16)},${clamp11(opacity)})` : `rgba(193,227,223,${clamp11(opacity)})`;
+    return /^[\da-f]{6}$/i.test(full) ? `rgba(${parseInt(full.slice(0, 2), 16)},${parseInt(full.slice(2, 4), 16)},${parseInt(full.slice(4, 6), 16)},${clamp13(opacity)})` : `rgba(193,227,223,${clamp13(opacity)})`;
   };
-  function poly3(c, points, fill, stroke2, width = 1.5) {
+  function poly4(c, points, fill, stroke2, width = 1.5) {
     c.beginPath();
     points.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y));
     c.closePath();
@@ -7200,9 +8726,9 @@
       c.stroke();
     }
   }
-  function oval4(c, x, y, rx, ry, fill, stroke2, width = 1.5) {
+  function oval5(c, x, y, rx, ry, fill, stroke2, width = 1.5) {
     c.beginPath();
-    c.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), 0, 0, TAU5);
+    c.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), 0, 0, TAU6);
     if (fill) {
       c.fillStyle = fill;
       c.fill();
@@ -7213,7 +8739,7 @@
       c.stroke();
     }
   }
-  function line4(c, points, color, width = 2) {
+  function line5(c, points, color, width = 2) {
     c.beginPath();
     points.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y));
     c.strokeStyle = color;
@@ -7234,11 +8760,11 @@
   function glow5(c, x, y, r, color, power = 0.3) {
     if (r <= 0) return;
     const g = c.createRadialGradient(x, y, 0, x, y, r);
-    g.addColorStop(0, alpha2(color, power));
-    g.addColorStop(1, alpha2(color, 0));
-    oval4(c, x, y, r, r, g);
+    g.addColorStop(0, alpha3(color, power));
+    g.addColorStop(1, alpha3(color, 0));
+    oval5(c, x, y, r, r, g);
   }
-  function ring2(c, x, y, r, col, width = 1, start = 0, end = TAU5) {
+  function ring2(c, x, y, r, col, width = 1, start = 0, end = TAU6) {
     c.beginPath();
     c.arc(x, y, Math.max(0.1, r), start, end);
     c.strokeStyle = col;
@@ -7246,16 +8772,16 @@
     c.stroke();
   }
   function star(c, x, y, r, col) {
-    poly3(c, [[x, y - r], [x + r * 0.23, y - r * 0.23], [x + r, y], [x + r * 0.23, y + r * 0.23], [x, y + r], [x - r * 0.23, y + r * 0.23], [x - r, y], [x - r * 0.23, y - r * 0.23]], col);
+    poly4(c, [[x, y - r], [x + r * 0.23, y - r * 0.23], [x + r, y], [x + r * 0.23, y + r * 0.23], [x, y + r], [x - r * 0.23, y + r * 0.23], [x - r, y], [x - r * 0.23, y - r * 0.23]], col);
   }
   function gear(c, x, y, r, teeth, col, angle = 0) {
     const pts = [];
     for (let i = 0; i < teeth * 4; i++) {
-      const a = angle + i * TAU5 / (teeth * 4), rr = r * (i % 4 < 2 ? 1 : 0.87);
+      const a = angle + i * TAU6 / (teeth * 4), rr = r * (i % 4 < 2 ? 1 : 0.87);
       pts.push([x + Math.cos(a) * rr, y + Math.sin(a) * rr]);
     }
-    poly3(c, pts, alpha2(col, 0.08), alpha2(col, 0.55));
-    ring2(c, x, y, r * 0.74, alpha2(col, 0.4));
+    poly4(c, pts, alpha3(col, 0.08), alpha3(col, 0.55));
+    ring2(c, x, y, r * 0.74, alpha3(col, 0.4));
   }
   function flame(c, x, y, height, col, t) {
     const flick = Math.sin(t * 15 + x) * 2;
@@ -7266,25 +8792,25 @@
     c.fillStyle = col;
     c.fill();
     glow5(c, x, y - height * 0.4, height * 1.3, col, 0.22);
-    oval4(c, x + 1, y - height * 0.25, 2, height * 0.23, "#fff5da");
+    oval5(c, x + 1, y - height * 0.25, 2, height * 0.23, "#fff5da");
   }
   function eyes(c, x, y, col, spread = 7) {
-    for (const side of [-1, 1]) oval4(c, x + side * spread, y, 2.4, 3.8, col);
+    for (const side of [-1, 1]) oval5(c, x + side * spread, y, 2.4, 3.8, col);
     glow5(c, x, y, 17, col, 0.25);
   }
   function runes(c, x, y, width, rows, col, offset = 0) {
     for (let row = 0; row < rows; row++) for (let i = 0; i < 5; i++) {
       const xx = x + i * width / 5, yy = y + row * 8, h = hash(row * 11 + i + offset);
-      line4(c, [[xx, yy], [xx + width / 9, yy]], alpha2(col, 0.28 + h * 0.2), 0.8);
-      if (h > 0.45) line4(c, [[xx + 2, yy - 2], [xx + 2, yy + 2]], alpha2(col, 0.35), 0.8);
+      line5(c, [[xx, yy], [xx + width / 9, yy]], alpha3(col, 0.28 + h * 0.2), 0.8);
+      if (h > 0.45) line5(c, [[xx + 2, yy - 2], [xx + 2, yy + 2]], alpha3(col, 0.35), 0.8);
     }
   }
   function statePose(c, e, t, boss = false) {
     const wind = e.state === "windup", attack = ["charge", "attack", "cast", "slam"].includes(e.state), hurt = e.flash > 0 || e.state === "hurt";
-    const anticipation = wind ? clamp11(1 - finite4(e.timer, 20) / 45) : 0;
+    const anticipation = wind ? clamp13(1 - finite6(e.timer, 20) / 45) : 0;
     const dead = e.state === "dead" || e.state === "dying" || e.hp === 0;
-    const death = dead ? clamp11(1 - finite4(e.deathTimer ?? e.life, 20) / 35) : 0;
-    c.translate(finite4(e.x), finite4(e.y));
+    const death = dead ? clamp13(1 - finite6(e.deathTimer ?? e.life, 20) / 35) : 0;
+    c.translate(finite6(e.x), finite6(e.y));
     c.scale(e.face === -1 ? -1 : 1, 1);
     if (dead) {
       c.globalAlpha *= 1 - death;
@@ -7306,17 +8832,17 @@
   function tell(c, pose3, y, col, t, big = false) {
     if (!pose3.wind) return;
     const r = (big ? 25 : 12) + pose3.anticipation * 7;
-    ring2(c, 0, y, r, alpha2(col, 0.6), 1.5, -Math.PI / 2, -Math.PI / 2 + TAU5 * pose3.anticipation);
+    ring2(c, 0, y, r, alpha3(col, 0.6), 1.5, -Math.PI / 2, -Math.PI / 2 + TAU6 * pose3.anticipation);
     star(c, 0, y, 5 + Math.sin(t * 12) * 1.5, "#ffe8bd");
-    line4(c, [[-r - 8, y], [-r - 3, y]], alpha2(col, 0.55));
-    line4(c, [[r + 3, y], [r + 8, y]], alpha2(col, 0.55));
+    line5(c, [[-r - 8, y], [-r - 3, y]], alpha3(col, 0.55));
+    line5(c, [[r + 3, y], [r + 8, y]], alpha3(col, 0.55));
   }
   function drawChronicleEntity(c, e, time = 0, color) {
     if (!e || !["candlewraith", "clockscarab", "oathbound", "hushling"].includes(e.kind)) return false;
-    const t = finite4(time), s = seed2(e.id), col = color || { candlewraith: "#dfc7ff", clockscarab: "#e0cf91", oathbound: "#e7ae91", hushling: "#b9a9ed" }[e.kind];
+    const t = finite6(time), s = seed2(e.id), col = color || { candlewraith: "#dfc7ff", clockscarab: "#e0cf91", oathbound: "#e7ae91", hushling: "#b9a9ed" }[e.kind];
     c.save();
     const pose3 = statePose(c, e, t);
-    oval4(c, 0, 1, 23, 5, "#04101a65");
+    oval5(c, 0, 1, 23, 5, "#04101a65");
     if (e.kind === "candlewraith") {
       const bob = Math.sin(t * 3 + s) * 4;
       c.translate(0, bob - 7);
@@ -7337,71 +8863,71 @@
         c.closePath();
         c.fillStyle = i === 0 ? "#e8dccb" : "#b8a7cb";
         c.fill();
-        c.strokeStyle = alpha2(col, 0.6);
+        c.strokeStyle = alpha3(col, 0.6);
         c.lineWidth = 1.2;
         c.stroke();
-        oval4(c, 0, -14, 7, 3, "#7c6d87");
-        line4(c, [[0, -16], [1, -21]], "#604b6e", 1.5);
+        oval5(c, 0, -14, 7, 3, "#7c6d87");
+        line5(c, [[0, -16], [1, -21]], "#604b6e", 1.5);
         flame(c, 0, -20, pose3.attack ? 27 : 18, col, t + i);
         eyes(c, 0, -2, "#362a51", 3.2);
-        if (pose3.attack) oval4(c, 0, 6, 3.5, 5.5, "#473154");
-        else line4(c, [[-2, 6], [2, 6]], "#6c5879", 1);
+        if (pose3.attack) oval5(c, 0, 6, 3.5, 5.5, "#473154");
+        else line5(c, [[-2, 6], [2, 6]], "#6c5879", 1);
         c.restore();
       }
       for (let i = 0; i < 3; i++) {
-        const a = t * 0.8 + i * TAU5 / 3;
+        const a = t * 0.8 + i * TAU6 / 3;
         star(c, Math.cos(a) * 36, -33 + Math.sin(a) * 15, 2, col);
       }
     } else if (e.kind === "clockscarab") {
       const walk = ["patrol", "charge", "chase"].includes(e.state) ? Math.sin(t * 16 + s) : Math.sin(t * 3) * 0.2;
       for (const back of [true, false]) for (let i = 0; i < 3; i++) {
         const xx = -22 + i * 20, step = walk * (i % 2 ? 1 : -1) * (back ? -1 : 1) * 7;
-        line4(c, [[xx, -20], [xx - 10 + step, -11], [xx - 8 + step, 0]], back ? "#665d58" : "#b6a679", 3.5);
-        oval4(c, xx - 8 + step, -1, 3, 2, "#d2c293");
+        line5(c, [[xx, -20], [xx - 10 + step, -11], [xx - 8 + step, 0]], back ? "#665d58" : "#b6a679", 3.5);
+        oval5(c, xx - 8 + step, -1, 3, 2, "#d2c293");
       }
-      oval4(c, -3, -27, 31, 22, "#5a5a68", col, 1.2);
-      poly3(c, [[-31, -27], [-19, -47], [-5, -50], [-5, -23], [-23, -15]], "#aba87d", alpha2(col, 0.75));
-      poly3(c, [[-3, -50], [15, -46], [26, -30], [16, -15], [-3, -23]], "#7d8275", alpha2(col, 0.75));
+      oval5(c, -3, -27, 31, 22, "#5a5a68", col, 1.2);
+      poly4(c, [[-31, -27], [-19, -47], [-5, -50], [-5, -23], [-23, -15]], "#aba87d", alpha3(col, 0.75));
+      poly4(c, [[-3, -50], [15, -46], [26, -30], [16, -15], [-3, -23]], "#7d8275", alpha3(col, 0.75));
       gear(c, -5, -31, 17, 10, col, t * 0.8);
-      oval4(c, -5, -31, 11, 11, "#303343", alpha2(col, 0.5));
+      oval5(c, -5, -31, 11, 11, "#303343", alpha3(col, 0.5));
       const hand2 = t * (pose3.attack ? 7 : 1);
-      line4(c, [[-5, -31], [-5 + Math.sin(hand2) * 7, -31 - Math.cos(hand2) * 7]], "#f6e3ac", 1.6);
-      line4(c, [[-5, -31], [-5 + Math.sin(hand2 * 0.17) * 5, -31 - Math.cos(hand2 * 0.17) * 5]], col, 1.6);
-      poly3(c, [[20, -30], [37, -30], [45, -19], [34, -10], [19, -16]], "#9d9b77", col);
+      line5(c, [[-5, -31], [-5 + Math.sin(hand2) * 7, -31 - Math.cos(hand2) * 7]], "#f6e3ac", 1.6);
+      line5(c, [[-5, -31], [-5 + Math.sin(hand2 * 0.17) * 5, -31 - Math.cos(hand2 * 0.17) * 5]], col, 1.6);
+      poly4(c, [[20, -30], [37, -30], [45, -19], [34, -10], [19, -16]], "#9d9b77", col);
       eyes(c, 34, -23, "#e9ffda", 4);
-      line4(c, [[29, -29], [33, -42], [42, -48]], col, 1.7);
-      line4(c, [[35, -28], [44, -40], [51, -39]], col, 1.7);
+      line5(c, [[29, -29], [33, -42], [42, -48]], col, 1.7);
+      line5(c, [[35, -28], [44, -40], [51, -39]], col, 1.7);
       star(c, 42, -48, 3, "#fff1c7");
       if (pose3.wind) {
         gear(c, 0, -29, 39, 12, col, -t);
-        ring2(c, 0, -29, 45, alpha2(col, 0.25), 1);
+        ring2(c, 0, -29, 45, alpha3(col, 0.25), 1);
       }
     } else if (e.kind === "oathbound") {
       const stride = Math.sin(t * 8 + s) * (["patrol", "charge", "chase"].includes(e.state) ? 7 : 1.2);
       for (const side of [-1, 1]) {
         const xx = side * 11;
-        line4(c, [[xx, -29], [xx + stride * side, -13], [xx + stride * side + 3, 0]], "#737886", 7);
-        poly3(c, [[xx - 7 + stride * side, -8], [xx + 6 + stride * side, -8], [xx + 12 + stride * side, 0], [xx - 8 + stride * side, 0]], "#82868d", "#b6b5a0");
+        line5(c, [[xx, -29], [xx + stride * side, -13], [xx + stride * side + 3, 0]], "#737886", 7);
+        poly4(c, [[xx - 7 + stride * side, -8], [xx + 6 + stride * side, -8], [xx + 12 + stride * side, 0], [xx - 8 + stride * side, 0]], "#82868d", "#b6b5a0");
       }
       c.save();
       c.rotate(Math.sin(t * 2) * 0.02);
-      poly3(c, [[-24, -56], [-9, -67], [16, -66], [27, -51], [18, -25], [-15, -25]], "#596373", "#b7b4a0");
-      poly3(c, [[-19, -55], [-7, -51], [-13, -37], [-3, -43], [4, -30], [12, -43], [20, -51], [8, -60]], "#172437");
+      poly4(c, [[-24, -56], [-9, -67], [16, -66], [27, -51], [18, -25], [-15, -25]], "#596373", "#b7b4a0");
+      poly4(c, [[-19, -55], [-7, -51], [-13, -37], [-3, -43], [4, -30], [12, -43], [20, -51], [8, -60]], "#172437");
       glow5(c, 0, -46, 22, col, 0.28);
       star(c, 0, -46, 8, col);
       for (const side of [-1, 1]) {
-        poly3(c, [[side * 17, -63], [side * 32, -63], [side * 37, -49], [side * 22, -46]], "#84848d", alpha2(col, 0.5));
-        line4(c, [[side * 27, -48], [side * 33, -32]], "#6f7180", 5);
+        poly4(c, [[side * 17, -63], [side * 32, -63], [side * 37, -49], [side * 22, -46]], "#84848d", alpha3(col, 0.5));
+        line5(c, [[side * 27, -48], [side * 33, -32]], "#6f7180", 5);
       }
       const arm2 = pose3.attack ? 24 : pose3.wind ? -9 : 0;
-      line4(c, [[29, -33], [33 + arm2, -23]], "#b1ac9c", 5);
-      line4(c, [[33 + arm2, -40], [33 + arm2, -5]], "#c5b58d", 3);
-      poly3(c, [[33 + arm2, -40], [30 + arm2, -69], [35 + arm2, -82], [38 + arm2, -69], [36 + arm2, -40]], "#d7d8c3", "#91a4b1");
-      line4(c, [[24 + arm2, -40], [42 + arm2, -40]], col, 3);
-      poly3(c, [[-14, -68], [-16, -87], [-5, -98], [12, -95], [20, -82], [16, -66]], "#96938f", "#c7c2ac");
-      poly3(c, [[-10, -80], [14, -84], [11, -73], [-8, -73]], "#293144");
-      line4(c, [[-7, -78], [10, -80]], col, 2);
-      poly3(c, [[-17, -88], [-27, -107], [-12, -99]], "#777d89");
+      line5(c, [[29, -33], [33 + arm2, -23]], "#b1ac9c", 5);
+      line5(c, [[33 + arm2, -40], [33 + arm2, -5]], "#c5b58d", 3);
+      poly4(c, [[33 + arm2, -40], [30 + arm2, -69], [35 + arm2, -82], [38 + arm2, -69], [36 + arm2, -40]], "#d7d8c3", "#91a4b1");
+      line5(c, [[24 + arm2, -40], [42 + arm2, -40]], col, 3);
+      poly4(c, [[-14, -68], [-16, -87], [-5, -98], [12, -95], [20, -82], [16, -66]], "#96938f", "#c7c2ac");
+      poly4(c, [[-10, -80], [14, -84], [11, -73], [-8, -73]], "#293144");
+      line5(c, [[-7, -78], [10, -80]], col, 2);
+      poly4(c, [[-17, -88], [-27, -107], [-12, -99]], "#777d89");
       curve3(c, [-17, -63, -48, -57, -36, -27, -50, -18], "#7c5b6877", 9);
       c.restore();
     } else {
@@ -7411,7 +8937,7 @@
       c.save();
       c.globalAlpha *= 0.28;
       c.translate(-13 - Math.sin(t * 2) * 4, 7);
-      poly3(c, [[-13, 0], [-11, -43], [0, -58], [13, -41], [19, 0], [5, -8]], "#a091d3");
+      poly4(c, [[-13, 0], [-11, -43], [0, -58], [13, -41], [19, 0], [5, -8]], "#a091d3");
       c.restore();
       for (const side of [-1, 1]) curve3(c, [side * 5, -11, side * 7, -5, side * 12, 1, side * 16, 0], "#53415e", 3);
       c.beginPath();
@@ -7426,22 +8952,22 @@
       c.closePath();
       c.fillStyle = "#2b283e";
       c.fill();
-      c.strokeStyle = alpha2(col, 0.6);
+      c.strokeStyle = alpha3(col, 0.6);
       c.lineWidth = 1.2;
       c.stroke();
-      for (const side of [-1, 1]) curve3(c, [side * 11, -33, side * 22, -21, side * (26 + (pose3.attack ? 18 : 0)), -36, side * 28, -19], alpha2(col, 0.8), 2.8);
-      oval4(c, 0, -47, 17, 19, "#d6cdbb", "#897e98");
-      poly3(c, [[-17, -45], [-28, -65], [-9, -60]], "#d6cdbb", "#897e98");
-      poly3(c, [[8, -62], [27, -72], [17, -45]], "#c1b9b1", "#897e98");
+      for (const side of [-1, 1]) curve3(c, [side * 11, -33, side * 22, -21, side * (26 + (pose3.attack ? 18 : 0)), -36, side * 28, -19], alpha3(col, 0.8), 2.8);
+      oval5(c, 0, -47, 17, 19, "#d6cdbb", "#897e98");
+      poly4(c, [[-17, -45], [-28, -65], [-9, -60]], "#d6cdbb", "#897e98");
+      poly4(c, [[8, -62], [27, -72], [17, -45]], "#c1b9b1", "#897e98");
       for (const side of [-1, 1]) {
-        oval4(c, side * 6, -48, 3.5, 5, "#3b2c4e");
-        oval4(c, side * 6, -48, 1, 2.2, col);
+        oval5(c, side * 6, -48, 3.5, 5, "#3b2c4e");
+        oval5(c, side * 6, -48, 1, 2.2, col);
       }
-      line4(c, [[-3, -35], [0, -33], [4, -36]], "#7c6889", 1);
-      curve3(c, [2, -62, -1, -72, 12, -75, 14, -86], alpha2(col, 0.6), 1);
+      line5(c, [[-3, -35], [0, -33], [4, -36]], "#7c6889", 1);
+      curve3(c, [2, -62, -1, -72, 12, -75, 14, -86], alpha3(col, 0.6), 1);
       for (let i = 0; i < 4; i++) {
         const a = t * 1.3 + i * 1.6;
-        oval4(c, Math.sin(a) * 24, -17 + Math.cos(a) * 13, 1, 2, alpha2(col, 0.6));
+        oval5(c, Math.sin(a) * 24, -17 + Math.cos(a) * 13, 1, 2, alpha3(col, 0.6));
       }
     }
     tell(c, pose3, e.kind === "oathbound" ? -115 : -91, col, t);
@@ -7451,10 +8977,10 @@
   function drawChronicleBoss(c, e, time = 0) {
     const id = e?.boss || e?.kind || e?.id;
     if (!["palimpsest", "belltwin", "nullheart"].includes(id)) return false;
-    const t = finite4(time), col = { palimpsest: "#c4b1ed", belltwin: "#efc789", nullheart: "#ef9ac4" }[id];
+    const t = finite6(time), col = { palimpsest: "#c4b1ed", belltwin: "#efc789", nullheart: "#ef9ac4" }[id];
     c.save();
     const pose3 = statePose(c, e, t, true);
-    oval4(c, 0, 2, 75, 13, "#060e1a66");
+    oval5(c, 0, 2, 75, 13, "#060e1a66");
     glow5(c, 0, -105, 160, col, pose3.rage ? 0.18 : 0.08);
     if (id === "palimpsest") drawPalimpsest(c, e, t, pose3, col);
     else if (id === "belltwin") drawBellTwin(c, e, t, pose3, col);
@@ -7463,10 +8989,10 @@
       c.save();
       c.translate(0, -105);
       c.rotate(-t * 0.15);
-      ring2(c, 0, 0, 142, alpha2(col, 0.25), 1, 0.2, 2.5);
-      ring2(c, 0, 0, 142, alpha2(col, 0.25), 1, 3.3, 5.7);
+      ring2(c, 0, 0, 142, alpha3(col, 0.25), 1, 0.2, 2.5);
+      ring2(c, 0, 0, 142, alpha3(col, 0.25), 1, 3.3, 5.7);
       for (let i = 0; i < 8; i++) {
-        const a = i * TAU5 / 8;
+        const a = i * TAU6 / 8;
         star(c, Math.cos(a) * 142, Math.sin(a) * 142, 3, col);
       }
       c.restore();
@@ -7483,16 +9009,16 @@
       const elbow = [side * (74 + i * 8 + reach * 0.4), -85 - i * 40 + Math.sin(t * 2 + i + side) * 7];
       const hand2 = [side * (107 + i * 10 + reach), -61 - i * 57 + Math.sin(t * 2.8 + i) * 6];
       curve3(c, [...root, side * 69, -140, ...elbow, ...hand2], i === 1 ? "#a7a0ae" : "#8b7d96", 7);
-      oval4(c, ...elbow, 6, 6, "#d4cabd", "#776681");
-      oval4(c, ...hand2, 7, 10, "#d7ccba", "#8a7c92");
+      oval5(c, ...elbow, 6, 6, "#d4cabd", "#776681");
+      oval5(c, ...hand2, 7, 10, "#d7ccba", "#8a7c92");
       for (let finger = 0; finger < 4; finger++) {
         const fx = hand2[0] + side * (finger - 1) * 3, fy = hand2[1] - 7;
         const curl = pose3.wind ? 9 : Math.sin(t * 2 + finger + i) * 3;
-        line4(c, [[fx, fy], [fx + side * (7 + finger), fy - 10 - finger * 2], [fx + side * (11 + curl), fy - 15 - finger * 2]], "#ded3c3", 2);
+        line5(c, [[fx, fy], [fx + side * (7 + finger), fy - 10 - finger * 2], [fx + side * (11 + curl), fy - 15 - finger * 2]], "#ded3c3", 2);
       }
       if (i === 0 || pose3.rage) {
-        line4(c, [[hand2[0], hand2[1] - 8], [hand2[0] + side * 7, hand2[1] - 45]], "#d8bd87", 2);
-        poly3(c, [[hand2[0] + side * 7, hand2[1] - 45], [hand2[0] + side * 3, hand2[1] - 54], [hand2[0] + side * 13, hand2[1] - 49]], "#a58bb2");
+        line5(c, [[hand2[0], hand2[1] - 8], [hand2[0] + side * 7, hand2[1] - 45]], "#d8bd87", 2);
+        poly4(c, [[hand2[0] + side * 7, hand2[1] - 45], [hand2[0] + side * 3, hand2[1] - 54], [hand2[0] + side * 13, hand2[1] - 49]], "#a58bb2");
       }
     }
     for (let i = 0; i < 5; i++) {
@@ -7508,11 +9034,11 @@
     }
     c.save();
     c.rotate(Math.sin(t * 1.5) * 0.025);
-    poly3(c, [[-7, -190], [-69, -204], [-83, -96], [-14, -66], [0, -72], [14, -66], [83, -96], [69, -204], [7, -190]], "#655268", "#c5aec9", 3);
+    poly4(c, [[-7, -190], [-69, -204], [-83, -96], [-14, -66], [0, -72], [14, -66], [83, -96], [69, -204], [7, -190]], "#655268", "#c5aec9", 3);
     for (const side of [-1, 1]) {
       const flutter = Math.sin(t * 5 + side) * 3;
-      for (let page = 3; page >= 0; page--) poly3(c, [[side * 7, -187], [side * (63 - page), -198 + page * 3], [side * (76 - page), -101 + page * 2], [side * 8, -75]], page % 2 ? "#b9b0ac" : "#e3d4b9", "#bba7a1", 0.8);
-      poly3(c, [[side * 5, -187], [side * 62, -198 + flutter], [side * 72, -105 + flutter], [side * 6, -79]], "#e5d9bc", "#9b839b", 1.2);
+      for (let page = 3; page >= 0; page--) poly4(c, [[side * 7, -187], [side * (63 - page), -198 + page * 3], [side * (76 - page), -101 + page * 2], [side * 8, -75]], page % 2 ? "#b9b0ac" : "#e3d4b9", "#bba7a1", 0.8);
+      poly4(c, [[side * 5, -187], [side * 62, -198 + flutter], [side * 72, -105 + flutter], [side * 6, -79]], "#e5d9bc", "#9b839b", 1.2);
       c.save();
       c.translate(side * 12, -179);
       c.rotate(side * -0.16);
@@ -7521,18 +9047,18 @@
       c.restore();
       for (let i = 0; i < 3; i++) {
         const yy = -176 + i * 29;
-        oval4(c, side * 68, yy, 3, 3, "#f0d1a2");
+        oval5(c, side * 68, yy, 3, 3, "#f0d1a2");
       }
     }
-    poly3(c, [[-7, -186], [0, -195], [7, -186], [8, -79], [0, -69], [-8, -79]], "#a98f99", "#d7c7b4");
-    for (let i = 0; i < 6; i++) line4(c, [[-5, -180 + i * 18], [5, -180 + i * 18]], "#e5c9a2", 2);
+    poly4(c, [[-7, -186], [0, -195], [7, -186], [8, -79], [0, -69], [-8, -79]], "#a98f99", "#d7c7b4");
+    for (let i = 0; i < 6; i++) line5(c, [[-5, -180 + i * 18], [5, -180 + i * 18]], "#e5c9a2", 2);
     const openness = pose3.attack ? 12 : pose3.wind ? 3 : 7 + Math.sin(t * 0.7) * 1.5;
-    oval4(c, 0, -137, 25, openness, "#3a2a4d", "#cdaed7", 2);
-    oval4(c, 0, -137, 6, Math.max(1, openness - 2), "#eed7b2");
-    oval4(c, 1, -137, 2, Math.max(0.8, openness - 3), "#56335f");
+    oval5(c, 0, -137, 25, openness, "#3a2a4d", "#cdaed7", 2);
+    oval5(c, 0, -137, 6, Math.max(1, openness - 2), "#eed7b2");
+    oval5(c, 1, -137, 2, Math.max(0.8, openness - 3), "#56335f");
     for (let i = 0; i < 5; i++) {
       const xx = (i - 2) * 9;
-      line4(c, [[xx, -143 - Math.abs(i - 2)], [xx - 2, -151 - Math.abs(i - 2) * 2]], "#cbb5cf", 1.5);
+      line5(c, [[xx, -143 - Math.abs(i - 2)], [xx - 2, -151 - Math.abs(i - 2) * 2]], "#cbb5cf", 1.5);
     }
     c.restore();
     for (let i = 0; i < (pose3.rage ? 9 : 5); i++) {
@@ -7540,9 +9066,9 @@
       c.save();
       c.translate(x, y);
       c.rotate(a + Math.sin(t * 3 + i) * 0.2);
-      poly3(c, [[-5, -9], [6, -8], [5, 10], [-7, 8]], "#e8d7b8b0");
-      line4(c, [[-3, -4], [3, -3]], "#705f83", 0.8);
-      line4(c, [[-3, 0], [2, 1]], "#705f83", 0.8);
+      poly4(c, [[-5, -9], [6, -8], [5, 10], [-7, 8]], "#e8d7b8b0");
+      line5(c, [[-3, -4], [3, -3]], "#705f83", 0.8);
+      line5(c, [[-3, 0], [2, 1]], "#705f83", 0.8);
       c.restore();
     }
   }
@@ -7551,52 +9077,52 @@
     c.rotate(rock);
     const stride = pose3.attack ? Math.sin(t * 12) * 7 : 0;
     for (const side of [-1, 1]) {
-      line4(c, [[side * 23, -63], [side * (35 + stride), -28], [side * (42 + stride), -3]], "#6e655b", 15);
-      poly3(c, [[side * (29 + stride), -19], [side * (56 + stride), -14], [side * (69 + stride), 0], [side * (29 + stride), 0]], "#ad926a", "#e2bf83");
+      line5(c, [[side * 23, -63], [side * (35 + stride), -28], [side * (42 + stride), -3]], "#6e655b", 15);
+      poly4(c, [[side * (29 + stride), -19], [side * (56 + stride), -14], [side * (69 + stride), 0], [side * (29 + stride), 0]], "#ad926a", "#e2bf83");
     }
-    poly3(c, [[-55, -57], [-36, -108], [-32, -164], [0, -190], [34, -165], [38, -110], [59, -57], [23, -47], [0, -58], [-23, -47]], "#816e63", "#ddb783", 2.5);
-    poly3(c, [[-43, -70], [-25, -126], [-20, -164], [-2, -178], [-2, -65]], "#b1956a");
-    poly3(c, [[3, -178], [28, -154], [26, -111], [45, -69], [4, -64]], "#665f62");
-    for (const side of [-1, 1]) for (let i = 0; i < 4; i++) line4(c, [[side * (11 + i * 5), -149], [side * (16 + i * 8), -78]], "#473f4a", 4);
+    poly4(c, [[-55, -57], [-36, -108], [-32, -164], [0, -190], [34, -165], [38, -110], [59, -57], [23, -47], [0, -58], [-23, -47]], "#816e63", "#ddb783", 2.5);
+    poly4(c, [[-43, -70], [-25, -126], [-20, -164], [-2, -178], [-2, -65]], "#b1956a");
+    poly4(c, [[3, -178], [28, -154], [26, -111], [45, -69], [4, -64]], "#665f62");
+    for (const side of [-1, 1]) for (let i = 0; i < 4; i++) line5(c, [[side * (11 + i * 5), -149], [side * (16 + i * 8), -78]], "#473f4a", 4);
     glow5(c, 0, -123, 43, col, 0.3);
-    oval4(c, 0, -126, 9, 23, "#f6cb86");
-    oval4(c, 0, -125, 4, 14, "#fff0c3");
-    line4(c, [[0, -164], [0, -88]], "#ecd199", 2);
-    line4(c, [[-15, -108], [16, -108]], "#ecd199", 2);
+    oval5(c, 0, -126, 9, 23, "#f6cb86");
+    oval5(c, 0, -125, 4, 14, "#fff0c3");
+    line5(c, [[0, -164], [0, -88]], "#ecd199", 2);
+    line5(c, [[-15, -108], [16, -108]], "#ecd199", 2);
     for (const side of [-1, 1]) {
       const hx = side * 25, hy = -196 + (side === 1 ? 5 : 0), angle = t * 0.12 * side;
       gear(c, hx, hy, 43, 16, col, angle);
-      ring2(c, hx, hy, 37, alpha2(col, 0.5));
-      poly3(c, [[hx - 17, hy - 24], [hx + 14, hy - 27], [hx + 24, hy - 8], [hx + 16, hy + 20], [hx - 4, hy + 29], [hx - 22, hy + 11]], side === -1 ? "#d3ba8c" : "#988976", "#edd49f", 1.3);
-      poly3(c, [[hx - 15, hy - 8], [hx - 5, hy - 10], [hx - 1, hy - 5], [hx - 11, hy - 4]], "#51464c");
-      poly3(c, [[hx + 5, hy - 10], [hx + 16, hy - 8], [hx + 13, hy - 4], [hx + 3, hy - 5]], "#51464c");
-      line4(c, [[hx + 2, hy - 6], [hx - 1, hy + 5], [hx + 4, hy + 6]], "#79664f", 1.5);
+      ring2(c, hx, hy, 37, alpha3(col, 0.5));
+      poly4(c, [[hx - 17, hy - 24], [hx + 14, hy - 27], [hx + 24, hy - 8], [hx + 16, hy + 20], [hx - 4, hy + 29], [hx - 22, hy + 11]], side === -1 ? "#d3ba8c" : "#988976", "#edd49f", 1.3);
+      poly4(c, [[hx - 15, hy - 8], [hx - 5, hy - 10], [hx - 1, hy - 5], [hx - 11, hy - 4]], "#51464c");
+      poly4(c, [[hx + 5, hy - 10], [hx + 16, hy - 8], [hx + 13, hy - 4], [hx + 3, hy - 5]], "#51464c");
+      line5(c, [[hx + 2, hy - 6], [hx - 1, hy + 5], [hx + 4, hy + 6]], "#79664f", 1.5);
       if (side === -1) curve3(c, [hx - 9, hy + 12, hx - 3, hy + 16, hx + 4, hy + 16, hx + 10, hy + 10], "#6b544e", 1.8);
       else {
-        oval4(c, hx + 1, hy + 14, 6, 8, "#57434d");
-        line4(c, [[hx - 12, hy - 21], [hx - 2, hy - 13], [hx - 6, hy + 1], [hx + 4, hy + 18]], "#675766", 1.4);
+        oval5(c, hx + 1, hy + 14, 6, 8, "#57434d");
+        line5(c, [[hx - 12, hy - 21], [hx - 2, hy - 13], [hx - 6, hy + 1], [hx + 4, hy + 18]], "#675766", 1.4);
       }
-      for (let i = 0; i < 3; i++) line4(c, [[hx - 15 + i * 12, hy - 22], [hx - 16 + i * 12, hy - 34]], "#d4bb88", 2);
-      poly3(c, [[side * 31, -160], [side * 57, -162], [side * 72, -136], [side * 47, -127]], "#b09570", "#e0bd85");
+      for (let i = 0; i < 3; i++) line5(c, [[hx - 15 + i * 12, hy - 22], [hx - 16 + i * 12, hy - 34]], "#d4bb88", 2);
+      poly4(c, [[side * 31, -160], [side * 57, -162], [side * 72, -136], [side * 47, -127]], "#b09570", "#e0bd85");
       const swing = pose3.attack ? Math.sin(t * 15) * 0.85 : pose3.wind ? -0.45 : Math.sin(t * 2 + side) * 0.14;
       const handX = side * 72, handY = -98;
-      line4(c, [[side * 59, -135], [side * 79, -119], [handX, handY]], "#918273", 13);
+      line5(c, [[side * 59, -135], [side * 79, -119], [handX, handY]], "#918273", 13);
       c.save();
       c.translate(handX, handY);
       c.rotate(side * swing);
-      for (let i = 0; i < 7; i++) oval4(c, 0, i * 7, 3.5, 5, null, "#a89979", 1.5);
-      poly3(c, [[-19, 53], [-14, 33], [0, 25], [15, 33], [20, 54], [27, 62], [-26, 62]], "#a78b64", "#e3c38b", 2);
-      line4(c, [[-23, 58], [23, 58]], "#604f51", 3);
-      oval4(c, 0, 65, 5, 5, "#e6c791");
+      for (let i = 0; i < 7; i++) oval5(c, 0, i * 7, 3.5, 5, null, "#a89979", 1.5);
+      poly4(c, [[-19, 53], [-14, 33], [0, 25], [15, 33], [20, 54], [27, 62], [-26, 62]], "#a78b64", "#e3c38b", 2);
+      line5(c, [[-23, 58], [23, 58]], "#604f51", 3);
+      oval5(c, 0, 65, 5, 5, "#e6c791");
       if (pose3.attack) {
-        ring2(c, 0, 49, 37, alpha2(col, 0.3), 1);
-        ring2(c, 0, 49, 46, alpha2(col, 0.15), 1);
+        ring2(c, 0, 49, 37, alpha3(col, 0.3), 1);
+        ring2(c, 0, 49, 46, alpha3(col, 0.15), 1);
       }
       c.restore();
     }
     for (let i = 0; i < 4; i++) {
       const x = (i - 1.5) * 16;
-      line4(c, [[x, -65], [x + Math.sin(t * 3 + i) * 3, -36]], "#c9aa79", 1);
+      line5(c, [[x, -65], [x + Math.sin(t * 3 + i) * 3, -36]], "#c9aa79", 1);
       star(c, x + Math.sin(t * 3 + i) * 3, -34, 3, "#f5d99d");
     }
   }
@@ -7604,21 +9130,21 @@
     c.translate(0, -112 + Math.sin(t * 1.6) * 5);
     const beat = 1 + Math.pow(Math.max(0, Math.sin(t * (pose3.rage ? 7 : 4))), 7) * 0.045;
     const orbit = t * (pose3.rage ? 0.42 : 0.23);
-    const cages = Array.from({ length: 6 }, (_, i) => ({ i, a: orbit + i * TAU5 / 6 }));
+    const cages = Array.from({ length: 6 }, (_, i) => ({ i, a: orbit + i * TAU6 / 6 }));
     const drawCage = ({ i, a }) => {
       const x = Math.cos(a) * 125, y = Math.sin(a) * 63 - 4, sz = 12 + Math.sin(a) * 2;
-      line4(c, [[0, 0], [x, y]], alpha2(col, 0.19), 1);
+      line5(c, [[0, 0], [x, y]], alpha3(col, 0.19), 1);
       c.save();
       c.translate(x, y);
       c.rotate(Math.sin(t * 0.7 + i) * 0.12);
       glow5(c, 0, 0, 27, i % 2 ? "#a7dff1" : col, 0.16);
-      line4(c, [[-sz, -sz], [sz, -sz], [sz, sz], [-sz, sz], [-sz, -sz]], "#a29daf", 1.3);
-      for (let j = -1; j <= 1; j++) line4(c, [[j * sz * 0.48, -sz], [j * sz * 0.48, sz]], alpha2("#e2d2d4", 0.65), 1);
-      oval4(c, 0, sz, sz, 3, "#6a607d", "#b5a6b7", 1);
-      oval4(c, 0, -sz, sz, 3, "#8b7a95", "#e0c2cb", 1);
+      line5(c, [[-sz, -sz], [sz, -sz], [sz, sz], [-sz, sz], [-sz, -sz]], "#a29daf", 1.3);
+      for (let j = -1; j <= 1; j++) line5(c, [[j * sz * 0.48, -sz], [j * sz * 0.48, sz]], alpha3("#e2d2d4", 0.65), 1);
+      oval5(c, 0, sz, sz, 3, "#6a607d", "#b5a6b7", 1);
+      oval5(c, 0, -sz, sz, 3, "#8b7a95", "#e0c2cb", 1);
       star(c, Math.sin(t * 2 + i) * 2, -1 + Math.cos(t * 2 + i) * 2, 5.5, i % 2 ? "#c4f5ee" : "#ffe0c6");
-      line4(c, [[0, -sz - 1], [0, -sz - 10]], "#baa3b5", 1);
-      oval4(c, 0, -sz - 12, 2, 3, "#e4c3c2");
+      line5(c, [[0, -sz - 1], [0, -sz - 10]], "#baa3b5", 1);
+      oval5(c, 0, -sz - 12, 2, 3, "#e4c3c2");
       c.restore();
     };
     for (const cage of cages) if (Math.sin(cage.a) < 0) drawCage(cage);
@@ -7631,9 +9157,9 @@
     gear(c, 0, -1, 94, 24, "#c4aac6", -t * 0.1);
     for (const side of [-1, 1]) {
       curve3(c, [side * 13, -54, side * 20, -91, side * 44, -77, side * 39, -109], side === -1 ? "#c6b6ba" : "#9a849e", 9);
-      line4(c, [[side * 39, -109], [side * 39, -125]], "#dbbec1", 10);
-      oval4(c, side * 39, -126, 5, 3, "#5b465e", "#dfc0c4");
-      for (let i = 0; i < 3; i++) line4(c, [[side * (19 + i * 8), -77], [side * (17 + i * 10), -87]], "#806a86", 1);
+      line5(c, [[side * 39, -109], [side * 39, -125]], "#dbbec1", 10);
+      oval5(c, side * 39, -126, 5, 3, "#5b465e", "#dfc0c4");
+      for (let i = 0; i < 3; i++) line5(c, [[side * (19 + i * 8), -77], [side * (17 + i * 10), -87]], "#806a86", 1);
     }
     c.save();
     c.scale(beat, beat);
@@ -7654,35 +9180,35 @@
     c.strokeStyle = "#e1b8c9";
     c.lineWidth = 2.3;
     c.stroke();
-    poly3(c, [[-49, -37], [-31, -55], [-7, -29], [-14, 7], [-33, -7]], "#b197a7", "#dfbfc8");
-    poly3(c, [[19, -48], [42, -43], [48, -16], [30, 7], [12, -12]], "#766482", "#b5a2b9");
-    poly3(c, [[-14, 4], [1, -17], [24, -6], [21, 27], [2, 56], [-6, 23]], "#28223e", "#dd9ebd", 2);
+    poly4(c, [[-49, -37], [-31, -55], [-7, -29], [-14, 7], [-33, -7]], "#b197a7", "#dfbfc8");
+    poly4(c, [[19, -48], [42, -43], [48, -16], [30, 7], [12, -12]], "#766482", "#b5a2b9");
+    poly4(c, [[-14, 4], [1, -17], [24, -6], [21, 27], [2, 56], [-6, 23]], "#28223e", "#dd9ebd", 2);
     glow5(c, 3, 13, 40, col, 0.5);
     star(c, 3, 13, 17, "#fff2d4");
     star(c, 3, 13, 8, "#f3b4d9");
-    line4(c, [[2, -46], [-3, -24], [6, -14], [-6, 7], [0, 28]], "#efb2cf", 2.6);
+    line5(c, [[2, -46], [-3, -24], [6, -14], [-6, 7], [0, 28]], "#efb2cf", 2.6);
     for (const side of [-1, 1]) for (let i = 0; i < 4; i++) {
       const yy = -34 + i * 16;
-      line4(c, [[side * (44 - i * 4), yy], [side * (24 - i * 3), yy + 11]], "#d3b2bd", 1.4);
-      oval4(c, side * (45 - i * 4), yy, 2.4, 2.4, "#e9cfcb");
+      line5(c, [[side * (44 - i * 4), yy], [side * (24 - i * 3), yy + 11]], "#d3b2bd", 1.4);
+      oval5(c, side * (45 - i * 4), yy, 2.4, 2.4, "#e9cfcb");
     }
     c.restore();
     for (const cage of cages) if (Math.sin(cage.a) >= 0) drawCage(cage);
     for (let i = 0; i < 8; i++) {
-      const a = i * TAU5 / 8 - t * 0.2;
+      const a = i * TAU6 / 8 - t * 0.2;
       star(c, Math.cos(a) * 101, Math.sin(a) * 101, 2.8, "#f4d3da");
     }
     if (pose3.wind || pose3.attack) {
       const r = pose3.attack ? 130 : 35 + pose3.anticipation * 65;
-      ring2(c, 3, 12, r, alpha2("#fff1d3", pose3.attack ? 0.28 : 0.45), 1.7);
+      ring2(c, 3, 12, r, alpha3("#fff1d3", pose3.attack ? 0.28 : 0.45), 1.7);
       glow5(c, 3, 12, 60, col, 0.35);
     }
   }
   function drawWorldEvent(c, event, time = 0, biomeColor = "#bce5cd") {
     if (!event || !["ritual", "meteor", "aurora", "eclipse", "memory-rain"].includes(event.type)) return false;
-    const t = finite4(time), max = Math.max(1, finite4(event.maxLife, 360)), life = finite4(event.life, max), progress = clamp11(1 - life / max), fade = Math.min(1, progress * 8, Math.max(0, life) / 45);
+    const t = finite6(time), max = Math.max(1, finite6(event.maxLife, 360)), life = finite6(event.life, max), progress = clamp13(1 - life / max), fade = Math.min(1, progress * 8, Math.max(0, life) / 45);
     c.save();
-    c.translate(finite4(event.x), finite4(event.y, 520));
+    c.translate(finite6(event.x), finite6(event.y, 520));
     c.globalAlpha *= fade;
     const col = event.color || biomeColor;
     if (event.type === "ritual") {
@@ -7690,51 +9216,51 @@
       c.save();
       c.scale(1, 0.25);
       c.rotate(t * 0.16);
-      ring2(c, 0, 0, 175, alpha2(col, 0.7), 2);
-      ring2(c, 0, 0, 151, alpha2(col, 0.35), 1);
-      ring2(c, 0, 0, 189, alpha2(col, 0.2), 1);
+      ring2(c, 0, 0, 175, alpha3(col, 0.7), 2);
+      ring2(c, 0, 0, 151, alpha3(col, 0.35), 1);
+      ring2(c, 0, 0, 189, alpha3(col, 0.2), 1);
       const vertices = Array.from({ length: 7 }, (_, i) => {
-        const a = i * TAU5 / 7;
+        const a = i * TAU6 / 7;
         return [Math.cos(a) * 157, Math.sin(a) * 157];
       });
       for (let i = 0; i < 7; i++) {
-        line4(c, [vertices[i], vertices[(i + 3) % 7]], alpha2(col, 0.25), 1);
+        line5(c, [vertices[i], vertices[(i + 3) % 7]], alpha3(col, 0.25), 1);
         star(c, ...vertices[i], 7, "#fce7c0");
       }
       c.restore();
       for (let i = 0; i < 14; i++) {
-        const a = i * TAU5 / 14 + t * 0.3, x = Math.cos(a) * 150, yy = -((t * 45 + i * 29) % 260), weight = 1 - Math.abs(yy) / 300;
-        line4(c, [[x, 0], [x, yy]], alpha2(col, 0.1 * weight), 1);
+        const a = i * TAU6 / 14 + t * 0.3, x = Math.cos(a) * 150, yy = -((t * 45 + i * 29) % 260), weight = 1 - Math.abs(yy) / 300;
+        line5(c, [[x, 0], [x, yy]], alpha3(col, 0.1 * weight), 1);
         star(c, x, yy, 2.3 + weight, col);
       }
       const pillar = c.createLinearGradient(0, -330, 0, 0);
-      pillar.addColorStop(0, alpha2(col, 0));
-      pillar.addColorStop(0.7, alpha2(col, 0.025));
-      pillar.addColorStop(1, alpha2(col, 0.16));
-      poly3(c, [[-70, 0], [-18, -330], [18, -330], [70, 0]], pillar);
+      pillar.addColorStop(0, alpha3(col, 0));
+      pillar.addColorStop(0.7, alpha3(col, 0.025));
+      pillar.addColorStop(1, alpha3(col, 0.16));
+      poly4(c, [[-70, 0], [-18, -330], [18, -330], [70, 0]], pillar);
     } else if (event.type === "meteor") {
-      const fall = clamp11(progress * 1.8), x = 210 * (1 - fall), y = -460 * (1 - fall);
+      const fall = clamp13(progress * 1.8), x = 210 * (1 - fall), y = -460 * (1 - fall);
       if (fall < 1) {
-        line4(c, [[x + 95, y - 200], [x, y]], alpha2(col, 0.1), 24);
-        line4(c, [[x + 80, y - 168], [x, y]], alpha2(col, 0.35), 9);
-        line4(c, [[x + 55, y - 110], [x, y]], "#fff1d6", 3);
+        line5(c, [[x + 95, y - 200], [x, y]], alpha3(col, 0.1), 24);
+        line5(c, [[x + 80, y - 168], [x, y]], alpha3(col, 0.35), 9);
+        line5(c, [[x + 55, y - 110], [x, y]], "#fff1d6", 3);
         glow5(c, x, y, 60, col, 0.55);
         star(c, x, y, 13, "#fff2d8");
         for (let i = 0; i < 9; i++) {
           const d = (i + 1) * 13;
-          oval4(c, x + d * 0.45 + Math.sin(t * 12 + i) * 5, y - d, 1.8, 3, alpha2(col, 1 - i / 10));
+          oval5(c, x + d * 0.45 + Math.sin(t * 12 + i) * 5, y - d, 1.8, 3, alpha3(col, 1 - i / 10));
         }
       } else {
-        const impact = clamp11((progress - 0.55) / 0.45);
+        const impact = clamp13((progress - 0.55) / 0.45);
         c.save();
         c.scale(1, 0.23);
-        ring2(c, 0, 0, 20 + impact * 280, alpha2(col, 1 - impact), 4 * (1 - impact) + 0.2);
-        ring2(c, 0, 0, 10 + impact * 210, alpha2("#fff1ce", (1 - impact) * 0.5), 1.5);
+        ring2(c, 0, 0, 20 + impact * 280, alpha3(col, 1 - impact), 4 * (1 - impact) + 0.2);
+        ring2(c, 0, 0, 10 + impact * 210, alpha3("#fff1ce", (1 - impact) * 0.5), 1.5);
         c.restore();
         glow5(c, 0, -25, 110 * (1 - impact) + 15, col, (1 - impact) * 0.6);
         for (let i = 0; i < 17; i++) {
           const angle = -Math.PI + i * Math.PI / 16, r = impact * (65 + hash(i) * 120), xx = Math.cos(angle) * r, yy = Math.sin(angle) * r + impact * impact * 80;
-          poly3(c, [[xx - 3, yy], [xx, yy - 8], [xx + 4, yy + 2]], alpha2(col, 1 - impact));
+          poly4(c, [[xx - 3, yy], [xx, yy - 8], [xx + 4, yy + 2]], alpha3(col, 1 - impact));
         }
       }
     } else if (event.type === "aurora") {
@@ -7743,11 +9269,11 @@
         for (let i = 0; i < 36; i++) {
           const x = -420 + i * 24, y = base + Math.sin(i * 0.15 + t * 0.4 + band) * 42 + Math.sin(i * 0.33 - t * 0.2) * 17;
           const beam = c.createLinearGradient(x, y - 80, x, y + 120);
-          beam.addColorStop(0, alpha2(color, 0));
-          beam.addColorStop(0.48, alpha2(color, 0.12));
-          beam.addColorStop(1, alpha2(color, 0));
-          poly3(c, [[x, y - 80], [x + 23, y - 75], [x + 32, y + 110], [x + 3, y + 120]], beam);
-          line4(c, [[x, y + 8], [x + 25, y + Math.sin((i + 1) * 0.15 + t * 0.4 + band) * 2 + 8]], alpha2(color, 0.25), 1.4);
+          beam.addColorStop(0, alpha3(color, 0));
+          beam.addColorStop(0.48, alpha3(color, 0.12));
+          beam.addColorStop(1, alpha3(color, 0));
+          poly4(c, [[x, y - 80], [x + 23, y - 75], [x + 32, y + 110], [x + 3, y + 120]], beam);
+          line5(c, [[x, y + 8], [x + 25, y + Math.sin((i + 1) * 0.15 + t * 0.4 + band) * 2 + 8]], alpha3(color, 0.25), 1.4);
         }
       }
       for (let i = 0; i < 30; i++) {
@@ -7757,15 +9283,15 @@
     } else if (event.type === "eclipse") {
       c.translate(0, -300);
       glow5(c, 0, 0, 190, "#f3a9c7", 0.18);
-      oval4(c, 0, 0, 75, 75, "#090b1d");
+      oval5(c, 0, 0, 75, 75, "#090b1d");
       ring2(c, 0, 0, 78, "#f4c3cf", 2);
       ring2(c, 0, 0, 82, "#f3c2cf66", 5);
       for (let i = 0; i < 18; i++) {
-        const a = i * TAU5 / 18 + t * 0.03, r = 83 + Math.sin(t * 3 + i) * 4;
-        line4(c, [[Math.cos(a) * r, Math.sin(a) * r], [Math.cos(a) * (r + 8), Math.sin(a) * (r + 8)]], alpha2(col, 0.4), 1);
+        const a = i * TAU6 / 18 + t * 0.03, r = 83 + Math.sin(t * 3 + i) * 4;
+        line5(c, [[Math.cos(a) * r, Math.sin(a) * r], [Math.cos(a) * (r + 8), Math.sin(a) * (r + 8)]], alpha3(col, 0.4), 1);
       }
       for (let i = 0; i < 7; i++) {
-        const a = t * 0.1 + i * TAU5 / 7;
+        const a = t * 0.1 + i * TAU6 / 7;
         star(c, Math.cos(a) * 110, Math.sin(a) * 110, 4, col);
       }
     } else {
@@ -7774,8 +9300,8 @@
         c.save();
         c.translate(x + Math.sin(t + i) * 12, y);
         c.rotate(angle);
-        poly3(c, [[-4, -7], [5, -6], [4, 7], [-5, 6]], "#e7dcc49a");
-        line4(c, [[-2, -2], [3, -1]], "#6b6389", 0.7);
+        poly4(c, [[-4, -7], [5, -6], [4, 7], [-5, 6]], "#e7dcc49a");
+        line5(c, [[-2, -2], [3, -1]], "#6b6389", 0.7);
         c.restore();
         if (i % 3 === 0) glow5(c, x, y, 16, col, 0.07);
       }
@@ -7785,10 +9311,10 @@
   }
 
   // src/creature-art.js
-  var TAU6 = Math.PI * 2;
+  var TAU7 = Math.PI * 2;
   var INK3 = "#101d25";
   var BONE = "#eadcb7";
-  var clamp12 = (n2, a = 0, b = 1) => Math.max(a, Math.min(b, n2));
+  var clamp14 = (n2, a = 0, b = 1) => Math.max(a, Math.min(b, n2));
   var lerp = (a, b, t) => a + (b - a) * t;
   var hash2 = (s) => String(s).split("").reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 997, 7);
   var BOUNDS = Object.freeze({
@@ -7830,12 +9356,12 @@
       c.stroke();
     }
   }
-  function poly4(c, p, fill, edge = INK3, width = 2) {
+  function poly5(c, p, fill, edge = INK3, width = 2) {
     path3(c, p.map(([x, y], i) => [i ? "L" : "M", x, y]).concat([["Z"]]), fill, edge, width);
   }
-  function oval5(c, x, y, rx, ry, fill, edge, width = 2) {
+  function oval6(c, x, y, rx, ry, fill, edge, width = 2) {
     c.beginPath();
-    c.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), 0, 0, TAU6);
+    c.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), 0, 0, TAU7);
     if (fill) {
       c.fillStyle = fill;
       c.fill();
@@ -7846,7 +9372,7 @@
       c.stroke();
     }
   }
-  function line5(c, points, color, width = 2) {
+  function line6(c, points, color, width = 2) {
     path3(c, points.map(([x, y], i) => [i ? "L" : "M", x, y]), null, color, width);
   }
   function curve4(c, p, col, width = 2) {
@@ -7857,13 +9383,13 @@
     colors.forEach((color, i) => g.addColorStop(i / (colors.length - 1), color));
     return g;
   }
-  function glow6(c, x, y, r, col, alpha3 = 0.18) {
+  function glow6(c, x, y, r, col, alpha4 = 0.18) {
     c.save();
-    c.globalAlpha *= alpha3;
+    c.globalAlpha *= alpha4;
     const g = c.createRadialGradient(x, y, 0, x, y, r);
     g.addColorStop(0, col);
     g.addColorStop(1, "transparent");
-    oval5(c, x, y, r, r, g);
+    oval6(c, x, y, r, r, g);
     c.restore();
   }
   function joint3(c, x, y, angle, draw) {
@@ -7885,9 +9411,9 @@
     const blink = !m.reduced && (m.time + seed3 * 0.019) % 5.9 < 0.12, open = m.hurt ? 0.3 : blink ? 0.08 : 1;
     path3(c, [["M", x - size, y], ["Q", x, y - size * 0.72 * open, x + size * 1.15, y - 2], ["Q", x + size * 0.1, y + size * 0.65 * open, x - size, y], ["Z"]], INK3, null);
     if (open > 0.2) {
-      oval5(c, x + size * 0.25, y - size * 0.06, size * 0.5, size * 0.45 * open, col);
-      oval5(c, x + size * 0.45, y - size * 0.06, size * 0.12, size * 0.36 * open, "#10232a");
-      oval5(c, x + size * 0.23, y - size * 0.23, size * 0.14, size * 0.12, "#fffcec");
+      oval6(c, x + size * 0.25, y - size * 0.06, size * 0.5, size * 0.45 * open, col);
+      oval6(c, x + size * 0.45, y - size * 0.06, size * 0.12, size * 0.36 * open, "#10232a");
+      oval6(c, x + size * 0.23, y - size * 0.23, size * 0.14, size * 0.12, "#fffcec");
     }
     curve4(c, [x - size * 1.1, y - size * 0.48, x - size * 0.2, y - size * 0.8, x + size * 0.65, y - size * 0.7, x + size * 1.2, y - size * 0.3], m.hurt ? "#c1ced2" : "#efdfb8", 1.2);
   }
@@ -7912,20 +9438,20 @@
   }
   function vein(c, x, y, scale, col) {
     curve4(c, [x, y, x + 9 * scale, y + 7 * scale, x - 4 * scale, y + 16 * scale, x + 10 * scale, y + 25 * scale], col, 1.8);
-    line5(c, [[x + 4 * scale, y + 10 * scale], [x + 15 * scale, y + 7 * scale]], col, 1);
+    line6(c, [[x + 4 * scale, y + 10 * scale], [x + 15 * scale, y + 7 * scale]], col, 1);
   }
   function plate(c, p, fill, light) {
-    poly4(c, p, fill, INK3, 2);
-    if (light) line5(c, p.slice(0, 3), light, 1.5);
+    poly5(c, p, fill, INK3, 2);
+    if (light) line6(c, p.slice(0, 3), light, 1.5);
   }
   function poseFor(d, input, t, options) {
     const p = typeof input === "string" ? { state: input } : input || {}, state2 = p.state || (p.hit ? "hit" : p.heavy ? "heavy" : p.attack ? "attack" : p.air ? "air" : p.land ? "land" : "idle");
     const attacking = state2 === "attack" || state2 === "heavy" || p.attack > 0, explicit = options.attackProgress != null || p.attackProgress != null || typeof input === "string";
-    const progress = clamp12(options.attackProgress ?? p.attackProgress ?? 0.48), heavy = state2 === "heavy" || !!p.heavy, reduced = !!(options.reducedMotion || p.reducedMotion);
+    const progress = clamp14(options.attackProgress ?? p.attackProgress ?? 0.48), heavy = state2 === "heavy" || !!p.heavy, reduced = !!(options.reducedMotion || p.reducedMotion);
     const anticipate = attacking && explicit && progress < 0.22 ? Math.sin(progress / 0.22 * Math.PI / 2) : 0;
-    const strike = attacking ? explicit ? Math.sin(clamp12((progress - 0.22) / 0.37) * Math.PI / 2) * (1 - clamp12((progress - 0.59) / 0.41)) : clamp12(p.attack || 0.5) : 0;
-    const follow = attacking && progress > 0.45 ? Math.sin(clamp12((progress - 0.45) / 0.55) * Math.PI) : 0;
-    const walk = p.walk || 0, speed = clamp12(options.speed ?? (walk ? 1 : 0)), air = state2 === "air" || state2 === "launch" || !!p.air, guard = state2 === "shield" || state2 === "parry" || p.shield;
+    const strike = attacking ? explicit ? Math.sin(clamp14((progress - 0.22) / 0.37) * Math.PI / 2) * (1 - clamp14((progress - 0.59) / 0.41)) : clamp14(p.attack || 0.5) : 0;
+    const follow = attacking && progress > 0.45 ? Math.sin(clamp14((progress - 0.45) / 0.55) * Math.PI) : 0;
+    const walk = p.walk || 0, speed = clamp14(options.speed ?? (walk ? 1 : 0)), air = state2 === "air" || state2 === "launch" || !!p.air, guard = state2 === "shield" || state2 === "parry" || p.shield;
     const time = reduced ? 0 : t, id = hash2(d.id), breath = Math.sin(time * 2.1 + id) * 1.1;
     return {
       state: state2,
@@ -7941,10 +9467,10 @@
       guard,
       parry: state2 === "parry",
       hurt: state2 === "hit" || p.hit,
-      death: state2 === "death" ? clamp12(options.deathProgress ?? p.deathProgress ?? 0.65) : 0,
+      death: state2 === "death" ? clamp14(options.deathProgress ?? p.deathProgress ?? 0.65) : 0,
       dash: state2 === "dash",
       cast: state2 === "cast" || options.charged,
-      land: clamp12(p.land || 0),
+      land: clamp14(p.land || 0),
       reduced,
       walk,
       speed,
@@ -7965,7 +9491,7 @@
     const reach = front ? m.attack * 17 : 0, hip = [x, -78], knee = [x + (front ? 7 : -13) + swing * 0.45 + reach, -39 - lift * 0.4], foot = [x + swing + reach, -8 - lift];
     segment(c, hip, knee, armor ? 19 : 13, armor ? 17 : 10, col);
     segment(c, knee, foot, armor ? 15 : 9, armor ? 16 : 8, col);
-    oval5(c, ...knee, armor ? 15 : 9, armor ? 14 : 8, col, INK3, 1.5);
+    oval6(c, ...knee, armor ? 15 : 9, armor ? 14 : 8, col, INK3, 1.5);
     path3(c, [["M", foot[0] - 14, foot[1] - 7], ["Q", foot[0] + 15, foot[1] - 10, foot[0] + 24, foot[1] + 4], ["L", foot[0] - 16, foot[1] + 4], ["Z"]], col, INK3, 1.5);
     toes(c, foot[0] + 1, foot[1], BONE, 3, 0.65);
   }
@@ -8009,13 +9535,13 @@
       joint3(c, 102, -101, -jaw * 9e-3, () => {
         path3(c, [["M", 89, -107], ["L", 176, -108], ["Q", 169, -82, 126, -80], ["L", 100, -83], ["Z"]], "#b3a47d", INK3, 2);
         curve4(c, [102, -92, 127, -88, 154, -91, 171, -99], "#e5d4a3", 2);
-        for (let i = 0; i < 7; i++) poly4(c, [[108 + i * 9, -104], [112 + i * 9, -92], [117 + i * 9, -104]], "#f6e8bd", INK3, 0.7);
+        for (let i = 0; i < 7; i++) poly5(c, [[108 + i * 9, -104], [112 + i * 9, -92], [117 + i * 9, -104]], "#f6e8bd", INK3, 0.7);
       });
       plate(c, [[58, -139], [65, -162], [79, -151], [91, -162], [108, -146], [97, -128]], "#344a43", "#a4b191");
       eye3(c, 106, -127, 10, "#ffdc8d", m, 1);
-      oval5(c, 170, -118, 3.5, 2.2, INK3);
+      oval6(c, 170, -118, 3.5, 2.2, INK3);
       for (let i = 0; i < 4; i++) curve4(c, [57 + i * 13, -108, 59 + i * 13, -101, 53 + i * 13, -94, 61 + i * 13, -84], "#f0a455", 1.7);
-      if (m.cast || m.dash) for (let i = 0; i < 4; i++) oval5(c, 163 + i * 7, -118 - Math.sin(m.time * 9 + i) * 3, 2, 2, "#ffd08a");
+      if (m.cast || m.dash) for (let i = 0; i < 4; i++) oval6(c, 163 + i * 7, -118 - Math.sin(m.time * 9 + i) * 3, 2, 2, "#ffd08a");
     });
   }
   function mantis(c, d, m, p) {
@@ -8023,18 +9549,18 @@
     for (const back of [true, false]) joint3(c, -12, -172, (back ? -0.16 : 0.23) + Math.sin(m.time * (m.air ? 34 : 24)) * 0.12, () => {
       path3(c, [["M", -12, -161], ["C", -51, -213, -127, -219, -131, -188], ["C", -125, -152, -58, -139, -12, -161], ["Z"]], back ? "#adcfae22" : "#e4f2c92d", "#b7d5b675", 1.5);
       curve4(c, [-15, -164, -59, -182, -101, -197, -127, -189], "#d6e0b688", 1);
-      for (let i = 0; i < 4; i++) line5(c, [[-24 - i * 22, -168 - i * 4], [-37 - i * 20, -192 - i * 2]], "#c8ddb555", 0.8);
+      for (let i = 0; i < 4; i++) line6(c, [[-24 - i * 22, -168 - i * 4], [-37 - i * 20, -192 - i * 2]], "#c8ddb555", 0.8);
     });
     for (let i = 0; i < 4; i++) {
       const x = -12 + i * 5, y = -121 + i * 17;
-      oval5(c, x, y, 28 - i * 3, 17, grad2(c, x - 20, y - 12, x + 24, y + 12, "#e7e6a1", p.body, p.dark), INK3, 2);
-      line5(c, [[x - 18, y + 5], [x + 18, y + 8]], "#273a32", 3);
+      oval6(c, x, y, 28 - i * 3, 17, grad2(c, x - 20, y - 12, x + 24, y + 12, "#e7e6a1", p.body, p.dark), INK3, 2);
+      line6(c, [[x - 18, y + 5], [x + 18, y + 8]], "#273a32", 3);
     }
     for (const back of [true, false]) {
       const x = back ? -18 : 17, phase = m.walk + (back ? Math.PI : 0), foot = x + Math.sin(phase) * 16 * m.speed;
       segment(c, [x, -75], [x - 18, -42 - m.tuck], 7, 5, p.dark);
       segment(c, [x - 18, -42 - m.tuck], [foot, -3 - m.tuck], 4, 3, "#a6b978");
-      line5(c, [[foot - 5, -2 - m.tuck], [foot + 13, -2 - m.tuck]], BONE, 2);
+      line6(c, [[foot - 5, -2 - m.tuck], [foot + 13, -2 - m.tuck]], BONE, 2);
     }
     path3(c, [["M", -18, -171], ["Q", 2, -190, 22, -167], ["L", 17, -119], ["Q", -2, -102, -22, -122], ["Z"]], grad2(c, -20, -170, 25, -114, "#e0e59e", p.body, p.dark), INK3, 2.5);
     for (const back of [true, false]) {
@@ -8046,7 +9572,7 @@
         const x = wrist[0], y = wrist[1];
         path3(c, [["M", x - 8, y + 6], ["C", x + 26, y - 9, x + 57, y - 45, x + 65, y - 73], ["C", x + 80, y - 29, x + 46, y + 23, x + 6, y + 25], ["Q", x + 17, y + 9, x - 8, y + 6], ["Z"]], grad2(c, x, y - 60, x + 57, y + 22, "#fff3c1", "#cbe7a4", "#6d9b71"), INK3, 2);
         curve4(c, [x + 7, y + 12, x + 31, y + 4, x + 57, y - 27, x + 62, y - 56], "#fff9d3", 2);
-        for (let i = 0; i < 3; i++) line5(c, [[x + 20 + i * 10, y + 2 - i * 7], [x + 18 + i * 10, y - 4 - i * 7]], "#6c8d65", 1);
+        for (let i = 0; i < 3; i++) line6(c, [[x + 20 + i * 10, y + 2 - i * 7], [x + 18 + i * 10, y - 4 - i * 7]], "#6c8d65", 1);
       });
     }
     joint3(c, 3, -188, m.head, () => {
@@ -8054,10 +9580,10 @@
       plate(c, [[-25, -199], [-6, -205], [-10, -184], [-26, -187]], "#33493c", "#91ac6d");
       plate(c, [[10, -208], [36, -207], [26, -185], [10, -184]], "#33493c", "#b6c98f");
       eye3(c, 24, -196, 9, "#f3ffd3", m, 2);
-      poly4(c, [[-5, -182], [10, -183], [6, -171]], "#e1d7a4", INK3, 1);
-      line5(c, [[-12, -219], [-27, -242], [-23, -256]], "#d4dfad", 3);
+      poly5(c, [[-5, -182], [10, -183], [6, -171]], "#e1d7a4", INK3, 1);
+      line6(c, [[-12, -219], [-27, -242], [-23, -256]], "#d4dfad", 3);
       curve4(c, [13, -223, 18, -245, 38, -251, 42, -260], "#d4dfad", 3);
-      oval5(c, 42, -260, 3, 4, "#e8ffd3");
+      oval6(c, 42, -260, 3, 4, "#e8ffd3");
     });
   }
   function yeti(c, d, m, p) {
@@ -8085,20 +9611,20 @@
           const x = lerp(elbow[0], hand2[0], i / 4);
           plate(c, [[x - 19, -143 + i * 13], [x - 13, -179 + i * 14], [x + 4, -155 + i * 13], [x + 21, -146 + i * 13], [x + 16, -120 + i * 13]], i % 2 ? "#a6d3d8" : "#d1ece7", "#f3fff2");
         }
-        oval5(c, ...hand2, 34, 29, back ? "#79acb4" : "#b9dcd9", INK3, 2);
+        oval6(c, ...hand2, 34, 29, back ? "#79acb4" : "#b9dcd9", INK3, 2);
         toes(c, hand2[0] - 16, hand2[1] + 18, BONE, 3, 0.9);
         fur(c, root[0], -181, 50, 27, "#e7f1e1", 6);
       });
     }
     joint3(c, 0, -213, m.head, () => {
-      oval5(c, -2, -215, 41, 39, "#e3eee1", INK3, 2.4);
+      oval6(c, -2, -215, 41, 39, "#e3eee1", INK3, 2.4);
       fur(c, -2, -207, 76, 39, "#e3eee1", 8);
       path3(c, [["M", -29, -226], ["Q", 0, -243, 29, -223], ["L", 24, -204], ["Q", 0, -188, -27, -208], ["Z"]], "#486d79", INK3, 1.7);
       eye3(c, 15, -219, 9, "#dcfff1", m, 3);
-      oval5(c, 0, -205, 12, 7, "#263e48");
+      oval6(c, 0, -205, 12, 7, "#263e48");
       path3(c, [["M", -11, -193], ["Q", 5, -184, 18, -197]], null, "#314f59", 2);
       for (const sign of [-1, 1]) path3(c, [["M", sign * 25, -237], ["C", sign * 64, -268, sign * 73, -224, sign * 49, -225], ["C", sign * 66, -245, sign * 43, -250, sign * 32, -228], ["Z"]], grad2(c, -60, -260, 60, -225, "#e4eee1", "#99c6d0", "#426e86"), INK3, 2);
-      for (let i = 0; i < 3; i++) poly4(c, [[-15 + i * 15, -244], [-12 + i * 15, -267 + i % 2 * 5], [3 + i * 15, -247]], "#d3efdf", INK3, 1.3);
+      for (let i = 0; i < 3; i++) poly5(c, [[-15 + i * 15, -244], [-12 + i * 15, -267 + i % 2 * 5], [3 + i * 15, -247]], "#d3efdf", INK3, 1.3);
     });
   }
   function quadrupedBody(c, m, p, bird) {
@@ -8128,10 +9654,10 @@
       path3(c, [["M", 110, -195], ["L", 91, -170], ["L", 113, -170], ["Z"]], "#b99abf", INK3, 1);
       path3(c, [["M", 98, -137], ["Q", 123, -126, 148, -133], ["L", 148, -123], ["Q", 122, -111, 97, -121], ["Z"]], p.dark, INK3, 1.3);
       eye3(c, 100, -146, 10, "#f1d4fa", m, 4);
-      poly4(c, [[141, -132], [155, -127], [146, -120]], "#172533");
+      poly5(c, [[141, -132], [155, -127], [146, -120]], "#172533");
       curve4(c, [56, -141, 68, -135, 64, -127, 75, -122], "#e1b9d3", 1.4);
-      for (let i = 0; i < 4; i++) line5(c, [[76 + i * 8, -126], [79 + i * 8, -120]], "#e5dac5", 1.2);
-      if (m.cast) for (let i = 0; i < 4; i++) oval5(c, 128 + i * 9, -138 + Math.sin(m.time * 4 + i) * 6, 2, 3, "#d2abed");
+      for (let i = 0; i < 4; i++) line6(c, [[76 + i * 8, -126], [79 + i * 8, -120]], "#e5dac5", 1.2);
+      if (m.cast) for (let i = 0; i < 4; i++) oval6(c, 128 + i * 9, -138 + Math.sin(m.time * 4 + i) * 6, 2, 3, "#d2abed");
     });
   }
   function griffin(c, d, m, p) {
@@ -8142,7 +9668,7 @@
     for (const back of [true, false]) joint3(c, -4, -128, (back ? -0.12 : 0.08) + m.flap - (m.guard ? 0.7 : 0) - m.attack * 0.24, () => {
       path3(c, [["M", 20, -123], ["Q", -19, -164, -107, -191], ["L", -91, -122], ["Q", -45, -90, 4, -93], ["Z"]], back ? p.dark : "#b7d6cb", INK3, 2);
       for (let i = 0; i < 8; i++) feather(c, -4 - i * 10, -109 - i * 4, 12, 80 + i * 6, -0.5 - i * 0.09, i % 2 ? "#d8ebdf" : "#b8d5cb", "#f5f5df");
-      for (let i = 0; i < 5; i++) oval5(c, -14 - i * 12, -131 - i * 4, 15, 7, "#8fb9ad", INK3, 1);
+      for (let i = 0; i < 5; i++) oval6(c, -14 - i * 12, -131 - i * 4, 15, 7, "#8fb9ad", INK3, 1);
     });
     quadrupedBody(c, m, p, true);
     joint3(c, 55, -142, m.head, () => {
@@ -8156,8 +9682,8 @@
     });
     for (let i = 0; i < 6; i++) {
       const a = i * 0.32 + 0.2, x = 57 + Math.cos(a) * 31, y = -127 + Math.sin(a) * 22;
-      oval5(c, x, y, 4.4, 4.4, "#c9b885", INK3, 1);
-      oval5(c, x - 1, y - 1, 1, 1, "#fff2c9");
+      oval6(c, x, y, 4.4, 4.4, "#c9b885", INK3, 1);
+      oval6(c, x - 1, y - 1, 1, 1, "#fff2c9");
     }
   }
   function beetle(c, d, m, p) {
@@ -8168,7 +9694,7 @@
       segment(c, b, f, 10, 9, p.dark);
       plate(c, [[f[0] - 16, f[1] - 8], [f[0] + 7, f[1] - 11], [f[0] + 24, f[1] + 4], [f[0] - 18, f[1] + 3]], "#536c4f", "#a3b88a");
     }
-    oval5(c, -10, -98, 108, 62, p.dark, INK3, 3);
+    oval6(c, -10, -98, 108, 62, p.dark, INK3, 3);
     joint3(c, -9, -102, (m.cast ? Math.sin(m.time * 9) * 0.018 : 0) - m.anticipate * 0.045, () => {
       path3(c, [["M", -116, -108], ["C", -108, -164, -49, -182, -11, -163], ["L", -13, -75], ["C", -54, -57, -105, -69, -116, -108], ["Z"]], grad2(c, -95, -174, -20, -67, "#a5b88b", "#687f57", "#334e3f"), INK3, 3);
       path3(c, [["M", -7, -162], ["C", 44, -178, 91, -137, 87, -97], ["Q", 58, -54, -7, -75], ["Z"]], grad2(c, 0, -169, 77, -67, "#90a67a", "#60794e", "#304c3c"), INK3, 3);
@@ -8188,7 +9714,7 @@
       path3(c, [["M", 109, -124], ["C", 108, -172, 136, -214, 165, -207], ["Q", 171, -192, 151, -178], ["Q", 134, -162, 140, -119], ["Z"]], grad2(c, 113, -209, 149, -116, "#cbd0a1", "#a1ae76", "#617a52"), INK3, 2);
       for (let i = 0; i < 5; i++) curve4(c, [120 + i * 2, -142 - i * 11, 130 + i * 3, -142 - i * 11, 138 + i * 2, -148 - i * 10, 144 + i * 2, -152 - i * 11], "#4f6b46", 1.5);
       eye3(c, 117, -104, 9, "#e6eec1", m, 6);
-      line5(c, [[108, -80], [125, -82]], "#d0c99d", 2);
+      line6(c, [[108, -80], [125, -82]], "#d0c99d", 2);
     });
     const pulse = m.cast ? 0.75 : 0.2;
     glow6(c, -26, -124, 36, "#b8e6a0", pulse);
@@ -8209,7 +9735,7 @@
       joint3(c, x, y, -sign * (m.guard ? 0.5 : 0.1) - a * 0.32, () => {
         segment(c, [x, y], [x + sign * 30 + a * 18, y + 38], 15, 10, back ? p.dark : steel);
         path3(c, [["M", x + sign * 17, y + 21], ["L", x + sign * 72 + a * 20, y - 13], ["Q", x + sign * 67 + a * 20, y + 25, x + sign * 29, y + 49], ["Z"]], steel, INK3, 2);
-        line5(c, [[x + sign * 23, y + 28], [x + sign * 55 + a * 15, y + 6]], "#e0e9db", 1.8);
+        line6(c, [[x + sign * 23, y + 28], [x + sign * 55 + a * 15, y + 6]], "#e0e9db", 1.8);
       });
     }
     joint3(c, 5, -218, m.head - m.attack * 0.1, () => {
@@ -8228,7 +9754,7 @@
     const chrome = grad2(c, -54, -248, 57, -28, "#e9e8d5", "#acb9bd", "#4b6473");
     joint3(c, -30, -101, m.tail, () => {
       path3(c, [["M", -25, -112], ["C", -60, -124, -67, -68, -103, -66], ["L", -124, -83], ["Q", -113, -39, -81, -47], ["L", -23, -76], ["Z"]], chrome, INK3, 2);
-      for (let i = 0; i < 5; i++) poly4(c, [[-49 - i * 12, -89 + i * 5], [-61 - i * 12, -109 + i * 6], [-69 - i * 12, -79 + i * 6]], "#a65c64", INK3, 1);
+      for (let i = 0; i < 5; i++) poly5(c, [[-49 - i * 12, -89 + i * 5], [-61 - i * 12, -109 + i * 6], [-69 - i * 12, -79 + i * 6]], "#a65c64", INK3, 1);
     });
     for (const back of [true, false]) {
       const sign = back ? -1 : 1;
@@ -8236,8 +9762,8 @@
         path3(c, [["M", sign * 18, -174], ["L", sign * 101, -259], ["L", sign * 91, -181], ["L", sign * 122, -132], ["L", sign * 58, -142], ["L", sign * 26, -112], ["Z"]], back ? "#617889" : chrome, INK3, 2.2);
         path3(c, [["M", sign * 27, -172], ["L", sign * 89, -235], ["L", sign * 70, -171], ["L", sign * 94, -147], ["L", sign * 48, -151], ["Z"]], grad2(c, 0, -240, 75, -134, "#bd7778", "#844c5c", "#533d52"), INK3, 1.2);
         curve4(c, [sign * 26, -175, sign * 50, -182, sign * 68, -212, sign * 89, -235], "#e1e6d7", 2);
-        oval5(c, sign * 51, -172, 16, 17, "#3d5364", "#d9dfce", 2);
-        for (let i = 0; i < 4; i++) line5(c, [[sign * (41 + i * 5), -180], [sign * (38 + i * 5), -167]], "#b8c6bc", 1.4);
+        oval6(c, sign * 51, -172, 16, 17, "#3d5364", "#d9dfce", 2);
+        for (let i = 0; i < 4; i++) line6(c, [[sign * (41 + i * 5), -180], [sign * (38 + i * 5), -167]], "#b8c6bc", 1.4);
       });
     }
     bipedLeg(c, m, -30, true, p.dark, true);
@@ -8249,8 +9775,8 @@
     for (const back of [true, false]) {
       const sign = back ? -1 : 1, a = m.attack * (m.combo % 2 === 0 === back ? 1 : 0.22), shoulder = [sign * 43, -176], elbow = [sign * 62 + a * 32, -137 - (m.guard ? 24 : 0)], hand2 = [sign * 56 + a * 58, -102 - (m.guard ? 60 : 0)];
       joint3(c, ...shoulder, -sign * (m.guard ? 0.3 : 0) - a * 0.25, () => {
-        oval5(c, ...shoulder, 26, 25, "#835461", "#d6d5c4", 2);
-        for (let i = 0; i < 4; i++) line5(c, [[shoulder[0] - 10 + i * 6, -188], [shoulder[0] - 12 + i * 6, -174]], "#253d50", 2);
+        oval6(c, ...shoulder, 26, 25, "#835461", "#d6d5c4", 2);
+        for (let i = 0; i < 4; i++) line6(c, [[shoulder[0] - 10 + i * 6, -188], [shoulder[0] - 12 + i * 6, -174]], "#253d50", 2);
         segment(c, shoulder, elbow, 19, 16, chrome);
         segment(c, elbow, hand2, 17, 21, chrome);
         plate(c, [[hand2[0] - 19, hand2[1] - 19], [hand2[0] + 16, hand2[1] - 25], [hand2[0] + 27, hand2[1] + 9], [hand2[0] - 17, hand2[1] + 16]], "#8faaaa", "#e7ead9");
@@ -8263,8 +9789,8 @@
       path3(c, [["M", -20, -231], ["L", 6, -240], ["L", 33, -226], ["L", 51, -213], ["L", 38, -199], ["L", 2, -202], ["Z"]], p.dark, INK3, 1.7);
       eye3(c, 26, -226, 9, "#f8c4ac", m, 8);
       plate(c, [[-14, -255], [-6, -278], [6, -262], [17, -278], [26, -250]], "#ad6470", "#e6c2a4");
-      line5(c, [[8, -207], [37, -210]], "#c5d4c8", 1.6);
-      for (let i = 0; i < 3; i++) line5(c, [[12 + i * 8, -209], [15 + i * 8, -202]], "#eef0da", 1);
+      line6(c, [[8, -207], [37, -210]], "#c5d4c8", 1.6);
+      for (let i = 0; i < 3; i++) line6(c, [[12 + i * 8, -209], [15 + i * 8, -202]], "#eef0da", 1);
     });
   }
   function deer(c, d, m, p) {
@@ -8286,24 +9812,24 @@
         const x = sign < 0 ? 54 : 85;
         curve4(c, [x, -206, x + sign * 9, -238, x + sign * 21, -256, x + sign * 44, -265], "#b9aa89", 6);
         curve4(c, [x + sign * 15, -247, x + sign * 2, -260, x + sign * 16, -275, x + sign * 18, -279], "#b9aa89", 4);
-        oval5(c, x + sign * 43, -267, 18, 7, "#dac79b", INK3, 1.2);
-        oval5(c, x + sign * 41, -270, 12, 4, "#eee4bd");
+        oval6(c, x + sign * 43, -267, 18, 7, "#dac79b", INK3, 1.2);
+        oval6(c, x + sign * 41, -270, 12, 4, "#eee4bd");
         glow6(c, x + sign * 43, -267, 22, "#eae7ac", 0.1);
       }
       path3(c, [["M", 49, -189], ["L", 23, -214], ["Q", 14, -189, 43, -171], ["Z"]], "#759d83", INK3, 1.3);
       path3(c, [["M", 93, -201], ["L", 125, -219], ["Q", 130, -190, 103, -181], ["Z"]], "#8ead8b", INK3, 1.3);
       for (let i = 0; i < 3; i++) {
-        oval5(c, 64 + i * 7, -194 + i * 8, 2.3, 3.1, "#dbe2ae");
-        oval5(c, 64 + i * 7, -194 + i * 8, 0.7, 1.3, "#38594f");
-        oval5(c, 80 + i * 9, -192 + i * 7, 3, 4, "#f5e2b5");
-        oval5(c, 81 + i * 9, -193 + i * 7, 0.8, 1.3, "#38594f");
+        oval6(c, 64 + i * 7, -194 + i * 8, 2.3, 3.1, "#dbe2ae");
+        oval6(c, 64 + i * 7, -194 + i * 8, 0.7, 1.3, "#38594f");
+        oval6(c, 80 + i * 9, -192 + i * 7, 3, 4, "#f5e2b5");
+        oval6(c, 81 + i * 9, -193 + i * 7, 0.8, 1.3, "#38594f");
       }
-      oval5(c, 110, -173, 3.5, 2.5, "#42665b");
+      oval6(c, 110, -173, 3.5, 2.5, "#42665b");
     });
     for (let i = 0; i < 5; i++) {
       const x = -55 + i * 20, y = -109 + Math.sin(i) * 8;
-      oval5(c, x, y, 3.5, 5, "#d5d6a7");
-      line5(c, [[x, y - 5], [x - 2, y - 13]], "#547c60", 1);
+      oval6(c, x, y, 3.5, 5, "#d5d6a7");
+      line6(c, [[x, y - 5], [x - 2, y - 13]], "#547c60", 1);
     }
   }
   function wingCreature(c, d, m, p, owl) {
@@ -8317,43 +9843,43 @@
           for (let i = 0; i < 6; i++) feather(c, sign * (40 + i * 14), -116 + layer * 18 - i * 6, 10, 70 + layer * 5, sign * 0.3, back ? p.dark : i % 2 ? "#bbced6" : "#dde3d4", "#edf0d9");
         } else {
           const x = sign * 88, y = -169 + layer * 48;
-          oval5(c, x, y, 29, 39, "#e0c9aa88", "#efe4c1", 1.2);
-          oval5(c, x, y, 15, 24, "#665c78");
-          oval5(c, x + sign * 3, y - 3, 7, 12, "#d6cba5");
+          oval6(c, x, y, 29, 39, "#e0c9aa88", "#efe4c1", 1.2);
+          oval6(c, x, y, 15, 24, "#665c78");
+          oval6(c, x + sign * 3, y - 3, 7, 12, "#d6cba5");
           curve4(c, [sign * 20, -143, sign * 46, -167, sign * 92, -218 + layer * 37, sign * (span - 5), -196 + layer * 35], "#eee1c166", 1.3);
-          for (let i = 0; i < 3; i++) line5(c, [[sign * (45 + i * 20), -165 - i * 11 + layer * 28], [sign * (67 + i * 20), -104 + layer * 24]], "#d3c5b44d", 1);
+          for (let i = 0; i < 3; i++) line6(c, [[sign * (45 + i * 20), -165 - i * 11 + layer * 28], [sign * (67 + i * 20), -104 + layer * 24]], "#d3c5b44d", 1);
         }
       });
     }
     for (const sign of [-1, 1]) {
       segment(c, [sign * 15, -65], [sign * 21 + m.stride * 3, -23 - m.tuck], 5, 3, p.dark);
-      line5(c, [[sign * 21 + m.stride * 3, -23 - m.tuck], [sign * 35, -12 - m.tuck]], BONE, 3);
+      line6(c, [[sign * 21 + m.stride * 3, -23 - m.tuck], [sign * 35, -12 - m.tuck]], BONE, 3);
     }
     path3(c, [["M", -27, -168], ["Q", -48, -124, -27, -71], ["Q", 0, -39, 29, -74], ["Q", 45, -125, 28, -169], ["Z"]], grad2(c, -28, -170, 31, -49, p.light, p.body, p.dark), INK3, 2.4);
     if (owl) {
       for (let i = 0; i < 5; i++) fur(c, 0, -153 + i * 17, 70 - i * 8, 19, i % 2 ? "#b5c8cb" : "#d8ded2", 6);
     } else {
-      for (let i = 0; i < 4; i++) oval5(c, 0, -118 + i * 12, 20 - i * 2, 11, i % 2 ? "#d7c29d" : "#d8cdb1", INK3, 1.1);
+      for (let i = 0; i < 4; i++) oval6(c, 0, -118 + i * 12, 20 - i * 2, 11, i % 2 ? "#d7c29d" : "#d8cdb1", INK3, 1.1);
       glow6(c, 0, -115, 37, "#ffe2a6", 0.25 + (m.cast ? 0.1 : 0));
       path3(c, [["M", -11, -130], ["Q", 0, -151, 11, -129], ["L", 14, -103], ["Q", 0, -91, -14, -104], ["Z"]], "#f9e4ae", "#a7967a", 1.5);
       curve4(c, [0, -132, -6, -116, 7, -112, 0, -100], "#fff6d0", 2);
     }
     joint3(c, 0, -180, m.head, () => {
-      oval5(c, 0, -190, owl ? 51 : 31, owl ? 45 : 33, grad2(c, -42, -227, 40, -158, p.light, p.body, p.dark), INK3, 2.5);
+      oval6(c, 0, -190, owl ? 51 : 31, owl ? 45 : 33, grad2(c, -42, -227, 40, -158, p.light, p.body, p.dark), INK3, 2.5);
       for (const sign of [-1, 1]) {
-        oval5(c, sign * (owl ? 23 : 15), -193, owl ? 22 : 12, owl ? 27 : 17, owl ? "#d9ddd0" : "#645971", INK3, 1.6);
-        oval5(c, sign * (owl ? 23 : 15), -193, owl ? 12 : 6, owl ? 16 : 10, owl ? "#526a7c" : "#e6d9a9");
+        oval6(c, sign * (owl ? 23 : 15), -193, owl ? 22 : 12, owl ? 27 : 17, owl ? "#d9ddd0" : "#645971", INK3, 1.6);
+        oval6(c, sign * (owl ? 23 : 15), -193, owl ? 12 : 6, owl ? 16 : 10, owl ? "#526a7c" : "#e6d9a9");
         eye3(c, sign * (owl ? 23 : 15), -193, owl ? 9 : 6, owl ? "#dce9de" : "#fbefca", m, owl ? 10 : 9);
       }
-      poly4(c, [[-10, -180], [0, -162], [11, -180]], "#d4bd95", INK3, 1.3);
+      poly5(c, [[-10, -180], [0, -162], [11, -180]], "#d4bd95", INK3, 1.3);
       if (owl) {
         for (let i = 0; i < 5; i++) feather(c, -33 + i * 16, -222, 10, 34 + i % 2 * 10, (i - 2) * 0.15, i % 2 ? "#a5bcc9" : "#d7e0d4", "#e9ead3");
         plate(c, [[-16, -237], [-13, -263], [13, -263], [17, -237], [7, -228], [-7, -228]], "#d9c496", "#fcf0ca");
-        line5(c, [[-9, -257], [8, -236], [-8, -236], [9, -257]], "#596d7a", 1.8);
-        oval5(c, 0, -248, 2, 3, "#f1e5bd");
+        line6(c, [[-9, -257], [8, -236], [-8, -236], [9, -257]], "#596d7a", 1.8);
+        oval6(c, 0, -248, 2, 3, "#f1e5bd");
       } else for (const sign of [-1, 1]) {
         curve4(c, [sign * 12, -216, sign * 27, -239, sign * 35, -241, sign * 40, -256], "#c8c6a0", 3);
-        for (let i = 0; i < 4; i++) line5(c, [[sign * (23 + i * 4), -235 - i * 4], [sign * (36 + i * 5), -238 - i * 5]], "#ded6ae", 1);
+        for (let i = 0; i < 4; i++) line6(c, [[sign * (23 + i * 4), -235 - i * 4], [sign * (36 + i * 5), -238 - i * 5]], "#ded6ae", 1);
       }
     });
   }
@@ -8374,8 +9900,8 @@
     }
     if (m.cast) {
       for (let i = 0; i < 5; i++) {
-        const a = m.time * 1.5 + i * TAU6 / 5, x = 12 + Math.cos(a) * 31, sy = (low ? -149 : -226) + Math.sin(a) * 11;
-        poly4(c, [[x, sy - 4], [x + 3, sy], [x, sy + 4], [x - 3, sy]], col, null);
+        const a = m.time * 1.5 + i * TAU7 / 5, x = 12 + Math.cos(a) * 31, sy = (low ? -149 : -226) + Math.sin(a) * 11;
+        poly5(c, [[x, sy - 4], [x + 3, sy], [x, sy + 4], [x - 3, sy]], col, null);
       }
     }
     if (m.hurt) {
@@ -8392,7 +9918,7 @@
     try {
       c.translate(x, y);
       c.scale(s * (face === -1 ? -1 : 1), s);
-      if (options.shadow !== false) oval5(c, 0, 2, low ? 95 : 57, m.air ? 5 : 9, "#030f1288");
+      if (options.shadow !== false) oval6(c, 0, 2, low ? 95 : 57, m.air ? 5 : 9, "#030f1288");
       if (options.aura) glow6(c, 0, low ? -100 : -155, low ? 135 : 112, p.body, 0.1);
       c.translate(m.hurt ? -8 : m.strike * 3, m.breath - Math.abs(m.stride) * 2 + m.land * 5);
       c.rotate(m.lean);
@@ -8421,8 +9947,8 @@
   }
 
   // src/creatures.js
-  var TAU7 = Math.PI * 2;
-  function poly5(c, p, fill, stroke2 = "#111b1d", width = 2) {
+  var TAU8 = Math.PI * 2;
+  function poly6(c, p, fill, stroke2 = "#111b1d", width = 2) {
     c.beginPath();
     p.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y));
     c.closePath();
@@ -8435,9 +9961,9 @@
       c.stroke();
     }
   }
-  function oval6(c, x, y, rx, ry, fill, stroke2 = null) {
+  function oval7(c, x, y, rx, ry, fill, stroke2 = null) {
     c.beginPath();
-    c.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), 0, 0, TAU7);
+    c.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), 0, 0, TAU8);
     c.fillStyle = fill;
     c.fill();
     if (stroke2) {
@@ -8446,7 +9972,7 @@
       c.stroke();
     }
   }
-  function line6(c, p, color, width = 2) {
+  function line7(c, p, color, width = 2) {
     c.beginPath();
     p.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y));
     c.strokeStyle = color;
@@ -8459,11 +9985,11 @@
     const g = c.createRadialGradient(x, y, 0, x, y, r);
     g.addColorStop(0, color);
     g.addColorStop(1, "transparent");
-    oval6(c, x, y, r, r, g);
+    oval7(c, x, y, r, r, g);
   }
   function eye4(c, x, y, color) {
-    poly5(c, [[x - 10, y - 5], [x + 12, y - 8], [x + 5, y + 3], [x - 7, y + 3]], "#111a23");
-    line6(c, [[x - 5, y - 1], [x + 7, y - 3]], color, 3);
+    poly6(c, [[x - 10, y - 5], [x + 12, y - 8], [x + 5, y + 3], [x - 7, y + 3]], "#111a23");
+    line7(c, [[x - 5, y - 1], [x + 7, y - 3]], color, 3);
   }
   function drawMinion(c, e, time = 0) {
     c.save();
@@ -8472,50 +9998,50 @@
     if (e.flash) c.globalAlpha = 0.6;
     const walk = Math.sin(time * 10 + e.id) * 3;
     if (e.kind === "sinder") {
-      line6(c, [[-8, -11], [-28, -5], [-34, -20]], "#d57843", 7);
+      line7(c, [[-8, -11], [-28, -5], [-34, -20]], "#d57843", 7);
       halo(c, -34, -25, 16, "#f8ac4c55");
-      poly5(c, [[-41, -17], [-35, -38], [-25, -21]], "#ffbc5b", null);
-      oval6(c, 0, -17, 13, 16, "#dd8a4a", "#563e30");
-      for (const side of [-1, 1]) line6(c, [[side * 5, -8], [side * 11 + walk, 0]], "#c27644", 5);
-      poly5(c, [[-5, -27], [-2, -41], [13, -43], [24, -31], [17, -20], [3, -21]], "#edac64");
+      poly6(c, [[-41, -17], [-35, -38], [-25, -21]], "#ffbc5b", null);
+      oval7(c, 0, -17, 13, 16, "#dd8a4a", "#563e30");
+      for (const side of [-1, 1]) line7(c, [[side * 5, -8], [side * 11 + walk, 0]], "#c27644", 5);
+      poly6(c, [[-5, -27], [-2, -41], [13, -43], [24, -31], [17, -20], [3, -21]], "#edac64");
       eye4(c, 14, -34, "#fff2ba");
     } else if (e.kind === "voltlet") {
-      for (let i = 0; i < 4; i++) oval6(c, -20 + i * 11, -10 - Math.sin(i + time * 7) * 2, 9, 12, i % 2 ? "#5c6042" : "#d6d66f", "#444d35");
-      line6(c, [[15, -20], [19, -33], [27, -36]], "#e6ee9b", 2);
-      line6(c, [[9, -20], [3, -34]], "#e7ed95", 2);
+      for (let i = 0; i < 4; i++) oval7(c, -20 + i * 11, -10 - Math.sin(i + time * 7) * 2, 9, 12, i % 2 ? "#5c6042" : "#d6d66f", "#444d35");
+      line7(c, [[15, -20], [19, -33], [27, -36]], "#e6ee9b", 2);
+      line7(c, [[9, -20], [3, -34]], "#e7ed95", 2);
       halo(c, 25, -34, 12, "#f6ff9a44");
       eye4(c, 19, -16, "#ffffd5");
     } else if (e.kind === "pebbleback") {
-      for (const side of [-1, 1]) for (let i = 0; i < 2; i++) oval6(c, side * 14 + (i ? 5 : -5), e.flipped ? -26 : 0, 6, 5, "#9a9e78");
+      for (const side of [-1, 1]) for (let i = 0; i < 2; i++) oval7(c, side * 14 + (i ? 5 : -5), e.flipped ? -26 : 0, 6, 5, "#9a9e78");
       c.save();
       if (e.flipped) {
         c.translate(0, -22);
         c.rotate(Math.PI);
       }
-      poly5(c, [[-26, -7], [-22, -24], [-7, -38], [13, -34], [26, -18], [25, -5]], "#727e63", "#b4bea0");
-      poly5(c, [[-20, -22], [-3, -34], [6, -18], [-7, -9]], "#8f9a76");
-      poly5(c, [[8, -30], [19, -20], [23, -8], [8, -13]], "#536552");
+      poly6(c, [[-26, -7], [-22, -24], [-7, -38], [13, -34], [26, -18], [25, -5]], "#727e63", "#b4bea0");
+      poly6(c, [[-20, -22], [-3, -34], [6, -18], [-7, -9]], "#8f9a76");
+      poly6(c, [[8, -30], [19, -20], [23, -8], [8, -13]], "#536552");
       c.restore();
-      oval6(c, 29, -10, 10, 8, "#acb38d");
-      oval6(c, 33, -13, 2, 2, "#182c25");
+      oval7(c, 29, -10, 10, 8, "#acb38d");
+      oval7(c, 33, -13, 2, 2, "#182c25");
     } else if (e.kind === "dewdrop") {
       c.globalAlpha *= 0.85;
       halo(c, 0, -15, 36, "#8ad9ef22");
-      poly5(c, [[-7, -9], [-37, -19], [-27, -4], [-12, 3]], "#8bcdd499", "#cbfaff");
-      oval6(c, 4, -18, 21, 19, "#72bdd080", "#bcf5ed");
-      oval6(c, 9, -24, 6, 7, "#e2ffff");
-      oval6(c, 11, -23, 3, 4, "#25566a");
-      oval6(c, -3, -27, 4, 5, "#eaffff");
-      oval6(c, -2, -26, 2, 3, "#25566a");
-      poly5(c, [[8, -37], [14, -47], [21, -31]], "#b5edec99", null);
+      poly6(c, [[-7, -9], [-37, -19], [-27, -4], [-12, 3]], "#8bcdd499", "#cbfaff");
+      oval7(c, 4, -18, 21, 19, "#72bdd080", "#bcf5ed");
+      oval7(c, 9, -24, 6, 7, "#e2ffff");
+      oval7(c, 11, -23, 3, 4, "#25566a");
+      oval7(c, -3, -27, 4, 5, "#eaffff");
+      oval7(c, -2, -26, 2, 3, "#25566a");
+      poly6(c, [[8, -37], [14, -47], [21, -31]], "#b5edec99", null);
     } else if (e.kind === "sproutlet") {
       if (e.state === "burrow") {
-        oval6(c, 0, 0, 24, 5, "#6b7150");
+        oval7(c, 0, 0, 24, 5, "#6b7150");
         for (let i = 0; i < 3; i++) pathLeaf(c, -15 + i * 14, -3, "#56714a");
       } else {
-        for (const side of [-1, 1]) line6(c, [[side * 5, -5], [side * 15, 2]], "#68794b", 3);
-        oval6(c, 0, -16, 17, 19, "#93ac64", "#3c573a");
-        for (const side of [-1, 1]) poly5(c, [[side * 9, -21], [side * 34, -35], [side * 28, -13], [side * 13, -8]], "#739d58", "#b1c482");
+        for (const side of [-1, 1]) line7(c, [[side * 5, -5], [side * 15, 2]], "#68794b", 3);
+        oval7(c, 0, -16, 17, 19, "#93ac64", "#3c573a");
+        for (const side of [-1, 1]) poly6(c, [[side * 9, -21], [side * 34, -35], [side * 28, -13], [side * 13, -8]], "#739d58", "#b1c482");
         pathLeaf(c, -3, -34, "#b1cf80");
         pathLeaf(c, 9, -32, "#7fa360");
         eye4(c, 4, -21, "#d8aeea");
@@ -8524,18 +10050,18 @@
     c.restore();
   }
   function pathLeaf(c, x, y, color) {
-    poly5(c, [[x, y], [x - 12, y - 19], [x + 3, y - 15], [x + 12, y - 25], [x + 14, y - 8]], color, "#4b6741", 1);
+    poly6(c, [[x, y], [x - 12, y - 19], [x + 3, y - 15], [x + 12, y - 25], [x + 14, y - 8]], color, "#4b6741", 1);
   }
 
   // src/rpg-render.js
-  var TAU8 = Math.PI * 2;
-  var oval7 = (c, x, y, rx, ry, col) => {
+  var TAU9 = Math.PI * 2;
+  var oval8 = (c, x, y, rx, ry, col) => {
     c.beginPath();
-    c.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), 0, 0, TAU8);
+    c.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), 0, 0, TAU9);
     c.fillStyle = col;
     c.fill();
   };
-  var line7 = (c, p, col, w = 2) => {
+  var line8 = (c, p, col, w = 2) => {
     c.beginPath();
     p.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y));
     c.strokeStyle = col;
@@ -8543,7 +10069,7 @@
     c.lineJoin = "round";
     c.stroke();
   };
-  var poly6 = (c, p, col, stroke2) => {
+  var poly7 = (c, p, col, stroke2) => {
     c.beginPath();
     p.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y));
     c.closePath();
@@ -8559,7 +10085,7 @@
     const a = c.createRadialGradient(x, y, 0, x, y, r);
     a.addColorStop(0, col);
     a.addColorStop(1, "transparent");
-    oval7(c, x, y, r, r, a);
+    oval8(c, x, y, r, r, a);
   };
   var label = (c, txt, x, y, col = "#dcd9b1") => {
     c.font = "600 9px Barlow, sans-serif";
@@ -8575,90 +10101,90 @@
     const bob = Math.sin(t * 3 + o.x) * 2;
     if (o.kind === "covenant") {
       glow7(c, 0, -36, 80, "#c9b6e620");
-      poly6(c, [[-31, 0], [-22, -35], [-14, -44], [14, -44], [23, -34], [32, 0]], "#50636a", "#9bb4a6");
+      poly7(c, [[-31, 0], [-22, -35], [-14, -44], [14, -44], [23, -34], [32, 0]], "#50636a", "#9bb4a6");
       for (let i = 0; i < 3; i++) {
-        const a = t * 0.35 + i * TAU8 / 3, x = Math.cos(a) * 25, y = -65 + Math.sin(a) * 12;
-        poly6(c, [[x, y - 9], [x + 5, y], [x, y + 9], [x - 5, y]], ["#efc68b", "#9ae6e4", "#d7b7ff"][i]);
+        const a = t * 0.35 + i * TAU9 / 3, x = Math.cos(a) * 25, y = -65 + Math.sin(a) * 12;
+        poly7(c, [[x, y - 9], [x + 5, y], [x, y + 9], [x - 5, y]], ["#efc68b", "#9ae6e4", "#d7b7ff"][i]);
       }
       label(c, "THE COVENANTS", 0, -114, "#c6bead");
     } else if (id === "iona") {
       c.translate(0, bob);
       for (const side of [-1, 1]) for (let i = 0; i < 3; i++) {
         const xx = side * (32 + i * 7), yy = -65 + i * 14 + Math.sin(t * 4 + i) * 5;
-        poly6(c, [[side * 5, -39], [xx, yy - 15], [xx + side * 9, yy + 7], [side * 9, -23]], i % 2 ? "#9aa98b99" : "#d6d2a999", "#d6d4b299");
-        line7(c, [[side * 8, -41], [xx, yy]], "#b4bd9977", 1);
+        poly7(c, [[side * 5, -39], [xx, yy - 15], [xx + side * 9, yy + 7], [side * 9, -23]], i % 2 ? "#9aa98b99" : "#d6d2a999", "#d6d4b299");
+        line8(c, [[side * 8, -41], [xx, yy]], "#b4bd9977", 1);
       }
-      poly6(c, [[-12, -44], [11, -44], [20, -3], [-18, -3]], "#9da78b", "#d3d8b4");
-      oval7(c, 0, -53, 12, 14, "#c1c7a7");
-      oval7(c, -5, -55, 3, 4, "#fff0b5");
-      oval7(c, 5, -55, 3, 4, "#fff0b5");
-      line7(c, [[-6, -65], [-14, -80], [-19, -81]], "#dce3b8", 2);
-      line7(c, [[6, -65], [15, -79], [22, -81]], "#dce3b8", 2);
-      poly6(c, [[-21, -25], [4, -33], [18, -19], [-6, -11]], "#d6d1ad", "#7d987c");
-      line7(c, [[-15, -23], [-2, -25], [7, -20]], "#7b9981", 1);
+      poly7(c, [[-12, -44], [11, -44], [20, -3], [-18, -3]], "#9da78b", "#d3d8b4");
+      oval8(c, 0, -53, 12, 14, "#c1c7a7");
+      oval8(c, -5, -55, 3, 4, "#fff0b5");
+      oval8(c, 5, -55, 3, 4, "#fff0b5");
+      line8(c, [[-6, -65], [-14, -80], [-19, -81]], "#dce3b8", 2);
+      line8(c, [[6, -65], [15, -79], [22, -81]], "#dce3b8", 2);
+      poly7(c, [[-21, -25], [4, -33], [18, -19], [-6, -11]], "#d6d1ad", "#7d987c");
+      line8(c, [[-15, -23], [-2, -25], [7, -20]], "#7b9981", 1);
       label(c, "IONA HUNDREDFOLD", 0, -107);
     } else if (id === "cairn") {
-      line7(c, [[-13, -27], [-18, 0]], "#a68b61", 9);
-      line7(c, [[13, -27], [18, 0]], "#a68b61", 9);
-      poly6(c, [[-20, -68], [20, -68], [27, -35], [0, -20], [-25, -35]], "#8b8260", "#c9b88c");
-      oval7(c, 0, -80, 17, 19, "#7a7d61");
-      poly6(c, [[-20, -93], [0, -106], [20, -93], [17, -73], [-17, -73]], "#a89b73", "#ddca98");
+      line8(c, [[-13, -27], [-18, 0]], "#a68b61", 9);
+      line8(c, [[13, -27], [18, 0]], "#a68b61", 9);
+      poly7(c, [[-20, -68], [20, -68], [27, -35], [0, -20], [-25, -35]], "#8b8260", "#c9b88c");
+      oval8(c, 0, -80, 17, 19, "#7a7d61");
+      poly7(c, [[-20, -93], [0, -106], [20, -93], [17, -73], [-17, -73]], "#a89b73", "#ddca98");
       for (const side of [-1, 1]) {
-        line7(c, [[side * 18, -62], [side * 32, -32], [side * 28, -9]], "#938360", 9);
-        line7(c, [[side * 12, -97], [side * 28, -124], [side * 37, -124]], "#a8b282", 4);
-        oval7(c, side * 8, -82, 3, 4, "#fff6ba");
+        line8(c, [[side * 18, -62], [side * 32, -32], [side * 28, -9]], "#938360", 9);
+        line8(c, [[side * 12, -97], [side * 28, -124], [side * 37, -124]], "#a8b282", 4);
+        oval8(c, side * 8, -82, 3, 4, "#fff6ba");
       }
       for (let i = 0; i < 5; i++) {
         const x = -15 + i * 7, y = -62 + Math.sin(i * 2) * 7;
-        line7(c, [[x, -34], [x, y]], "#7d9b6e", 2);
-        oval7(c, x, y, 5, 4, i % 2 ? "#d9c0a1" : "#c3d097");
+        line8(c, [[x, -34], [x, y]], "#7d9b6e", 2);
+        oval8(c, x, y, 5, 4, i % 2 ? "#d9c0a1" : "#c3d097");
       }
       glow7(c, 0, -48, 36, "#e9d68d22");
       label(c, "CAPTAIN CAIRN", 0, -146);
     } else if (id === "morrow") {
-      oval7(c, -9, -7, 31, 8, "#709b9a");
-      oval7(c, 0, -32, 30, 28, "#8bc1bd55");
+      oval8(c, -9, -7, 31, 8, "#709b9a");
+      oval8(c, 0, -32, 30, 28, "#8bc1bd55");
       c.strokeStyle = "#baded2";
       c.lineWidth = 2;
       c.beginPath();
-      c.arc(0, -33, 29, 0, TAU8);
+      c.arc(0, -33, 29, 0, TAU9);
       c.stroke();
-      poly6(c, [[-19, -29], [-12, -60], [4, -76], [20, -47], [20, -20]], "#8bafa688", "#c9ddc3");
+      poly7(c, [[-19, -29], [-12, -60], [4, -76], [20, -47], [20, -20]], "#8bafa688", "#c9ddc3");
       for (let i = 0; i < 8; i++) {
-        const a = t * 0.6 + i * TAU8 / 8;
-        oval7(c, Math.cos(a) * 18, -35 + Math.sin(a) * 16, 2, 3, ["#f4d999", "#9cdef2", "#dfb0e5"][i % 3]);
+        const a = t * 0.6 + i * TAU9 / 8;
+        oval8(c, Math.cos(a) * 18, -35 + Math.sin(a) * 16, 2, 3, ["#f4d999", "#9cdef2", "#dfb0e5"][i % 3]);
       }
-      line7(c, [[22, -13], [38, -37], [43, -51]], "#8cc9bd", 3);
-      line7(c, [[31, -13], [49, -33], [58, -44]], "#8cc9bd", 3);
-      oval7(c, 43, -51, 4, 5, "#dfffe1");
-      oval7(c, 58, -44, 4, 5, "#dfffe1");
+      line8(c, [[22, -13], [38, -37], [43, -51]], "#8cc9bd", 3);
+      line8(c, [[31, -13], [49, -33], [58, -44]], "#8cc9bd", 3);
+      oval8(c, 43, -51, 4, 5, "#dfffe1");
+      oval8(c, 58, -44, 4, 5, "#dfffe1");
       label(c, "MORROW NINE", 0, -104);
     } else if (id === "pip") {
       c.translate(0, bob);
-      poly6(c, [[-17, -30], [-32, -18], [-38, -47], [-29, -45], [-20, -33]], "#b3a6c2", "#dbd3df");
-      poly6(c, [[-14, -34], [7, -42], [22, -12], [8, 0], [-16, -7]], "#ada3bd", "#d7cbdc");
-      poly6(c, [[-5, -43], [4, -65], [25, -68], [31, -48], [14, -33]], "#d8d7df", "#9890ad");
-      poly6(c, [[4, -64], [0, -92], [12, -75], [24, -91], [24, -66]], "#c7c3d8", "#9b94b1");
-      oval7(c, 20, -56, 3, 4, "#fff4bc");
-      poly6(c, [[-19, -42], [1, -48], [12, -13], [-17, -18], [-24, -8]], "#977b9e");
-      oval7(c, 4, -27, 7, 9, "#f0e4ba");
-      line7(c, [[-7, -8], [-13, 0], [0, 0]], "#b8b2c6", 5);
-      line7(c, [[13, -9], [19, 0], [28, 0]], "#b8b2c6", 5);
+      poly7(c, [[-17, -30], [-32, -18], [-38, -47], [-29, -45], [-20, -33]], "#b3a6c2", "#dbd3df");
+      poly7(c, [[-14, -34], [7, -42], [22, -12], [8, 0], [-16, -7]], "#ada3bd", "#d7cbdc");
+      poly7(c, [[-5, -43], [4, -65], [25, -68], [31, -48], [14, -33]], "#d8d7df", "#9890ad");
+      poly7(c, [[4, -64], [0, -92], [12, -75], [24, -91], [24, -66]], "#c7c3d8", "#9b94b1");
+      oval8(c, 20, -56, 3, 4, "#fff4bc");
+      poly7(c, [[-19, -42], [1, -48], [12, -13], [-17, -18], [-24, -8]], "#977b9e");
+      oval8(c, 4, -27, 7, 9, "#f0e4ba");
+      line8(c, [[-7, -8], [-13, 0], [0, 0]], "#b8b2c6", 5);
+      line8(c, [[13, -9], [19, 0], [28, 0]], "#b8b2c6", 5);
       label(c, "PIP OF THE BLANK PAGE", 0, -118);
     } else {
       glow7(c, 0, -55, 65, "#cfb98d18");
-      poly6(c, [[-21, -62], [14, -62], [29, -1], [-30, -1]], "#846d65", "#b7a38b");
-      oval7(c, 0, -75, 14, 16, "#978d7a");
-      poly6(c, [[-29, -84], [-11, -106], [11, -104], [31, -81]], "#806c68", "#c7ad8a");
-      oval7(c, -5, -76, 3, 4, "#f3e4b5");
-      oval7(c, 6, -76, 3, 4, "#f3e4b5");
+      poly7(c, [[-21, -62], [14, -62], [29, -1], [-30, -1]], "#846d65", "#b7a38b");
+      oval8(c, 0, -75, 14, 16, "#978d7a");
+      poly7(c, [[-29, -84], [-11, -106], [11, -104], [31, -81]], "#806c68", "#c7ad8a");
+      oval8(c, -5, -76, 3, 4, "#f3e4b5");
+      oval8(c, 6, -76, 3, 4, "#f3e4b5");
       for (let i = 0; i < 5; i++) {
         const x = -21 + i * 10;
-        line7(c, [[x, -53], [x + Math.sin(t * 2 + i) * 3, -29 - i % 2 * 7]], "#c5b28c", 1);
-        oval7(c, x, -24 - i % 2 * 7, 4, 7, ["#b5d8bf", "#d9bd94", "#a9c5da"][i % 3]);
+        line8(c, [[x, -53], [x + Math.sin(t * 2 + i) * 3, -29 - i % 2 * 7]], "#c5b28c", 1);
+        oval8(c, x, -24 - i % 2 * 7, 4, 7, ["#b5d8bf", "#d9bd94", "#a9c5da"][i % 3]);
       }
-      line7(c, [[28, 0], [30, -78], [47, -78]], "#a99e7e", 3);
-      oval7(c, 47, -63, 7, 10, "#e6d59b");
+      line8(c, [[28, 0], [30, -78], [47, -78]], "#a99e7e", 3);
+      oval8(c, 47, -63, 7, 10, "#e6d59b");
       label(c, "ORA \xB7 RELIC PEDDLER", 0, -124);
     }
     const relevant = Object.values(g.quests || {}).some((q) => q.state === "ready");
@@ -8677,45 +10203,45 @@
       c.strokeStyle = "#d5b17a33";
       c.lineWidth = 9;
       c.beginPath();
-      c.arc(0, 0, 135, 0, TAU8);
+      c.arc(0, 0, 135, 0, TAU9);
       c.stroke();
       for (let i = 0; i < 16; i++) {
-        const a = i * TAU8 / 16;
+        const a = i * TAU9 / 16;
         c.save();
         c.rotate(a);
-        poly6(c, [[120, -9], [165, -11], [165, 11], [120, 9]], "#937b5644", "#dbb77533");
+        poly7(c, [[120, -9], [165, -11], [165, 11], [120, 9]], "#937b5644", "#dbb77533");
         c.restore();
       }
       c.restore();
       for (let i = 0; i < 7; i++) {
         const x = 650 + i * 270;
-        line7(c, [[x, 520], [x, 215]], "#a68a6233", 10);
-        oval7(c, x, 190, 40, 58, "#d9b47912");
-        for (let j = 0; j < 3; j++) line7(c, [[x - 20 + j * 19, 220], [x - 13 + j * 13, 160]], "#a7ae7133", 2);
+        line8(c, [[x, 520], [x, 215]], "#a68a6233", 10);
+        oval8(c, x, 190, 40, 58, "#d9b47912");
+        for (let j = 0; j < 3; j++) line8(c, [[x - 20 + j * 19, 220], [x - 13 + j * 13, 160]], "#a7ae7133", 2);
       }
     } else if (id === "paper-moon") {
       glow7(c, 1760, 200, 250, "#bce9df16");
-      oval7(c, 1760, 200, 117, 117, "#bad8c118");
-      oval7(c, 1800, 164, 104, 104, "#153747");
+      oval8(c, 1760, 200, 117, 117, "#bad8c118");
+      oval8(c, 1800, 164, 104, 104, "#153747");
       for (let i = 0; i < 12; i++) {
         const x = 550 + i * 170, y = 170 + Math.sin(i * 2 + t * 0.4) * 30;
         c.save();
         c.translate(x, y);
         c.rotate(Math.sin(i + t * 0.3) * 0.2);
-        poly6(c, [[-18, -24], [12, -24], [21, -12], [21, 24], [-18, 24]], "#d4e2c219", "#d2e3c02c");
-        line7(c, [[-10, -10], [10, -10]], "#d2e3c033", 1);
-        line7(c, [[-10, 0], [10, 0]], "#d2e3c033", 1);
+        poly7(c, [[-18, -24], [12, -24], [21, -12], [21, 24], [-18, 24]], "#d4e2c219", "#d2e3c02c");
+        line8(c, [[-10, -10], [10, -10]], "#d2e3c033", 1);
+        line8(c, [[-10, 0], [10, 0]], "#d2e3c033", 1);
         c.restore();
       }
     } else if (id === "cradle-zero") {
       glow7(c, 2100, 240, 280, "#e2c8f018");
       for (let i = 0; i < 9; i++) {
-        const a = i * TAU8 / 9;
-        line7(c, [[2100, 260], [2100 + Math.cos(a) * 195, 260 + Math.sin(a) * 195]], "#dfdcf222", 1);
-        oval7(c, 2100 + Math.cos(a) * 195, 260 + Math.sin(a) * 195, 3, 3, "#f7edd166");
+        const a = i * TAU9 / 9;
+        line8(c, [[2100, 260], [2100 + Math.cos(a) * 195, 260 + Math.sin(a) * 195]], "#dfdcf222", 1);
+        oval8(c, 2100 + Math.cos(a) * 195, 260 + Math.sin(a) * 195, 3, 3, "#f7edd166");
       }
-      line7(c, [[2100, 520], [2100, 285], [2045, 220], [2055, 145]], "#b8c3ce22", 13);
-      line7(c, [[2100, 335], [2180, 245], [2202, 125]], "#b8c3ce22", 10);
+      line8(c, [[2100, 520], [2100, 285], [2045, 220], [2055, 145]], "#b8c3ce22", 13);
+      line8(c, [[2100, 335], [2180, 245], [2202, 125]], "#b8c3ce22", 10);
     }
     for (const e of g.worldEffects || []) drawWorldEvent(c, e, t, BIOMES[g.room.biome].color);
     if (g.worldEvent) drawWorldEvent(c, g.worldEvent, t, BIOMES[g.room.biome].color);
@@ -8727,15 +10253,15 @@
       const col = rank === 3 ? "#ffe2aa" : rank === 2 ? "#d4b3ff" : "#b9e7d0";
       glow7(c, p.x, p.y - 30, 45 + rank * 10, col + "14");
       for (let i = 0; i < rank + 2; i++) {
-        const a = t * 1.5 + i * TAU8 / (rank + 2);
-        oval7(c, p.x + Math.cos(a) * 38, p.y - 35 + Math.sin(a) * 20, 1.3, 1.3, col + "aa");
+        const a = t * 1.5 + i * TAU9 / (rank + 2);
+        oval8(c, p.x + Math.cos(a) * 38, p.y - 35 + Math.sin(a) * 20, 1.3, 1.3, col + "aa");
       }
     }
     for (const d of g.worldDrops) {
       const item = EQUIPMENT[d.template], col = RARITIES[item.rarity].color, y = d.y + Math.sin(t * 3 + d.x) * 5;
       glow7(c, d.x, y, 33, col + "44");
-      poly6(c, [[d.x, y - 12], [d.x + 8, y], [d.x, y + 12], [d.x - 8, y]], col);
-      line7(c, [[d.x, y - 45], [d.x, y - 20]], col + "55", 1);
+      poly7(c, [[d.x, y - 12], [d.x + 8, y], [d.x, y + 12], [d.x - 8, y]], col);
+      line8(c, [[d.x, y - 45], [d.x, y - 20]], col + "55", 1);
       if (Math.abs(p.x - d.x) < 160) label(c, item.name, d.x, y - 25, col);
     }
     if (g.keepsakes.has("blankegg")) {
@@ -8743,38 +10269,38 @@
       glow7(c, xx, yy, 25, "#ffedbf22");
       if (g.trueEnding) {
         for (let i = 0; i < 6; i++) {
-          const a = t + i * TAU8 / 6;
-          line7(c, [[xx, yy], [xx + Math.cos(a) * 13, yy + Math.sin(a) * 13]], "#f8e3ae", 3);
+          const a = t + i * TAU9 / 6;
+          line8(c, [[xx, yy], [xx + Math.cos(a) * 13, yy + Math.sin(a) * 13]], "#f8e3ae", 3);
         }
-        oval7(c, xx, yy, 7, 8, "#f3deb2");
-        oval7(c, xx + 3, yy - 1, 1.5, 2, "#3a4956");
+        oval8(c, xx, yy, 7, 8, "#f3deb2");
+        oval8(c, xx + 3, yy - 1, 1.5, 2, "#3a4956");
       } else {
-        oval7(c, xx, yy, 9, 12, "#e9dfbf");
-        line7(c, [[xx - 5, yy], [xx, yy - 3], [xx + 4, yy + 1]], "#a3ab83", 1.5);
+        oval8(c, xx, yy, 9, 12, "#e9dfbf");
+        line8(c, [[xx - 5, yy], [xx, yy - 3], [xx + 4, yy + 1]], "#a3ab83", 1.5);
       }
     }
     const surge = g.worldEffects.find((e) => e.type === "eclipse" && e.maxLife === 100);
     if (surge) for (const [i, m] of g.party.entries()) {
       c.save();
       c.globalAlpha = 0.4 * Math.min(1, surge.life / 30);
-      const a = t * 2 + i * TAU8 / 3;
+      const a = t * 2 + i * TAU9 / 3;
       drawCreature(c, m.data, p.x + Math.cos(a) * 115, p.y - 60 + Math.sin(a) * 35, 0.3, p.face, { attack: 0.9, air: true }, t, { shadow: false, aura: true, reducedMotion: !!g.combat?.settings?.reducedMotion });
       c.restore();
     }
   }
 
   // src/render.js
-  var TAU9 = Math.PI * 2;
-  function ellipse2(c, x, y, rx, ry, fill, stroke2 = null, line10 = 2) {
+  var TAU10 = Math.PI * 2;
+  function ellipse2(c, x, y, rx, ry, fill, stroke2 = null, line11 = 2) {
     c.beginPath();
-    c.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), 0, 0, TAU9);
+    c.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), 0, 0, TAU10);
     if (fill) {
       c.fillStyle = fill;
       c.fill();
     }
     if (stroke2) {
       c.strokeStyle = stroke2;
-      c.lineWidth = line10;
+      c.lineWidth = line11;
       c.stroke();
     }
   }
@@ -8808,10 +10334,10 @@
       c.strokeStyle = "#b9d97844";
       c.lineWidth = 2;
       c.beginPath();
-      c.arc(0, 0, w * 0.34, 0, TAU9);
+      c.arc(0, 0, w * 0.34, 0, TAU10);
       c.stroke();
       c.beginPath();
-      c.arc(0, 0, w * 0.28, 0, TAU9);
+      c.arc(0, 0, w * 0.28, 0, TAU10);
       c.stroke();
       c.restore();
       drawCreature(c, d, x, y, size, face, { state: "idle" }, time, { aura: true, reducedMotion: reducedMotion2 });
@@ -8825,8 +10351,8 @@
   }
 
   // src/dungeon-art.js
-  var TAU10 = Math.PI * 2;
-  var line8 = (c, p, color, width = 2) => {
+  var TAU11 = Math.PI * 2;
+  var line9 = (c, p, color, width = 2) => {
     c.beginPath();
     p.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y));
     c.strokeStyle = color;
@@ -8835,7 +10361,7 @@
     c.lineJoin = "round";
     c.stroke();
   };
-  var poly7 = (c, p, color, edge) => {
+  var poly8 = (c, p, color, edge) => {
     c.beginPath();
     p.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y));
     c.closePath();
@@ -8847,9 +10373,9 @@
       c.stroke();
     }
   };
-  var oval8 = (c, x, y, rx, ry, color) => {
+  var oval9 = (c, x, y, rx, ry, color) => {
     c.beginPath();
-    c.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), 0, 0, TAU10);
+    c.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), 0, 0, TAU11);
     c.fillStyle = color;
     c.fill();
   };
@@ -8859,57 +10385,57 @@
     c.translate(e.x, e.y);
     c.scale(e.face || 1, 1);
     if (e.flash) c.globalAlpha = 0.55;
-    const wind = e.state === "windup", move = ["patrol", "charge", "chase"].includes(e.state), stride = move ? Math.sin(t * 14 + e.id) * 6 : Math.sin(t * 3) * 1.5;
-    oval8(c, 0, 0, 28, 5, "#07152166");
+    const wind = e.state === "windup", move2 = ["patrol", "charge", "chase"].includes(e.state), stride = move2 ? Math.sin(t * 14 + e.id) * 6 : Math.sin(t * 3) * 1.5;
+    oval9(c, 0, 0, 28, 5, "#07152166");
     if (e.kind === "glassmarauder") {
       for (const s of [-1, 1]) {
-        line8(c, [[s * 10, -23], [s * (15 + stride * 0.3), -10], [s * (19 - stride * 0.4), 0]], "#698b91", 6);
-        poly7(c, [[s * 13, -33], [s * 28, -55], [s * 32, -23]], color + "77", color);
+        line9(c, [[s * 10, -23], [s * (15 + stride * 0.3), -10], [s * (19 - stride * 0.4), 0]], "#698b91", 6);
+        poly8(c, [[s * 13, -33], [s * 28, -55], [s * 32, -23]], color + "77", color);
       }
-      poly7(c, [[-19, -40], [-8, -64], [10, -62], [23, -34], [8, -22], [-10, -24]], "#3d6570", color);
-      poly7(c, [[-13, -65], [-5, -89], [10, -77], [18, -61], [1, -50]], color + "88", color);
-      line8(c, [[-7, -63], [11, -63]], "#f5ffe5", 3);
+      poly8(c, [[-19, -40], [-8, -64], [10, -62], [23, -34], [8, -22], [-10, -24]], "#3d6570", color);
+      poly8(c, [[-13, -65], [-5, -89], [10, -77], [18, -61], [1, -50]], color + "88", color);
+      line9(c, [[-7, -63], [11, -63]], "#f5ffe5", 3);
       const reach = wind ? -14 : e.state === "charge" ? 28 : 0;
-      line8(c, [[15, -42], [31 + reach, -31], [42 + reach, -48]], "#648b91", 5);
-      poly7(c, [[36 + reach, -47], [50 + reach, -99], [59 + reach, -36], [43 + reach, -22]], color + "99", "#e8fff0");
-      line8(c, [[-9, -44], [-29, -35], [-35, -16]], "#648b91", 5);
+      line9(c, [[15, -42], [31 + reach, -31], [42 + reach, -48]], "#648b91", 5);
+      poly8(c, [[36 + reach, -47], [50 + reach, -99], [59 + reach, -36], [43 + reach, -22]], color + "99", "#e8fff0");
+      line9(c, [[-9, -44], [-29, -35], [-35, -16]], "#648b91", 5);
     } else if (e.kind === "veilwasp") {
       const flap = Math.sin(t * 30) * 13;
       for (const s of [-1, 1]) {
-        poly7(c, [[-3, -34], [s * 48, -62 + flap], [s * 37, -20 + flap], [-2, -20]], color + "30", color + "99");
-        line8(c, [[s * 4, -24], [s * 23, -11], [s * 31, -19]], color, 2);
+        poly8(c, [[-3, -34], [s * 48, -62 + flap], [s * 37, -20 + flap], [-2, -20]], color + "30", color + "99");
+        line9(c, [[s * 4, -24], [s * 23, -11], [s * 31, -19]], color, 2);
       }
-      oval8(c, -12, -31, 19, 13, "#4d3b66");
-      for (let i = 0; i < 3; i++) line8(c, [[-24 + i * 10, -40], [-25 + i * 10, -22]], color + "88", 3);
-      poly7(c, [[-30, -32], [-55, -24], [-31, -23]], color);
-      oval8(c, 9, -40, 13, 15, color + "99");
-      poly7(c, [[14, -37], [41, -31], [16, -29]], "#eae5ce");
-      line8(c, [[6, -52], [0, -69], [-7, -72]], color, 2);
-      line8(c, [[14, -51], [24, -67], [31, -66]], color, 2);
-      oval8(c, 16, -44, 3, 4, "#fff5c1");
+      oval9(c, -12, -31, 19, 13, "#4d3b66");
+      for (let i = 0; i < 3; i++) line9(c, [[-24 + i * 10, -40], [-25 + i * 10, -22]], color + "88", 3);
+      poly8(c, [[-30, -32], [-55, -24], [-31, -23]], color);
+      oval9(c, 9, -40, 13, 15, color + "99");
+      poly8(c, [[14, -37], [41, -31], [16, -29]], "#eae5ce");
+      line9(c, [[6, -52], [0, -69], [-7, -72]], color, 2);
+      line9(c, [[14, -51], [24, -67], [31, -66]], color, 2);
+      oval9(c, 16, -44, 3, 4, "#fff5c1");
     } else if (e.kind === "graveburrower") {
-      for (const s of [-1, 1]) for (let i = 0; i < 3; i++) line8(c, [[s * 12, -20], [s * (27 + i * 3), -13 + Math.sin(t * 13 + i) * 3], [s * (33 + i * 3), 0]], "#8c8377", 4);
-      poly7(c, [[-29, -13], [-24, -40], [-10, -58], [15, -55], [32, -30], [27, -7]], "#675f62", color);
-      for (let i = 0; i < 4; i++) poly7(c, [[-28 + i * 15, -29], [-21 + i * 15, -64 - i % 2 * 13], [-8 + i * 15, -30]], color + "77", color);
-      oval8(c, 10, -26, 16, 17, "#c9bda0");
-      oval8(c, 4, -28, 4, 5, "#241f31");
-      oval8(c, 17, -28, 4, 5, "#241f31");
-      poly7(c, [[10, -21], [6, -15], [14, -15]], "#423846");
-      for (const s of [-1, 1]) poly7(c, [[s * 17, -8], [s * 34, -20], [s * 28, 4], [s * 16, -1]], "#e1d3ae");
+      for (const s of [-1, 1]) for (let i = 0; i < 3; i++) line9(c, [[s * 12, -20], [s * (27 + i * 3), -13 + Math.sin(t * 13 + i) * 3], [s * (33 + i * 3), 0]], "#8c8377", 4);
+      poly8(c, [[-29, -13], [-24, -40], [-10, -58], [15, -55], [32, -30], [27, -7]], "#675f62", color);
+      for (let i = 0; i < 4; i++) poly8(c, [[-28 + i * 15, -29], [-21 + i * 15, -64 - i % 2 * 13], [-8 + i * 15, -30]], color + "77", color);
+      oval9(c, 10, -26, 16, 17, "#c9bda0");
+      oval9(c, 4, -28, 4, 5, "#241f31");
+      oval9(c, 17, -28, 4, 5, "#241f31");
+      poly8(c, [[10, -21], [6, -15], [14, -15]], "#423846");
+      for (const s of [-1, 1]) poly8(c, [[s * 17, -8], [s * 34, -20], [s * 28, 4], [s * 16, -1]], "#e1d3ae");
       if (e.state === "burrow" || e.state === "windup") {
         c.strokeStyle = color + "77";
         c.lineWidth = 2;
         c.beginPath();
-        c.ellipse(0, 2, 42 + Math.sin(t * 9) * 4, 7, 0, 0, TAU10);
+        c.ellipse(0, 2, 42 + Math.sin(t * 9) * 4, 7, 0, 0, TAU11);
         c.stroke();
       }
     } else {
-      for (const s of [-1, 1]) line8(c, [[s * 8, -22], [s * 17, -8], [s * 22, 0]], "#756984", 5);
-      poly7(c, [[-16, -51], [10, -51], [25, -12], [7, -21], [-12, -9], [-22, -16]], "#574968", color + "88");
-      oval8(c, -1, -64, 14, 17, "#bdacbc");
-      poly7(c, [[-20, -70], [0, -91], [21, -69], [12, -49], [0, -57], [-13, -50]], "#685577", color);
-      line8(c, [[-8, -66], [7, -66]], "#f8e9bb", 3);
-      for (const s of [-1, 1]) line8(c, [[s * 12, -46], [s * 26, -32], [s * 35, -46]], "#9b819e", 4);
+      for (const s of [-1, 1]) line9(c, [[s * 8, -22], [s * 17, -8], [s * 22, 0]], "#756984", 5);
+      poly8(c, [[-16, -51], [10, -51], [25, -12], [7, -21], [-12, -9], [-22, -16]], "#574968", color + "88");
+      oval9(c, -1, -64, 14, 17, "#bdacbc");
+      poly8(c, [[-20, -70], [0, -91], [21, -69], [12, -49], [0, -57], [-13, -50]], "#685577", color);
+      line9(c, [[-8, -66], [7, -66]], "#f8e9bb", 3);
+      for (const s of [-1, 1]) line9(c, [[s * 12, -46], [s * 26, -32], [s * 35, -46]], "#9b819e", 4);
       const length = wind ? 43 : e.state === "charge" ? 90 : 65;
       for (let i = 0; i < 9; i++) {
         const x = 31 + i * length / 9, y = -42 + Math.sin(i * 0.6 + t * 5) * 8;
@@ -8921,7 +10447,7 @@
         c.strokeRect(-4, -2, 8, 4);
         c.restore();
       }
-      poly7(c, [[31 + length, -52], [41 + length, -42], [31 + length, -32], [21 + length, -42]], "#a887ac", color);
+      poly8(c, [[31 + length, -52], [41 + length, -42], [31 + length, -32], [21 + length, -42]], "#a887ac", color);
     }
     if (wind) {
       c.fillStyle = "#ffe7b2";
@@ -8939,50 +10465,50 @@
     c.scale(e.face || 1, 1);
     if (e.flash) c.globalAlpha = 0.55;
     const col = b.color, wind = e.state === "windup", reaver2 = e.boss.endsWith("-reaver"), rage = e.phase >= 2;
-    oval8(c, 0, 0, 72, 10, "#09111b88");
+    oval9(c, 0, 0, 72, 10, "#09111b88");
     if (!reaver2) {
       for (const s of [-1, 1]) {
-        line8(c, [[s * 22, -48], [s * 37, -24], [s * 39, -2]], "#647274", 15);
-        poly7(c, [[s * 26, -41], [s * 45, -43], [s * 56, 0], [s * 29, 0]], "#455861", col + "88");
+        line9(c, [[s * 22, -48], [s * 37, -24], [s * 39, -2]], "#647274", 15);
+        poly8(c, [[s * 26, -41], [s * 45, -43], [s * 56, 0], [s * 29, 0]], "#455861", col + "88");
       }
-      poly7(c, [[-45, -118], [-25, -144], [25, -144], [49, -116], [35, -53], [0, -42], [-32, -55]], "#435963", col);
-      for (const s of [-1, 1]) poly7(c, [[s * 25, -132], [s * 58, -152], [s * 77, -115], [s * 34, -103]], "#657b7e", col);
-      poly7(c, [[-24, -144], [-17, -184], [0, -201], [20, -182], [26, -144], [0, -132]], "#617780", col);
-      line8(c, [[-15, -159], [15, -159]], rage ? "#ffe9b0" : col, 5);
-      for (const s of [-1, 1]) poly7(c, [[s * 15, -185], [s * 34, -218], [s * 30, -176]], col + "88", col);
-      line8(c, [[-40, -113], [-67, -79], [-65, -42]], "#779091", 13);
-      poly7(c, [[-79, -108], [-49, -108], [-36, -60], [-65, -35], [-91, -60]], "#3e535f", col);
+      poly8(c, [[-45, -118], [-25, -144], [25, -144], [49, -116], [35, -53], [0, -42], [-32, -55]], "#435963", col);
+      for (const s of [-1, 1]) poly8(c, [[s * 25, -132], [s * 58, -152], [s * 77, -115], [s * 34, -103]], "#657b7e", col);
+      poly8(c, [[-24, -144], [-17, -184], [0, -201], [20, -182], [26, -144], [0, -132]], "#617780", col);
+      line9(c, [[-15, -159], [15, -159]], rage ? "#ffe9b0" : col, 5);
+      for (const s of [-1, 1]) poly8(c, [[s * 15, -185], [s * 34, -218], [s * 30, -176]], col + "88", col);
+      line9(c, [[-40, -113], [-67, -79], [-65, -42]], "#779091", 13);
+      poly8(c, [[-79, -108], [-49, -108], [-36, -60], [-65, -35], [-91, -60]], "#3e535f", col);
       const lean = wind ? -0.35 : e.state === "charge" ? 0.45 : 0;
       c.save();
       c.translate(49, -105);
       c.rotate(lean);
-      line8(c, [[0, 0], [23, 35], [41, 20]], "#779091", 12);
-      line8(c, [[41, -46], [41, 67]], "#b4ae8f", 6);
-      poly7(c, [[16, -46], [24, -78], [59, -78], [70, -46], [57, -17], [25, -17]], "#5a7075", col);
+      line9(c, [[0, 0], [23, 35], [41, 20]], "#779091", 12);
+      line9(c, [[41, -46], [41, 67]], "#b4ae8f", 6);
+      poly8(c, [[16, -46], [24, -78], [59, -78], [70, -46], [57, -17], [25, -17]], "#5a7075", col);
       c.restore();
-      poly7(c, [[-12, -115], [0, -129], [14, -115], [0, -91]], rage ? "#ffe2af" : col);
+      poly8(c, [[-12, -115], [0, -129], [14, -115], [0, -91]], rage ? "#ffe2af" : col);
     } else {
       const motion = Math.sin(t * 5) * 5;
-      for (let i = 0; i < 6; i++) line8(c, [[-37, -75], [-65 - i * 9, -60 + motion], [-85 - i * 7, -90 - i * 9 + Math.sin(t * 3 + i) * 10]], i % 2 ? col + "88" : "#6c5b79", 7 - i * 0.7);
+      for (let i = 0; i < 6; i++) line9(c, [[-37, -75], [-65 - i * 9, -60 + motion], [-85 - i * 7, -90 - i * 9 + Math.sin(t * 3 + i) * 10]], i % 2 ? col + "88" : "#6c5b79", 7 - i * 0.7);
       for (const s of [-1, 1]) {
-        line8(c, [[s * 22, -51], [s * 43, -23], [s * 51, 0]], "#7d6985", 12);
-        poly7(c, [[s * 45, -12], [s * 67, -11], [s * 76, 2], [s * 45, 2]], "#ac94a2", col);
+        line9(c, [[s * 22, -51], [s * 43, -23], [s * 51, 0]], "#7d6985", 12);
+        poly8(c, [[s * 45, -12], [s * 67, -11], [s * 76, 2], [s * 45, 2]], "#ac94a2", col);
       }
-      poly7(c, [[-40, -104], [-25, -147], [13, -158], [46, -120], [36, -67], [4, -43], [-32, -61]], "#66516f", col);
+      poly8(c, [[-40, -104], [-25, -147], [13, -158], [46, -120], [36, -67], [4, -43], [-32, -61]], "#66516f", col);
       for (const s of [-1, 1]) {
-        line8(c, [[s * 30, -113], [s * 60, -80], [s * (79 + (wind ? -12 : 7)), -118]], "#8a6c8c", 13);
-        for (let i = 0; i < 3; i++) poly7(c, [[s * 69, -116 + i * 4], [s * (108 - i * 5), -147 + i * 8], [s * 84, -100 + i * 3]], "#e0cdbb", col);
+        line9(c, [[s * 30, -113], [s * 60, -80], [s * (79 + (wind ? -12 : 7)), -118]], "#8a6c8c", 13);
+        for (let i = 0; i < 3; i++) poly8(c, [[s * 69, -116 + i * 4], [s * (108 - i * 5), -147 + i * 8], [s * 84, -100 + i * 3]], "#e0cdbb", col);
       }
-      poly7(c, [[-23, -153], [-15, -195], [20, -200], [45, -172], [30, -140], [0, -130]], "#bd9fac", col);
-      poly7(c, [[26, -169], [70, -159], [32, -150]], "#d9bfae");
-      oval8(c, 23, -174, 4, 7, "#fff4c4");
-      for (let i = 0; i < 4; i++) poly7(c, [[-26 + i * 12, -160], [-43 + i * 13, -209 - i % 2 * 17], [-9 + i * 12, -176]], col + "88", col);
+      poly8(c, [[-23, -153], [-15, -195], [20, -200], [45, -172], [30, -140], [0, -130]], "#bd9fac", col);
+      poly8(c, [[26, -169], [70, -159], [32, -150]], "#d9bfae");
+      oval9(c, 23, -174, 4, 7, "#fff4c4");
+      for (let i = 0; i < 4; i++) poly8(c, [[-26 + i * 12, -160], [-43 + i * 13, -209 - i % 2 * 17], [-9 + i * 12, -176]], col + "88", col);
     }
     if (rage) {
       c.strokeStyle = col + "88";
       c.lineWidth = 2;
       c.beginPath();
-      c.ellipse(0, -2, 82 + Math.sin(t * 6) * 6, 13, 0, 0, TAU10);
+      c.ellipse(0, -2, 82 + Math.sin(t * 6) * 6, 13, 0, 0, TAU11);
       c.stroke();
     }
     if (wind) {
@@ -9006,35 +10532,35 @@
     if (cue.kind === "rush") {
       const end = x + (Math.sign(tx - x) || e.face) * Math.min(700, Math.max(300, Math.abs(tx - x) + 80));
       c.fillRect(Math.min(x, end), y - 28, Math.abs(end - x), 28);
-      line8(c, [[x, y - 4], [end, y - 4]], col + "aa", 2);
-      line8(c, [[x, y - 25], [end, y - 25]], col + "55", 1);
+      line9(c, [[x, y - 4], [end, y - 4]], col + "aa", 2);
+      line9(c, [[x, y - 25], [end, y - 25]], col + "55", 1);
     } else if (cue.kind === "volley") {
       c.setLineDash([5, 8]);
-      line8(c, [[x, y - 90], [tx, ty - 30]], col + "99", 1.3);
+      line9(c, [[x, y - 90], [tx, ty - 30]], col + "99", 1.3);
       c.setLineDash([]);
       c.strokeStyle = col;
       c.beginPath();
-      c.arc(tx, ty - 30, 19 + pulse * 4, 0, TAU10);
+      c.arc(tx, ty - 30, 19 + pulse * 4, 0, TAU11);
       c.stroke();
-      line8(c, [[tx - 28, ty - 30], [tx + 28, ty - 30]], col + "88", 1);
-      line8(c, [[tx, ty - 58], [tx, ty - 2]], col + "88", 1);
+      line9(c, [[tx - 28, ty - 30], [tx + 28, ty - 30]], col + "88", 1);
+      line9(c, [[tx, ty - 58], [tx, ty - 2]], col + "88", 1);
     } else {
       const radius = cue.radius || 90, target = cue.kind === "slam" ? x : tx, base = cue.kind === "slam" ? y : ty;
       c.beginPath();
-      c.ellipse(target, base - 3, radius, 13, 0, 0, TAU10);
+      c.ellipse(target, base - 3, radius, 13, 0, 0, TAU11);
       c.fill();
       c.stroke();
       c.strokeStyle = col + "88";
       c.beginPath();
-      c.ellipse(target, base - 3, radius * (0.55 + pulse * 0.2), 9, 0, 0, TAU10);
+      c.ellipse(target, base - 3, radius * (0.55 + pulse * 0.2), 9, 0, 0, TAU11);
       c.stroke();
-      for (const side of [-1, 1]) line8(c, [[target + side * radius, base - 12], [target + side * radius, base + 4]], col, 2);
+      for (const side of [-1, 1]) line9(c, [[target + side * radius, base - 12], [target + side * radius, base + 4]], col, 2);
     }
     c.restore();
   }
 
   // src/tunnel-render.js
-  var TAU11 = Math.PI * 2;
+  var TAU12 = Math.PI * 2;
   var noise2 = (n2) => {
     const a = Math.sin(n2 * 127.1 + 37) * 43758.5453;
     return a - Math.floor(a);
@@ -9064,7 +10590,7 @@
   };
   var ellipse3 = (c, x, y, rx, ry, color) => {
     c.beginPath();
-    c.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), 0, 0, TAU11);
+    c.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), 0, 0, TAU12);
     c.fillStyle = color;
     c.fill();
   };
@@ -9374,8 +10900,8 @@
   }
 
   // src/world-render.js
-  var TAU12 = Math.PI * 2;
-  var poly8 = (c, pts, fill, stroke2) => {
+  var TAU13 = Math.PI * 2;
+  var poly9 = (c, pts, fill, stroke2) => {
     c.beginPath();
     pts.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y));
     c.closePath();
@@ -9389,13 +10915,13 @@
       c.stroke();
     }
   };
-  var oval9 = (c, x, y, rx, ry, color) => {
+  var oval10 = (c, x, y, rx, ry, color) => {
     c.beginPath();
-    c.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), 0, 0, TAU12);
+    c.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), 0, 0, TAU13);
     c.fillStyle = color;
     c.fill();
   };
-  var line9 = (c, pts, col, width = 2) => {
+  var line10 = (c, pts, col, width = 2) => {
     c.beginPath();
     pts.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y));
     c.strokeStyle = col;
@@ -9408,9 +10934,9 @@
     const g = c.createRadialGradient(x, y, 0, x, y, r);
     g.addColorStop(0, col);
     g.addColorStop(1, "transparent");
-    oval9(c, x, y, r, r, g);
+    oval10(c, x, y, r, r, g);
   };
-  var text = (c, txt, x, y, col = "#dbeae0", size = 12, align = "center") => {
+  var text2 = (c, txt, x, y, col = "#dbeae0", size = 12, align = "center") => {
     c.fillStyle = col;
     c.font = `600 ${size}px Barlow, sans-serif`;
     c.textAlign = align;
@@ -9478,39 +11004,43 @@
       for (let i = 0; i < 55; i++) {
         const x = noise3(i + 9) * g.worldWidth, y = 70 + noise3(i + 72) * 420 + Math.sin(t * 0.5 + i) * 15;
         glow10(c, x, y, 4, b.color + "25");
-        oval9(c, x, y, 0.8, 0.8, b.color + "99");
+        oval10(c, x, y, 0.8, 0.8, b.color + "99");
       }
       for (const p2 of g.platforms) if (!p2.veil) this.platform(c, p2, b, t, g);
       for (const pit of g.thorns) {
         glow10(c, pit.x + pit.w / 2, pit.y, Math.min(220, pit.w), b.color + "16");
-        for (let i = 0; i < pit.w; i += 23) poly8(c, [[pit.x + i, pit.y + 12], [pit.x + i + 12, pit.y - 20 - noise3(i) * 14], [pit.x + i + 23, pit.y + 12]], b.color + "55");
+        for (let i = 0; i < pit.w; i += 23) poly9(c, [[pit.x + i, pit.y + 12], [pit.x + i + 12, pit.y - 20 - noise3(i) * 14], [pit.x + i + 23, pit.y + 12]], b.color + "55");
         if (g.room.biome === "reef") {
           c.fillStyle = "#61c5d128";
           c.fillRect(pit.x, 570, pit.w, 100);
-          line9(c, [[pit.x, 570], [pit.x + pit.w, 570]], "#a0edeb55", 2);
+          line10(c, [[pit.x, 570], [pit.x + pit.w, 570]], "#a0edeb55", 2);
         }
       }
       drawRPGWorld(c, g, t);
       for (const o of g.room.objects) this.object(c, o, g, t);
       for (const spring of g.recoveryPoints || []) drawRecoverySpring(c, spring, t);
       for (const a2 of g.room.anchors) {
-        line9(c, [[a2.x, a2.y - 36], [a2.x, a2.y]], "#d6b87866", 1);
+        line10(c, [[a2.x, a2.y - 36], [a2.x, a2.y]], "#d6b87866", 1);
         glow10(c, a2.x, a2.y, 25, "#ffdd932a");
-        poly8(c, [[a2.x, a2.y - 9], [a2.x + 8, a2.y], [a2.x, a2.y + 9], [a2.x - 8, a2.y]], "#f8d895");
+        poly9(c, [[a2.x, a2.y - 9], [a2.x + 8, a2.y], [a2.x, a2.y + 9], [a2.x - 8, a2.y]], "#f8d895");
       }
       for (const r of g.relics) if (!r.collected) {
         const yy = r.y + Math.sin(t * 3 + r.x) * 6;
         glow10(c, r.x, yy, 35, b.color + "30");
-        poly8(c, [[r.x, yy - 13], [r.x + 8, yy], [r.x, yy + 13], [r.x - 8, yy]], b.color, "#efffe6");
+        poly9(c, [[r.x, yy - 13], [r.x + 8, yy], [r.x, yy + 13], [r.x - 8, yy]], b.color, "#efffe6");
       }
       for (const z of g.zones) {
         glow10(c, z.x, z.y - 25, z.radius, z.type === "fire" ? "#ff9b3833" : z.type === "wind" ? "#bfffe128" : "#e2d6ff33");
         for (let i = 0; i < 9; i++) {
           const xx = z.x + Math.sin(t * 4 + i) * z.radius * 0.8;
-          line9(c, [[xx, z.y], [xx + 10, z.y - 18 - Math.sin(i + t * 6) * 10]], z.type === "fire" ? "#ffb96d88" : "#d0f7ed77", 2);
+          line10(c, [[xx, z.y], [xx + 10, z.y - 18 - Math.sin(i + t * 6) * 10]], z.type === "fire" ? "#ffb96d88" : "#d0f7ed77", 2);
         }
       }
-      for (const e of g.enemies) drawDungeonTelegraph(c, { ...e, reducedMotion: this.fx.reducedMotion }, actorTime);
+      drawBossEncounterWorld(c, g, actorTime);
+      for (const e of g.enemies) {
+        const actor = { ...e, reducedMotion: this.fx.reducedMotion };
+        if (!drawBossMoveTelegraph(c, actor, actorTime)) drawDungeonTelegraph(c, actor, actorTime);
+      }
       for (const e of g.enemies) {
         const key = e.key ?? e.id, previous = this.actorHistory.get(key), actor = { ...e, reducedMotion: this.fx.reducedMotion };
         if (e.hp <= 0 && !e.deathTimer) {
@@ -9561,8 +11091,8 @@
       if (p.healing) {
         glow10(c, p.x, p.y - 30, 80, "#abf2ce38");
         for (let i = 0; i < 6; i++) {
-          const ang = t * 3 + i * TAU12 / 6;
-          oval9(c, p.x + Math.cos(ang) * 32, p.y - 35 + Math.sin(ang) * 35, 2, 2, "#dcffe0");
+          const ang = t * 3 + i * TAU13 / 6;
+          oval10(c, p.x + Math.cos(ang) * 32, p.y - 35 + Math.sin(ang) * 35, 2, 2, "#dcffe0");
         }
       }
       if (p.guard || p.fortress) {
@@ -9572,33 +11102,34 @@
         c.arc(p.x, p.y - 35, 48, -Math.PI * 0.5, Math.PI * 0.5);
         c.stroke();
       }
-      if (g.grapple) line9(c, [[p.x, p.y - 30], [g.grapple.x, g.grapple.y]], "#ffe2a7", 2);
+      if (g.grapple) line10(c, [[p.x, p.y - 30], [g.grapple.x, g.grapple.y]], "#ffe2a7", 2);
       for (const b2 of g.projectiles) {
         glow10(c, b2.x, b2.y, 23, (b2.color || "#c9f4df") + "55");
-        oval9(c, b2.x, b2.y, b2.kind === "ice" ? 14 : 7, b2.kind === "needle" ? 3 : 7, b2.color || "#c7f7e4");
-        line9(c, [[b2.x, b2.y], [b2.x - b2.vx * 2, b2.y - b2.vy * 2]], b2.color || "#c7f7e4", 3);
+        oval10(c, b2.x, b2.y, b2.kind === "ice" ? 14 : 7, b2.kind === "needle" ? 3 : 7, b2.color || "#c7f7e4");
+        line10(c, [[b2.x, b2.y], [b2.x - b2.vx * 2, b2.y - b2.vy * 2]], b2.color || "#c7f7e4", 3);
       }
       for (const b2 of g.enemyShots) {
+        if (drawBossProjectile(c, b2, actorTime)) continue;
         glow10(c, b2.x, b2.y, 18, (b2.color || "#fba37c") + "44");
-        poly8(c, [[b2.x - 7, b2.y], [b2.x, b2.y - 7], [b2.x + 7, b2.y], [b2.x, b2.y + 7]], b2.color || "#fba37c");
+        poly9(c, [[b2.x - 7, b2.y], [b2.x, b2.y - 7], [b2.x + 7, b2.y], [b2.x, b2.y + 7]], b2.color || "#fba37c");
       }
       for (const wave of g.waves) {
         const col = wave.color || b.color;
         glow10(c, wave.x, 510, 45, col + "44");
-        poly8(c, [[wave.x - 26, 520], [wave.x - 10, 481], [wave.x, 500], [wave.x + 16, 465], [wave.x + 25, 520]], col);
+        poly9(c, [[wave.x - 26, 520], [wave.x - 10, 481], [wave.x, 500], [wave.x + 16, 465], [wave.x + 25, 520]], col);
       }
       for (const hz of g.hazards) {
-        if (hz.type === "bubble") oval9(c, hz.x, hz.y - 4, 22, 8, "#8ddeed77");
+        if (hz.type === "bubble") oval10(c, hz.x, hz.y - 4, 22, 8, "#8ddeed77");
         else {
           const col = hz.type === "root" ? "#c7e1a7" : hz.type === "lightning" ? "#ddbcff" : "#c7eeff";
-          oval9(c, hz.x, hz.y - 2, hz.type === "stasis" ? 100 : 38, 8, col + "33");
+          oval10(c, hz.x, hz.y - 2, hz.type === "stasis" ? 100 : 38, 8, col + "33");
           if (hz.timer > 0) {
-            line9(c, [[hz.x - 30, hz.y - 3], [hz.x + 30, hz.y - 3]], col + "77", 2);
-            text(c, "!", hz.x, hz.y - 25, col, 18);
+            line10(c, [[hz.x - 30, hz.y - 3], [hz.x + 30, hz.y - 3]], col + "77", 2);
+            text2(c, "!", hz.x, hz.y - 25, col, 18);
           } else if (hz.type === "lightning") {
-            line9(c, [[hz.x + 20, 0], [hz.x - 10, 200], [hz.x + 10, 185], [hz.x - 8, 400], [hz.x + 12, 390], [hz.x, hz.y]], col, 5);
+            line10(c, [[hz.x + 20, 0], [hz.x - 10, 200], [hz.x + 10, 185], [hz.x - 8, 400], [hz.x + 12, 390], [hz.x, hz.y]], col, 5);
             glow10(c, hz.x, hz.y - 70, 100, col + "44");
-          } else for (let i = 0; i < 5; i++) poly8(c, [[hz.x - 36 + i * 15, hz.y], [hz.x - 25 + i * 15, hz.y - 65 - noise3(i) * 55], [hz.x - 13 + i * 15, hz.y]], col + "99");
+          } else for (let i = 0; i < 5; i++) poly9(c, [[hz.x - 36 + i * 15, hz.y], [hz.x - 25 + i * 15, hz.y - 65 - noise3(i) * 55], [hz.x - 13 + i * 15, hz.y]], col + "99");
         }
       }
       for (const e of g.effects) this.effect(c, e, t, b);
@@ -9612,7 +11143,7 @@
         c.lineWidth = 2;
         c.setLineDash(f.type === "time" ? [8, 12] : []);
         c.beginPath();
-        c.ellipse(f.x, f.y, radius * (0.9 + Math.sin(t * 5) * 0.04), f.type === "gravity" ? radius * 0.6 : 35, t * 0.15, 0, TAU12);
+        c.ellipse(f.x, f.y, radius * (0.9 + Math.sin(t * 5) * 0.04), f.type === "gravity" ? radius * 0.6 : 35, t * 0.15, 0, TAU13);
         c.stroke();
         glow10(c, f.x, f.y, radius, (f.color || b.color) + "14");
         c.restore();
@@ -9620,7 +11151,7 @@
       const near = g.room.objects.filter((o) => Math.abs(o.x - p.x) < 90 && Math.abs((o.y ?? 520) - p.y) < 95).sort((x, y) => Math.abs(x.x - p.x) - Math.abs(y.x - p.x))[0];
       if (near) {
         const defeated = (id) => g.bossDefeated?.(id) || g.fragments.has(id) || g.defeatedBosses?.has(id), locked = near.need > g.fragments.size || near.ability && !g.abilities.has(near.ability) || near.boss && !defeated(near.boss) || near.requiresBoss && !defeated(near.requiresBoss);
-        text(c, "[ E ]  " + (locked ? "SEALED \xB7 " : "") + near.name, near.x, (near.y ?? 520) - 110, locked ? "#b6acbf" : "#f6e5bb", 11);
+        text2(c, "[ E ]  " + (locked ? "SEALED \xB7 " : "") + near.name, near.x, (near.y ?? 520) - 110, locked ? "#b6acbf" : "#f6e5bb", 11);
       }
       c.restore();
       const vign = c.createLinearGradient(0, 0, 0, 660);
@@ -9643,22 +11174,22 @@
       if (["forest", "sanctuary"].includes(b.kind)) {
         for (let layer = 0; layer < 3; layer++) for (let i = -2; i < 12; i++) {
           const spacing = 210 + layer * 110, x = i * spacing - cam * (0.08 + layer * 0.13) % spacing, base = 600, top = -100 + noise3(i + layer * 34) * 160, col = ["#18343b", "#183c3c", "#163835"][layer];
-          poly8(c, [[x - 40 - layer * 9, base], [x - 14, top], [x + 25, top - 50], [x + 35, base]], col);
+          poly9(c, [[x - 40 - layer * 9, base], [x - 14, top], [x + 25, top - 50], [x + 35, base]], col);
           for (const side of [-1, 1]) for (let j = 0; j < 3; j++) {
             const yy = 80 + j * 120;
-            line9(c, [[x + 7, yy + 80], [x + side * 65, yy], [x + side * 140, yy - 20]], col, 15 + layer * 6);
-            oval9(c, x + side * 95, yy - 30, 120, 55, col);
+            line10(c, [[x + 7, yy + 80], [x + side * 65, yy], [x + side * 140, yy - 20]], col, 15 + layer * 6);
+            oval10(c, x + side * 95, yy - 30, 120, 55, col);
           }
-          if (layer === 2) line9(c, [[x - 2, base], [x + 12, 220]], "#45665b22", 3);
+          if (layer === 2) line10(c, [[x - 2, base], [x + 12, 220]], "#45665b22", 3);
         }
         for (let i = 0; i < 18; i++) {
           const x = i * 95 - cam * 0.27 % 95, y = 470 + noise3(i) * 90;
-          line9(c, [[x, y + 40], [x + 5, y]], "#5c8b7355", 2);
-          oval9(c, x + 5, y, 13, 5, "#90b99a44");
+          line10(c, [[x, y + 40], [x + 5, y]], "#5c8b7355", 2);
+          oval10(c, x + 5, y, 13, 5, "#90b99a44");
           glow10(c, x + 5, y - 2, 20, "#c5e4aa0c");
           if (i % 3 === 0) {
-            line9(c, [[x + 9, 0], [x + 4, 130], [x + 23, 205]], "#71a68a33", 1);
-            for (let j = 0; j < 4; j++) oval9(c, x + 3 + j * 4, 80 + j * 26, 6, 3, "#7eb39933");
+            line10(c, [[x + 9, 0], [x + 4, 130], [x + 23, 205]], "#71a68a33", 1);
+            for (let j = 0; j < 4; j++) oval10(c, x + 3 + j * 4, 80 + j * 26, 6, 3, "#7eb39933");
           }
         }
         for (let i = 0; i < 7; i++) {
@@ -9685,79 +11216,80 @@
           c.lineTo(x + 210, 540);
           c.stroke();
           glow10(c, x + 120, 330, 70, "#f58d3d23");
-          for (let j = 0; j < 5; j++) line9(c, [[x + 90 + j * 14, 230], [x + 90 + j * 14, 440]], "#f6a46028", 4);
+          for (let j = 0; j < 5; j++) line10(c, [[x + 90 + j * 14, 230], [x + 90 + j * 14, 440]], "#f6a46028", 4);
         }
         for (let i = 0; i < 20; i++) {
           const x = (i * 67 + t * 9) % (w + 50), y = 600 - (t * 25 + i * 71) % 650;
-          oval9(c, x, y, 1.5, 2.5, "#ffb67c88");
+          oval10(c, x, y, 1.5, 2.5, "#ffb67c88");
         }
       } else if (b.kind === "reef") {
         for (let i = 0; i < 12; i++) {
           const x = i * 150 - cam * 0.16 % 150;
           c.fillStyle = "#143444";
           c.fillRect(x, 190 + noise3(i) * 100, 45, 500);
-          for (let j = 0; j < 5; j++) line9(c, [[x + 4, 240 + j * 55], [x + 42, 240 + j * 55]], "#2c526155", 3);
+          for (let j = 0; j < 5; j++) line10(c, [[x + 4, 240 + j * 55], [x + 42, 240 + j * 55]], "#2c526155", 3);
         }
         for (let i = 0; i < 30; i++) {
           const x = (i * 83 + Math.sin(t * 0.1 + i) * 25 - cam * 0.08 + w * 4) % w, y = (i * 71 - t * 17 + 6600) % 660;
           c.strokeStyle = "#a4e7ed25";
           c.lineWidth = 1;
           c.beginPath();
-          c.arc(x, y, 3 + noise3(i) * 8, 0, TAU12);
+          c.arc(x, y, 3 + noise3(i) * 8, 0, TAU13);
           c.stroke();
         }
         for (let i = 0; i < 6; i++) {
           const x = (i * 241 + t * 15 - cam * 0.04) % (w + 160) - 80, y = 160 + noise3(i + 20) * 250;
-          poly8(c, [[x - 24, y], [x, y - 8], [x + 30, y], [x, y + 8]], "#9edbe422");
+          poly9(c, [[x - 24, y], [x, y - 8], [x + 30, y], [x, y + 8]], "#9edbe422");
         }
       } else if (b.kind === "storm") {
         for (let i = 0; i < 6; i++) {
           const x = i * 350 - cam * 0.13 % 350, y = 260 + noise3(i) * 180;
-          poly8(c, [[x - 110, y], [x + 110, y], [x + 50, y + 110], [x, y + 160], [x - 55, y + 80]], "#272740");
-          poly8(c, [[x - 110, y], [x - 40, y - 20], [x + 100, y - 15], [x + 110, y]], "#64617e");
+          poly9(c, [[x - 110, y], [x + 110, y], [x + 50, y + 110], [x, y + 160], [x - 55, y + 80]], "#272740");
+          poly9(c, [[x - 110, y], [x - 40, y - 20], [x + 100, y - 15], [x + 110, y]], "#64617e");
           c.fillStyle = "#28273f";
           c.fillRect(x - 13, y - 210, 26, 210);
-          poly8(c, [[x - 32, y - 210], [x, y - 256], [x + 32, y - 210]], "#aaa0bd55");
+          poly9(c, [[x - 32, y - 210], [x, y - 256], [x + 32, y - 210]], "#aaa0bd55");
         }
-        if (Math.sin(t * 0.7) > 0.995) line9(c, [[w * 0.75, -10], [w * 0.7, 130], [w * 0.77, 120], [w * 0.66, 310]], "#eee3ff77", 3);
+        if (Math.sin(t * 0.7) > 0.995) line10(c, [[w * 0.75, -10], [w * 0.7, 130], [w * 0.77, 120], [w * 0.66, 310]], "#eee3ff77", 3);
         for (let i = 0; i < 10; i++) {
           const xx = (i * 181 + t * 70) % (w + 200) - 100;
-          line9(c, [[xx, 120 + i * 47], [xx + 70, 114 + i * 47]], "#d9d2f022", 1);
+          line10(c, [[xx, 120 + i * 47], [xx + 70, 114 + i * 47]], "#d9d2f022", 1);
         }
       } else if (b.kind === "frost") {
         for (let i = 0; i < 8; i++) {
           const x = i * 220 - cam * 0.12 % 220;
-          poly8(c, [[x - 150, 560], [x, 80 + noise3(i) * 130], [x + 170, 560]], "#3b5b6d");
-          poly8(c, [[x, 80 + noise3(i) * 130], [x + 56, 240], [x + 17, 210], [x - 20, 245], [x - 50, 220]], "#a1b9c444");
+          poly9(c, [[x - 150, 560], [x, 80 + noise3(i) * 130], [x + 170, 560]], "#3b5b6d");
+          poly9(c, [[x, 80 + noise3(i) * 130], [x + 56, 240], [x + 17, 210], [x - 20, 245], [x - 50, 220]], "#a1b9c444");
         }
         for (let i = 0; i < 50; i++) {
           const x = (i * 63 + t * (6 + noise3(i) * 14)) % (w + 30), y = (i * 77 + t * 20) % 660;
-          oval9(c, x, y, noise3(i) * 2 + 0.5, noise3(i) * 2 + 0.5, "#e8f7ff66");
+          oval10(c, x, y, noise3(i) * 2 + 0.5, noise3(i) * 2 + 0.5, "#e8f7ff66");
         }
       } else {
         const x = w * 0.6 - cam * 0.025, y = 200;
         glow10(c, x, y, 250, "#ffa0c02a");
-        oval9(c, x, y, 105, 105, "#180f29");
+        oval10(c, x, y, 105, 105, "#180f29");
         c.strokeStyle = "#efa7c455";
         c.lineWidth = 2;
         c.beginPath();
-        c.arc(x, y, 122, 0, TAU12);
+        c.arc(x, y, 122, 0, TAU13);
         c.stroke();
         for (let i = 0; i < 14; i++) {
-          const ang = i * TAU12 / 14 + t * 0.08, xx = x + Math.cos(ang) * 160, yy = y + Math.sin(ang) * 160;
+          const ang = i * TAU13 / 14 + t * 0.08, xx = x + Math.cos(ang) * 160, yy = y + Math.sin(ang) * 160;
           c.save();
           c.translate(xx, yy);
           c.rotate(ang);
-          poly8(c, [[0, -12], [7, 0], [0, 12], [-7, 0]], "#e7a0bc55");
+          poly9(c, [[0, -12], [7, 0], [0, 12], [-7, 0]], "#e7a0bc55");
           c.restore();
         }
         for (let i = 0; i < 12; i++) {
           const xx = i * 170 - cam * 0.2 % 170, yy = 400 + Math.sin(t + i) * 20;
-          poly8(c, [[xx - 30, yy], [xx + 20, yy - 80], [xx + 45, yy + 70], [xx, yy + 110]], "#2a203c");
+          poly9(c, [[xx - 30, yy], [xx + 20, yy - 80], [xx + 45, yy + 70], [xx, yy + 110]], "#2a203c");
         }
       }
     }
     platform(c, p, b, t, g) {
+      if (drawBossPlatform(c, p, t)) return;
       if (g && isTunnel(g)) {
         drawTunnelPlatform(c, p, g.room.biome, t);
         return;
@@ -9769,16 +11301,16 @@
       under.addColorStop(1, "#06101be8");
       c.fillStyle = under;
       c.fillRect(p.x, p.y, p.w, p.h);
-      line9(c, [[p.x, p.y], [p.x + p.w, p.y]], b.color + "55", 3);
+      line10(c, [[p.x, p.y], [p.x + p.w, p.y]], b.color + "55", 3);
       for (let i = 0; i < p.w; i += 42) {
         const xx = p.x + i;
-        line9(c, [[xx, p.y + 10], [xx + noise3(i) * 20, p.y + 34], [xx + 30, p.y + 46]], "#b9d0be0b", 1);
+        line10(c, [[xx, p.y + 10], [xx + noise3(i) * 20, p.y + 34], [xx + 30, p.y + 46]], "#b9d0be0b", 1);
       }
       if (["forest", "sanctuary"].includes(b.kind)) for (let i = 5; i < p.w; i += 14) {
         const xx = p.x + i, hh = 5 + noise3(i) * 10;
-        line9(c, [[xx, p.y], [xx + Math.sin(t * 2 + i) * 3, p.y - hh]], i % 3 === 0 ? "#8ca48066" : "#5d8c7077", 1.5);
+        line10(c, [[xx, p.y], [xx + Math.sin(t * 2 + i) * 3, p.y - hh]], i % 3 === 0 ? "#8ca48066" : "#5d8c7077", 1.5);
       }
-      else if (b.kind === "frost") poly8(c, [[p.x, p.y], [p.x + p.w, p.y], [p.x + p.w - 14, p.y + 10], [p.x + 20, p.y + 8]], "#cce8e788");
+      else if (b.kind === "frost") poly9(c, [[p.x, p.y], [p.x + p.w, p.y], [p.x + p.w - 14, p.y + 10], [p.x + 20, p.y + 8]], "#cce8e788");
     }
     object(c, o, g, t) {
       if (["npc", "merchant"].includes(o.kind)) {
@@ -9790,86 +11322,86 @@
       } else if (drawRPGObject(c, o, g, t)) return;
       const x = o.x, y = o.y ?? 520, col = BIOMES[g.room.biome].color, key = g.roomId + ":" + o.id, used = g.opened.has(key);
       if (o.kind === "camp" || o.kind === "bench") {
-        line9(c, [[x - 27, y], [x - 30, y - 20], [x + 18, y - 26], [x + 31, y - 8], [x + 29, y]], "#776c58", 6);
-        poly8(c, [[x - 33, y - 26], [x - 28, y - 52], [x + 19, y - 52], [x + 27, y - 28]], "#6f7360", "#a5a48566");
-        line9(c, [[x - 26, y - 40], [x + 20, y - 40]], "#3c4a4288", 3);
-        line9(c, [[x + 38, y], [x + 38, y - 80], [x + 22, y - 80]], "#8f9c7e", 2);
-        oval9(c, x + 21, y - 67, 5, 9, "#e2c891");
+        line10(c, [[x - 27, y], [x - 30, y - 20], [x + 18, y - 26], [x + 31, y - 8], [x + 29, y]], "#776c58", 6);
+        poly9(c, [[x - 33, y - 26], [x - 28, y - 52], [x + 19, y - 52], [x + 27, y - 28]], "#6f7360", "#a5a48566");
+        line10(c, [[x - 26, y - 40], [x + 20, y - 40]], "#3c4a4288", 3);
+        line10(c, [[x + 38, y], [x + 38, y - 80], [x + 22, y - 80]], "#8f9c7e", 2);
+        oval10(c, x + 21, y - 67, 5, 9, "#e2c891");
         glow10(c, x + 21, y - 67, 24, "#ead79a28");
-        text(c, "SUPPLY CAMP", x, y - 100, "#bbc1a9", 8);
+        text2(c, "SUPPLY CAMP", x, y - 100, "#bbc1a9", 8);
       } else if (o.kind === "npc") {
         drawNPCAnimation(c, o, g, t, () => {
-          oval9(c, x, y, 20, 6, "#08151e88");
-          poly8(c, [[x - 15, y - 63], [x + 10, y - 62], [x + 23, y - 3], [x - 22, y - 3]], "#d0d6bb", "#263e3d");
-          oval9(c, x, y - 79, 13, 16, "#d9b996");
-          poly8(c, [[x - 18, y - 85], [x - 9, y - 108], [x + 12, y - 106], [x + 20, y - 85]], "#b5c5b9");
-          line9(c, [[x + 22, y - 52], [x + 31, y - 8]], "#c7b783", 3);
-          oval9(c, x + 31, y - 54, 6, 10, "#edd69b");
-          text(c, "PROF. VELL", x, y - 126, "#cbd8c4", 9);
+          oval10(c, x, y, 20, 6, "#08151e88");
+          poly9(c, [[x - 15, y - 63], [x + 10, y - 62], [x + 23, y - 3], [x - 22, y - 3]], "#d0d6bb", "#263e3d");
+          oval10(c, x, y - 79, 13, 16, "#d9b996");
+          poly9(c, [[x - 18, y - 85], [x - 9, y - 108], [x + 12, y - 106], [x + 20, y - 85]], "#b5c5b9");
+          line10(c, [[x + 22, y - 52], [x + 31, y - 8]], "#c7b783", 3);
+          oval10(c, x + 31, y - 54, 6, 10, "#edd69b");
+          text2(c, "PROF. VELL", x, y - 126, "#cbd8c4", 9);
         });
       } else if (o.kind === "workbench") {
         c.fillStyle = "#747e69";
         c.fillRect(x - 40, y - 36, 80, 9);
-        line9(c, [[x - 31, y - 29], [x - 31, y], [x + 30, y], [x + 30, y - 29]], "#555e54", 6);
-        poly8(c, [[x - 15, y - 40], [x - 6, y - 70], [x + 8, y - 70], [x + 25, y - 40]], "#a5a78a");
+        line10(c, [[x - 31, y - 29], [x - 31, y], [x + 30, y], [x + 30, y - 29]], "#555e54", 6);
+        poly9(c, [[x - 15, y - 40], [x - 6, y - 70], [x + 8, y - 70], [x + 25, y - 40]], "#a5a78a");
         glow10(c, x, y - 55, 25, "#ffe6ac33");
-        text(c, "THE MENDER", x, y - 97, "#c8d5bf", 9);
+        text2(c, "THE MENDER", x, y - 97, "#c8d5bf", 9);
       } else if (o.kind === "portal") {
         const active = o.need <= g.fragments.size, cc = BIOMES[o.id].color;
         glow10(c, x, y - 66, 90, active ? cc + "23" : "#77777708");
         c.strokeStyle = active ? cc + "88" : "#526161";
         c.lineWidth = 7;
         c.beginPath();
-        c.ellipse(x, y - 65, 37, 65, 0, Math.PI, TAU12);
+        c.ellipse(x, y - 65, 37, 65, 0, Math.PI, TAU13);
         c.lineTo(x + 37, y);
         c.stroke();
-        line9(c, [[x - 37, y], [x - 37, y - 65]], active ? cc + "88" : "#526161", 7);
+        line10(c, [[x - 37, y], [x - 37, y - 65]], active ? cc + "88" : "#526161", 7);
         for (let i = 0; i < 4; i++) if (active) {
-          const a = t * 0.7 + i * TAU12 / 4;
-          oval9(c, x + Math.cos(a) * 21, y - 60 + Math.sin(a) * 35, 1.5, 1.5, cc);
+          const a = t * 0.7 + i * TAU13 / 4;
+          oval10(c, x + Math.cos(a) * 21, y - 60 + Math.sin(a) * 35, 1.5, 1.5, cc);
         }
-        text(c, BIOMES[o.id].icon, x, y - 46, active ? cc : "#63716f", 23);
-        text(c, String(o.need + 1).padStart(2, "0"), x, y - 150, active ? cc : "#64726e", 10);
+        text2(c, BIOMES[o.id].icon, x, y - 46, active ? cc : "#63716f", 23);
+        text2(c, String(o.need + 1).padStart(2, "0"), x, y - 150, active ? cc : "#64726e", 10);
       } else if (o.kind === "veil") {
         const active = g.abilities.has("blink");
         glow10(c, x, 300, 200, "#d7a5e81b");
         for (let i = 0; i < 8; i++) {
           const xx = x + Math.sin(t * 2 + i) * 8;
-          line9(c, [[xx, 45], [xx + Math.sin(t + i) * 10, 280], [xx, 520]], active ? "#d5a7e75c" : "#d5a7e7bb", 2);
+          line10(c, [[xx, 45], [xx + Math.sin(t + i) * 10, 280], [xx, 520]], active ? "#d5a7e75c" : "#d5a7e7bb", 2);
         }
-        text(c, "RIFT STEP", x, 410, "#e1bfea", 9);
+        text2(c, "RIFT STEP", x, 410, "#e1bfea", 9);
       } else if (o.kind === "lever") {
-        line9(c, [[x - 15, y], [x + 15, y]], "#91a582", 5);
-        line9(c, [[x, y], [x + (used ? 24 : -24), y - 42]], "#cfcea0", 4);
-        oval9(c, x + (used ? 24 : -24), y - 42, 6, 6, used ? "#b4deb0" : "#efd8a0");
+        line10(c, [[x - 15, y], [x + 15, y]], "#91a582", 5);
+        line10(c, [[x, y], [x + (used ? 24 : -24), y - 42]], "#cfcea0", 4);
+        oval10(c, x + (used ? 24 : -24), y - 42, 6, 6, used ? "#b4deb0" : "#efd8a0");
       } else if (o.kind === "door") {
         const defeated = (id) => g.bossDefeated?.(id) || g.fragments.has(id) || g.defeatedBosses?.has(id), locked = o.ability && !g.abilities.has(o.ability) || o.boss && !defeated(o.boss) || o.requiresBoss && !defeated(o.requiresBoss);
-        line9(c, [[x - 26, y], [x - 26, y - 77], [x, y - 103], [x + 26, y - 77], [x + 26, y]], locked ? "#655b70" : "#8caa92", 5);
-        line9(c, [[x - 18, y - 4], [x - 18, y - 72], [x, y - 89], [x + 18, y - 72], [x + 18, y - 4]], col + "44", 1);
+        line10(c, [[x - 26, y], [x - 26, y - 77], [x, y - 103], [x + 26, y - 77], [x + 26, y]], locked ? "#655b70" : "#8caa92", 5);
+        line10(c, [[x - 18, y - 4], [x - 18, y - 72], [x, y - 89], [x + 18, y - 72], [x + 18, y - 4]], col + "44", 1);
         glow10(c, x, y - 47, 46, locked ? "#bd94e622" : col + "18");
-        text(c, locked ? "\u25C7" : "\u224B", x, y - 45, locked ? "#b79ac4" : col, 21);
+        text2(c, locked ? "\u25C7" : "\u224B", x, y - 45, locked ? "#b79ac4" : col, 21);
         if (!locked) for (let i = 0; i < 4; i++) {
           const yy = y - 10 - (t * 19 + i * 21) % 80;
-          oval9(c, x + Math.sin(i * 2 + t) * 12, yy, 1, 1, col + "99");
+          oval10(c, x + Math.sin(i * 2 + t) * 12, yy, 1, 1, col + "99");
         }
       } else if (o.kind === "memory") {
-        line9(c, [[x - 15, y], [x - 12, y - 51], [x + 12, y - 51], [x + 16, y]], "#5d7a71", 4);
-        text(c, "\u224B", x, y - 30, "#b4d8bf", 24);
+        line10(c, [[x - 15, y], [x - 12, y - 51], [x + 12, y - 51], [x + 16, y]], "#5d7a71", 4);
+        text2(c, "\u224B", x, y - 30, "#b4d8bf", 24);
         if (!g.memories.has(key)) glow10(c, x, y - 36, 30, "#caecc02a");
       } else if (o.kind === "cache") {
-        poly8(c, [[x - 24, y - 4], [x - 24, y - 29], [x - 12, y - 43], [x + 19, y - 43], [x + 27, y - 29], [x + 27, y - 4]], used ? "#35483f" : "#8d8c61", "#c7c3a277");
-        line9(c, [[x - 23, y - 24], [x + 24, y - 24]], "#b9bd9177", 2);
+        poly9(c, [[x - 24, y - 4], [x - 24, y - 29], [x - 12, y - 43], [x + 19, y - 43], [x + 27, y - 29], [x + 27, y - 4]], used ? "#35483f" : "#8d8c61", "#c7c3a277");
+        line10(c, [[x - 23, y - 24], [x + 24, y - 24]], "#b9bd9177", 2);
         if (!used) {
           glow10(c, x, y - 23, 25, "#ead49025");
           c.fillStyle = "#ead7a4";
           c.fillRect(x - 3, y - 26, 6, 10);
         }
       } else if (o.kind === "ore" && !used) {
-        for (let i = 0; i < 5; i++) poly8(c, [[x - 30 + i * 12, y], [x - 25 + i * 12, y - 25 - noise3(i) * 22], [x - 8 + i * 12, y]], i % 2 ? col + "88" : "#687b78", col + "66");
+        for (let i = 0; i < 5; i++) poly9(c, [[x - 30 + i * 12, y], [x - 25 + i * 12, y - 25 - noise3(i) * 22], [x - 8 + i * 12, y]], i % 2 ? col + "88" : "#687b78", col + "66");
       } else if (o.kind === "shrine") {
-        poly8(c, [[x - 22, y], [x - 16, y - 48], [x, y - 70], [x + 16, y - 48], [x + 22, y]], "#4e6563", "#93bcb166");
+        poly9(c, [[x - 22, y], [x - 16, y - 48], [x, y - 70], [x + 16, y - 48], [x + 22, y]], "#4e6563", "#93bcb166");
         glow10(c, x, y - 42, 35, g.shrines.has(key) ? "#f9e4aa44" : "#a0dfd01a");
-        text(c, "\u25C7", x, y - 32, g.shrines.has(key) ? "#ffe9b0" : "#80a79c", 25);
+        text2(c, "\u25C7", x, y - 32, g.shrines.has(key) ? "#ffe9b0" : "#80a79c", 25);
       }
     }
     minion(c, e, t) {
@@ -9886,28 +11418,31 @@
       c.scale(e.face, 1);
       if (e.flash) c.globalAlpha = 0.5;
       if (e.kind === "thornling") {
-        for (const side of [-1, 1]) poly8(c, [[0, -20], [side * 34, -65], [side * 30, -15]], "#66896a", col + "99");
-        oval9(c, 0, -28, 19, 23, "#647e61");
-        poly8(c, [[-20, -35], [0, -65], [19, -35]], col);
+        for (const side of [-1, 1]) poly9(c, [[0, -20], [side * 34, -65], [side * 30, -15]], "#66896a", col + "99");
+        oval10(c, 0, -28, 19, 23, "#647e61");
+        poly9(c, [[-20, -35], [0, -65], [19, -35]], col);
       } else if (["ashwing", "stormkite", "inkfin"].includes(e.kind)) {
         const flap = Math.sin(t * 12 + e.id) * 18;
-        for (const side of [-1, 1]) poly8(c, [[0, -20], [side * 55, -60 + flap], [side * 40, -12], [side * 12, -2]], col + "88", col);
-        poly8(c, [[-15, -45], [12, -45], [23, -22], [0, -3], [-17, -20]], "#435167");
+        for (const side of [-1, 1]) poly9(c, [[0, -20], [side * 55, -60 + flap], [side * 40, -12], [side * 12, -2]], col + "88", col);
+        poly9(c, [[-15, -45], [12, -45], [23, -22], [0, -3], [-17, -20]], "#435167");
       } else if (e.kind === "frostmite") {
-        for (let i = 0; i < 5; i++) poly8(c, [[-30 + i * 12, -5], [-24 + i * 12, -35 - i % 2 * 15], [-10 + i * 12, -6]], col + "88", col);
-        for (const s of [-1, 1]) line9(c, [[s * 12, -5], [s * 30, 1]], "#b5cfdf", 3);
+        for (let i = 0; i < 5; i++) poly9(c, [[-30 + i * 12, -5], [-24 + i * 12, -35 - i % 2 * 15], [-10 + i * 12, -6]], col + "88", col);
+        for (const s of [-1, 1]) line10(c, [[s * 12, -5], [s * 30, 1]], "#b5cfdf", 3);
       } else {
         glow10(c, 0, -40, 40, col + "22");
-        poly8(c, [[-19, -16], [-11, -60], [7, -78], [24, -38], [12, -5], [0, -19]], "#8d628d", col);
-        for (let i = 0; i < 4; i++) line9(c, [[-10 + i * 7, -5], [-20 + i * 12, Math.sin(t * 7 + i) * 9]], col + "55", 2);
+        poly9(c, [[-19, -16], [-11, -60], [7, -78], [24, -38], [12, -5], [0, -19]], "#8d628d", col);
+        for (let i = 0; i < 4; i++) line10(c, [[-10 + i * 7, -5], [-20 + i * 12, Math.sin(t * 7 + i) * 9]], col + "55", 2);
       }
-      oval9(c, 5, -32, 3, 4, "#fff0cd");
-      oval9(c, 15, -32, 3, 4, "#fff0cd");
-      if (e.state === "windup") text(c, "!", 0, -83, "#ffce91", 22);
+      oval10(c, 5, -32, 3, 4, "#fff0cd");
+      oval10(c, 15, -32, 3, 4, "#fff0cd");
+      if (e.state === "windup") text2(c, "!", 0, -83, "#ffce91", 22);
       c.restore();
     }
     boss(c, e, t, g) {
-      if (drawArenaBoss(c, e, g?.bossInfo?.(e.boss) || BOSSES[e.boss], t)) return;
+      if (drawArenaBoss(c, e, g?.bossInfo?.(e.boss) || BOSSES[e.boss], t)) {
+        drawBossWeapon(c, e, t);
+        return;
+      }
       if (drawChronicleBoss(c, e, t)) return;
       const b = BOSSES[e.boss], col = b.color;
       if (drawDungeonChampion(c, e, b, t)) return;
@@ -9921,33 +11456,33 @@
       glow10(c, 0, -70, 160, col + (rage ? "22" : "10"));
       if (e.boss === "briar" || e.boss === "hourglass") {
         for (const side of [-1, 1]) {
-          line9(c, [[side * 35, -85], [side * 58, -38], [side * 72, 0]], e.boss === "briar" ? "#607e65" : "#8ca9b6", 15);
-          line9(c, [[side * 20, -132], [side * 40, -200], [side * 73, -242]], col, 7);
-          for (let i = 0; i < 3; i++) line9(c, [[side * (42 + i * 10), -200 - i * 10], [side * (67 + i * 13), -215 - i * 20]], col, 4);
+          line10(c, [[side * 35, -85], [side * 58, -38], [side * 72, 0]], e.boss === "briar" ? "#607e65" : "#8ca9b6", 15);
+          line10(c, [[side * 20, -132], [side * 40, -200], [side * 73, -242]], col, 7);
+          for (let i = 0; i < 3; i++) line10(c, [[side * (42 + i * 10), -200 - i * 10], [side * (67 + i * 13), -215 - i * 20]], col, 4);
         }
-        poly8(c, [[-48, -110], [-22, -151], [34, -140], [60, -91], [24, -48], [-34, -56]], e.boss === "briar" ? "#54745b" : "#536b88", col + "77");
-        oval9(c, 5, -146, 31, 33, e.boss === "briar" ? "#8caa77" : "#bad3db");
-        for (const side of [-1, 1]) oval9(c, side * 13, -153, 4, 7, "#ffebbc");
-        if (e.boss === "briar") for (let i = 0; i < 7; i++) poly8(c, [[-49 + i * 14, -103], [-55 + i * 14, -147 - i % 2 * 15], [-27 + i * 14, -124]], i % 2 ? "#b8c891" : "#7c9c75");
+        poly9(c, [[-48, -110], [-22, -151], [34, -140], [60, -91], [24, -48], [-34, -56]], e.boss === "briar" ? "#54745b" : "#536b88", col + "77");
+        oval10(c, 5, -146, 31, 33, e.boss === "briar" ? "#8caa77" : "#bad3db");
+        for (const side of [-1, 1]) oval10(c, side * 13, -153, 4, 7, "#ffebbc");
+        if (e.boss === "briar") for (let i = 0; i < 7; i++) poly9(c, [[-49 + i * 14, -103], [-55 + i * 14, -147 - i % 2 * 15], [-27 + i * 14, -124]], i % 2 ? "#b8c891" : "#7c9c75");
         else {
           c.strokeStyle = "#e0deb7";
           c.lineWidth = 2;
           c.beginPath();
-          c.arc(4, -144, 40, 0, TAU12);
+          c.arc(4, -144, 40, 0, TAU13);
           c.stroke();
-          line9(c, [[4, -144], [4, -169], [19, -144]], "#e7dcae", 2);
+          line10(c, [[4, -144], [4, -169], [19, -144]], "#e7dcae", 2);
         }
       } else if (e.boss === "bell") {
-        for (const side of [-1, 1]) line9(c, [[side * 27, -38], [side * 47, -4]], "#564455", 16);
-        poly8(c, [[-76, -30], [-53, -83], [-40, -155], [0, -193], [40, -155], [54, -83], [78, -30]], "#866252", "#e2aa7977");
-        line9(c, [[-73, -44], [75, -44]], col, 5);
-        for (let i = 0; i < 5; i++) line9(c, [[-33 + i * 16, -143], [-42 + i * 21, -62]], "#322e3c", 7);
+        for (const side of [-1, 1]) line10(c, [[side * 27, -38], [side * 47, -4]], "#564455", 16);
+        poly9(c, [[-76, -30], [-53, -83], [-40, -155], [0, -193], [40, -155], [54, -83], [78, -30]], "#866252", "#e2aa7977");
+        line10(c, [[-73, -44], [75, -44]], col, 5);
+        for (let i = 0; i < 5; i++) line10(c, [[-33 + i * 16, -143], [-42 + i * 21, -62]], "#322e3c", 7);
         for (const side of [-1, 1]) {
-          line9(c, [[side * 40, -115], [side * 90, -88], [side * 95, -12]], "#b27a59", 17);
-          poly8(c, [[side * 85, -18], [side * 118, -33], [side * 132, -4], [side * 86, 0]], "#57525b", col + "99");
+          line10(c, [[side * 40, -115], [side * 90, -88], [side * 95, -12]], "#b27a59", 17);
+          poly9(c, [[side * 85, -18], [side * 118, -33], [side * 132, -4], [side * 86, 0]], "#57525b", col + "99");
         }
         glow10(c, 0, -108, 40, "#ff8d3f66");
-        oval9(c, 0, -109, 8, 20, "#ffe2a1");
+        oval10(c, 0, -109, 8, 20, "#ffe2a1");
       } else if (e.boss === "leviathan") {
         for (let i = 0; i < 7; i++) {
           const xx = -70 + i * 23;
@@ -9958,39 +11493,39 @@
           c.lineWidth = 13;
           c.stroke();
         }
-        poly8(c, [[-60, -68], [-42, -143], [0, -203], [43, -145], [63, -68], [28, -45], [-25, -45]], "#4c6f96", col + "88");
+        poly9(c, [[-60, -68], [-42, -143], [0, -203], [43, -145], [63, -68], [28, -45], [-25, -45]], "#4c6f96", col + "88");
         for (const side of [-1, 1]) {
-          poly8(c, [[side * 32, -145], [side * 105, -160], [side * 87, -105], [side * 40, -71]], "#597da380", col + "88");
-          oval9(c, side * 18, -115, 7, 11, "#d4f8e4");
+          poly9(c, [[side * 32, -145], [side * 105, -160], [side * 87, -105], [side * 40, -71]], "#597da380", col + "88");
+          oval10(c, side * 18, -115, 7, 11, "#d4f8e4");
         }
-        text(c, "\u224B", 0, -155, "#b1e7e6", 32);
+        text2(c, "\u224B", 0, -155, "#b1e7e6", 32);
       } else if (e.boss === "conductor") {
-        for (const side of [-1, 1]) for (let i = 0; i < 5; i++) poly8(c, [[side * 15, -92], [side * (70 + i * 17), -201 + i * 12 + Math.sin(t * 4) * 8], [side * (88 + i * 14), -145 + i * 10], [side * 35, -42]], i % 2 ? "#85729f" : "#65597e", col + "44");
-        poly8(c, [[-33, -83], [-12, -147], [24, -146], [43, -84], [4, -36]], "#655784", col + "88");
-        oval9(c, 3, -163, 25, 28, "#a296b9");
-        poly8(c, [[-13, -177], [-17, -210], [8, -186], [30, -213], [24, -169]], "#d5c5cf");
-        oval9(c, 14, -161, 4, 6, "#fff0bd");
-        line9(c, [[32, -108], [81, -64], [110, -172]], col, 4);
+        for (const side of [-1, 1]) for (let i = 0; i < 5; i++) poly9(c, [[side * 15, -92], [side * (70 + i * 17), -201 + i * 12 + Math.sin(t * 4) * 8], [side * (88 + i * 14), -145 + i * 10], [side * 35, -42]], i % 2 ? "#85729f" : "#65597e", col + "44");
+        poly9(c, [[-33, -83], [-12, -147], [24, -146], [43, -84], [4, -36]], "#655784", col + "88");
+        oval10(c, 3, -163, 25, 28, "#a296b9");
+        poly9(c, [[-13, -177], [-17, -210], [8, -186], [30, -213], [24, -169]], "#d5c5cf");
+        oval10(c, 14, -161, 4, 6, "#fff0bd");
+        line10(c, [[32, -108], [81, -64], [110, -172]], col, 4);
       } else {
         for (let i = 0; i < 6; i++) {
-          const ang = i * TAU12 / 6 + t * 0.3;
-          line9(c, [[Math.cos(ang) * 30, -110 + Math.sin(ang) * 30], [Math.cos(ang) * 115, -110 + Math.sin(ang) * 115]], col + "55", 3);
-          oval9(c, Math.cos(ang) * 115, -110 + Math.sin(ang) * 115, 6, 6, col + "88");
+          const ang = i * TAU13 / 6 + t * 0.3;
+          line10(c, [[Math.cos(ang) * 30, -110 + Math.sin(ang) * 30], [Math.cos(ang) * 115, -110 + Math.sin(ang) * 115]], col + "55", 3);
+          oval10(c, Math.cos(ang) * 115, -110 + Math.sin(ang) * 115, 6, 6, col + "88");
         }
-        poly8(c, [[-68, -6], [-38, -99], [-32, -174], [0, -205], [33, -176], [37, -101], [70, -6], [22, -34], [0, -9], [-26, -33]], "#684263", col + "88");
-        oval9(c, 0, -156, 23, 27, "#241b36");
-        oval9(c, 0, -155, 11, 15, "#ffe9c0");
-        poly8(c, [[-34, -197], [-47, -235], [-15, -219], [0, -247], [15, -218], [46, -235], [34, -197]], "#b1859b", "#efbece");
+        poly9(c, [[-68, -6], [-38, -99], [-32, -174], [0, -205], [33, -176], [37, -101], [70, -6], [22, -34], [0, -9], [-26, -33]], "#684263", col + "88");
+        oval10(c, 0, -156, 23, 27, "#241b36");
+        oval10(c, 0, -155, 11, 15, "#ffe9c0");
+        poly9(c, [[-34, -197], [-47, -235], [-15, -219], [0, -247], [15, -218], [46, -235], [34, -197]], "#b1859b", "#efbece");
       }
       if (wind) {
         glow10(c, 0, -70, 90, "#ffcc7c33");
-        text(c, "!", 0, -260, "#ffe4a0", 34);
+        text2(c, "!", 0, -260, "#ffe4a0", 34);
       }
       if (rage) {
         c.strokeStyle = col + "55";
         c.lineWidth = 1;
         c.beginPath();
-        c.ellipse(0, -50, 100 + Math.sin(t * 8) * 5, 20, 0, 0, TAU12);
+        c.ellipse(0, -50, 100 + Math.sin(t * 8) * 5, 20, 0, 0, TAU13);
         c.stroke();
       }
       c.restore();
@@ -9999,7 +11534,7 @@
       const a = Math.max(0, e.life / (e.type === "number" ? 35 : 30));
       c.save();
       c.globalAlpha = Math.min(1, a);
-      if (e.type === "number") text(c, e.text, e.x, e.y - (35 - e.life) * 1.2, e.color, 17);
+      if (e.type === "number") text2(c, e.text, e.x, e.y - (35 - e.life) * 1.2, e.color, 17);
       else if (e.type === "slash") {
         c.translate(e.x, e.y);
         c.scale(e.face || 1, 1);
@@ -10013,11 +11548,11 @@
         c.lineWidth = 15;
         c.stroke();
       } else if (["trail", "bossTrail"].includes(e.type)) {
-        if (e.type === "bossTrail") oval9(c, e.x, e.y - 60, 42, 65, e.color + "22");
+        if (e.type === "bossTrail") oval10(c, e.x, e.y - 60, 42, 65, e.color + "22");
       } else if (["land", "jump"].includes(e.type)) {
         for (let i = 0; i < 6; i++) {
           const xx = e.x + (i - 2.5) * (23 - e.life) * 2;
-          oval9(c, xx, e.y - 2 - Math.sin(i) * 5, 3, 2, b.color + "77");
+          oval10(c, xx, e.y - 2 - Math.sin(i) * 5, 3, 2, b.color + "77");
         }
       } else {
         const radius = (35 - e.life) * 2 + 16, col = ["heal", "swap"].includes(e.type) ? "#c9f7c7" : e.type === "mist" ? "#c7a3e9" : b.color;
@@ -10026,11 +11561,11 @@
           c.strokeStyle = col + "99";
           c.lineWidth = 2;
           c.beginPath();
-          c.arc(e.x, e.y, radius * 0.65, 0, TAU12);
+          c.arc(e.x, e.y, radius * 0.65, 0, TAU13);
           c.stroke();
           for (let i = 0; i < 8; i++) {
-            const angle = i * TAU12 / 8;
-            line9(c, [[e.x + Math.cos(angle) * radius * 0.5, e.y + Math.sin(angle) * radius * 0.5], [e.x + Math.cos(angle) * radius, e.y + Math.sin(angle) * radius]], col + "88", 2);
+            const angle = i * TAU13 / 8;
+            line10(c, [[e.x + Math.cos(angle) * radius * 0.5, e.y + Math.sin(angle) * radius * 0.5], [e.x + Math.cos(angle) * radius, e.y + Math.sin(angle) * radius]], col + "88", 2);
           }
         }
       }
@@ -10056,11 +11591,11 @@
       c.strokeStyle = "#b8d4af22";
       c.lineWidth = 1;
       c.beginPath();
-      c.arc(mid, 265, 140, 0, TAU12);
+      c.arc(mid, 265, 140, 0, TAU13);
       c.stroke();
       for (let i = 0; i < 12; i++) {
-        const ang = i * TAU12 / 12 + t * 0.03, x = mid + Math.cos(ang) * 140, y = 265 + Math.sin(ang) * 140;
-        poly8(c, [[x, y - 5], [x + 3, y], [x, y + 5], [x - 3, y]], "#d7e7b466");
+        const ang = i * TAU13 / 12 + t * 0.03, x = mid + Math.cos(ang) * 140, y = 265 + Math.sin(ang) * 140;
+        poly9(c, [[x, y - 5], [x + 3, y], [x, y + 5], [x - 3, y]], "#d7e7b466");
       }
       const positions = [{ x: mid - 105, y: 544, s: 0.83, face: 1 }, { x: mid + 100, y: 552, s: 0.72, face: -1 }, { x: mid + 15, y: 465, s: 0.58, face: 1 }];
       [2, 0, 1].forEach((i) => {
@@ -10070,7 +11605,7 @@
       for (let i = 0; i < 30; i++) {
         const x = noise3(i) * ww, y = 50 + noise3(i + 22) * 480 + Math.sin(t + i) * 8;
         glow10(c, x, y, 6, "#e4ffbc22");
-        oval9(c, x, y, 1, 1, "#e3f8be88");
+        oval10(c, x, y, 1, 1, "#e3f8be88");
       }
       const shade = c.createLinearGradient(0, 0, ww, 0);
       shade.addColorStop(0, "#0b172b88");
@@ -10161,6 +11696,7 @@
   var modal = $("overlay");
   var preview = new RPGCampaign(DEFAULT_PARTY);
   var state = () => game || preview;
+  var bossCounterLabel = (counter) => ({ "get-close": "GET CLOSE", behind: "GET BEHIND", platform: "TAKE HIGH GROUND", dodge: "DASH CLEAR", jump: "JUMP", retreat: "MOVE AWAY", minions: "DEFEAT SUMMONS", shield: "PARRY / SHIELD" })[counter] || "WATCH THE TELL";
   var escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
   function store(s) {
     saved = s;
@@ -10386,8 +11922,8 @@
     if (!modal.open) modal.showModal();
     overlayFocus().focus({ preventScroll: true });
   }
-  function closeOverlay(force = false) {
-    if (game?.phase === "gameover" && !force) return;
+  function closeOverlay(force2 = false) {
+    if (game?.phase === "gameover" && !force2) return;
     if (modal.open) modal.close();
     overlayType = "";
     if (game) {
@@ -10451,15 +11987,15 @@
   }
   function codexHTML(g) {
     const chapter = CHAPTERS[Math.min(g.fragments.size, 5)];
-    return heading("What the world <em>remembers.</em>", `${g.memories.size} field notes \xB7 ${g.shrines.size} lost echoes \xB7 ${g.discovered.size}/${Object.keys(MINIONS).length} wild species`) + `<div class="story-panel"><p class="eyebrow">${g.finished ? "EPILOGUE" : "CURRENT CHAPTER"}</p><h3>${g.finished ? "A family for the Worldheart" : chapter.title}</h3><p>${g.finished ? "The guardians were never your enemies. They were carrying something too heavy to put down. The Worldheart remembers what you did for them." : chapter.story}</p></div><h3 class="minor-heading">COMPANIONS \xB7 ${g.unlocked.size} / 11 FOUND</h3><div class="codex-grid">${ROSTER.map((d) => `<article class="codex-card"><canvas data-portrait="${d.id}" aria-label="${d.name}"></canvas><small>${g.unlocked.has(d.id) ? d.types.join(" / ").toUpperCase() : "RESCUE THIS COMPANION"}</small><h3>${d.name}</h3><p>${d.description}</p><p><em>${d.skill}</em> \xB7 ${d.passive}</p></article>`).join("")}</div><h3 class="minor-heading">GUARDIANS & THEIR MEMORIES</h3><div class="codex-grid">${Object.entries(BOSSES).map(([id, b]) => `<article class="codex-card"><small>${g.bossDefeated(id) ? "MEMORY RESTORED" : "A VOICE STILL LOST"}</small><h3>${b.name}</h3><p>${g.bossDefeated(id) ? b.lore : b.epithet.toLowerCase()}</p></article>`).join("")}</div><h3 class="minor-heading">FIELD BESTIARY</h3><div class="codex-grid">${Object.entries(MINIONS).map(([id, d]) => `<article class="codex-card"><small>${g.discovered.has(id) ? "DISCOVERED \xB7 " + d.types : "UNOBSERVED \xB7 " + d.types}</small><h3>${d.name}</h3><p>${d.hint}</p></article>`).join("")}</div>`;
+    return heading("What the world <em>remembers.</em>", `${g.memories.size} field notes \xB7 ${g.shrines.size} lost echoes \xB7 ${g.discovered.size}/${Object.keys(MINIONS).length} wild species`) + `<div class="story-panel"><p class="eyebrow">${g.finished ? "EPILOGUE" : "CURRENT CHAPTER"}</p><h3>${g.finished ? "A family for the Worldheart" : chapter.title}</h3><p>${g.finished ? "The guardians were never your enemies. They were carrying something too heavy to put down. The Worldheart remembers what you did for them." : chapter.story}</p></div><h3 class="minor-heading">COMPANIONS \xB7 ${g.unlocked.size} / 11 FOUND</h3><div class="codex-grid">${ROSTER.map((d) => `<article class="codex-card"><canvas data-portrait="${d.id}" aria-label="${d.name}"></canvas><small>${g.unlocked.has(d.id) ? d.types.join(" / ").toUpperCase() : "RESCUE THIS COMPANION"}</small><h3>${d.name}</h3><p>${d.description}</p><p><em>${d.skill}</em> \xB7 ${d.passive}</p></article>`).join("")}</div><h3 class="minor-heading">GUARDIANS & THEIR MEMORIES</h3><div class="codex-grid">${Object.entries(BOSSES).map(([id, b]) => `<article class="codex-card"><small>${g.bossDefeated(id) ? "MEMORY RESTORED" : "A VOICE STILL LOST"}</small><h3>${b.name}</h3><p>${g.bossDefeated(id) ? b.lore : b.epithet.toLowerCase()}</p><details class="boss-field-notes"><summary>ATTACK FIELD NOTES</summary><p>${BOSS_ENCOUNTERS[id].identity}</p><ul class="boss-notes">${BOSS_ENCOUNTERS[id].moves.map((m) => `<li><strong>${m.name}</strong><small>${bossCounterLabel(m.counter)}</small><p>${m.hint}</p></li>`).join("")}</ul></details></article>`).join("")}</div><h3 class="minor-heading">FIELD BESTIARY</h3><div class="codex-grid">${Object.entries(MINIONS).map(([id, d]) => `<article class="codex-card"><small>${g.discovered.has(id) ? "DISCOVERED \xB7 " + d.types : "UNOBSERVED \xB7 " + d.types}</small><h3>${d.name}</h3><p>${d.hint}</p></article>`).join("")}</div>`;
   }
   function guideHTML() {
     const rows = [["Shield / timed parry", "HOLD G \xB7 7-frame deflect"], ["Power / cycle / arsenal", "X / Z / H"], ["Uppercut launcher", "W + K \xB7 J J K branches"], ["Aerial plunge", "AIR S + K \xB7 unlock Claw"], ["Run / aim", "A D / W S"], ["Variable-height jump", "SPACE \xB7 release for short hop"], ["Dash / recovery cancel", "SHIFT"], ["Fast three-hit chain", "J \xB7 buffer your next strike"], ["Armor breaker", "K"], ["Directional elemental skill", "W A S D + L / neutral L"], ["Pogo bounce", "Air S + J"], ["Focus heal \xB7 hold still", "HOLD F \xB7 costs 40 FOCUS \xB7 1.2s channel"], ["Drink a flask", "V \xB7 restores 3 hearts"], ["Switch companions", "1 / 2 / 3 \xB7 Q cycles"], ["Interact / craft / enter", "E"], ["Automatic full recovery", "WALK THROUGH A WELLSPRING"], ["Use / cycle tools", "T / C"], ["Grapple to golden anchor", "U \xB7 requires Ember Thread"], ["Map / inventory / journal", "M / I / N"], ["Threefold Resonance Surge", "R \xB7 full gauge required"], ["Chronicle / talents / equipment", "N"], ["Pause", "ESCAPE"]];
     return heading("Learn the <em>rhythm.</em>", "J: 0.2s \xB7 K: 0.6s \xB7 L: 1.5s. Time your follow-ups; each power has its own cooldown. Every hit refills Focus; every quiet moment can restore a heart.") + `<div class="controls-grid">${rows.map(([a, b]) => `<div class="control-row"><span>${a}</span><kbd>${b}</kbd></div>`).join("")}</div><p class="modal-note">Defeat the Briar Matron for wall jumps, Saint Bellows for grappling, the Leviathan for the Tideglass Seal, the Conductor for a double jump, and the Hourglass Stag for Rift Step. Return with new abilities to reach high chambers, buried vaults, and looping shortcuts. The map records explored passages; navigation is yours.</p><button class="secondary" data-overlay="arsenal">KINETIC ARSENAL \xB7 ALL POWERS & COMBAT ROUTES \u2197</button>`;
   }
   function dialogueHTML() {
-    const line10 = dialogue[dialogueIndex] || ["The Worldheart", "Listen."];
-    return `<div class="dialogue-body"><div class="dialogue-sigil">\u2727</div><div><h2 id="overlay-title">${line10[0]}</h2><p>${line10[1]}</p></div></div><div class="dialogue-footer"><span>${String(dialogueIndex + 1).padStart(2, "0")} / ${String(dialogue.length).padStart(2, "0")} &nbsp; \xB7 &nbsp; E / SPACE TO CONTINUE</span><button class="primary" data-dialogue-next>${dialogueIndex === dialogue.length - 1 ? "FOLLOW THE PULSE" : "LISTEN"} <span>\u2192</span></button></div>`;
+    const line11 = dialogue[dialogueIndex] || ["The Worldheart", "Listen."];
+    return `<div class="dialogue-body"><div class="dialogue-sigil">\u2727</div><div><h2 id="overlay-title">${line11[0]}</h2><p>${line11[1]}</p></div></div><div class="dialogue-footer"><span>${String(dialogueIndex + 1).padStart(2, "0")} / ${String(dialogue.length).padStart(2, "0")} &nbsp; \xB7 &nbsp; E / SPACE TO CONTINUE</span><button class="primary" data-dialogue-next>${dialogueIndex === dialogue.length - 1 ? "FOLLOW THE PULSE" : "LISTEN"} <span>\u2192</span></button></div>`;
   }
   function nextDialogue() {
     if (dialogueIndex < dialogue.length - 1) {
@@ -10585,7 +12121,8 @@
       $("boss-name").textContent = g.bossInfo(boss.boss).name;
       $("boss-fill").style.width = boss.hp / boss.maxHp * 100 + "%";
       $("boss-fill").style.background = BOSSES[boss.boss].color;
-      $("boss-phase").textContent = (boss.phase >= 3 ? "PHASE III \xB7 DESPERATION" : boss.phase === 2 ? "PHASE II \xB7 UNBOUND" : "PHASE I \xB7 WATCH THE WINDUP") + (BOSSES[boss.boss].miniboss || BOSSES[boss.boss].mini ? " \xB7 GATE CHAMPION" : "");
+      $("boss-phase").textContent = (boss.phase >= 3 ? "PHASE III" : boss.phase === 2 ? "PHASE II" : "PHASE I") + (boss.moveName ? " \xB7 " + boss.moveName.toUpperCase() : "") + (boss.state === "recover" ? " \xB7 RECOVERING" : boss.counter ? " \xB7 " + bossCounterLabel(boss.counter) : "");
+      $("boss-phase").title = boss.hint || "Watch the windup";
     }
     $("region-title").hidden = g.transition < 20 || g.transition > 95;
     $("region-kicker").textContent = BIOMES[g.room.biome].subtitle.toUpperCase();

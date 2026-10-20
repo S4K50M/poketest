@@ -1,6 +1,7 @@
 import { drawEntityAnimated, drawBossAura, drawNPCAnimation } from './entity-animation.js';
 import { CombatFX } from './combat-fx.js';
 import { drawEnemyMinion } from './enemy-art.js';
+import { drawBossEncounterWorld, drawBossMoveTelegraph, drawBossPlatform, drawBossProjectile, drawBossWeapon } from './boss-encounter-render.js';
 import { drawArenaBoss } from './boss-art.js';
 import {drawChronicleEntity,drawChronicleBoss} from './chronicle-art.js';
 import {drawRPGObject,drawRPGWorld,drawRPGAuras} from './rpg-render.js';
@@ -45,7 +46,8 @@ export class WorldRenderer{
     for(const a of g.room.anchors){line(c,[[a.x,a.y-36],[a.x,a.y]],'#d6b87866',1);glow(c,a.x,a.y,25,'#ffdd932a');poly(c,[[a.x,a.y-9],[a.x+8,a.y],[a.x,a.y+9],[a.x-8,a.y]],'#f8d895');}
     for(const r of g.relics)if(!r.collected){const yy=r.y+Math.sin(t*3+r.x)*6;glow(c,r.x,yy,35,b.color+'30');poly(c,[[r.x,yy-13],[r.x+8,yy],[r.x,yy+13],[r.x-8,yy]],b.color,'#efffe6');}
     for(const z of g.zones){glow(c,z.x,z.y-25,z.radius,z.type==='fire'?'#ff9b3833':z.type==='wind'?'#bfffe128':'#e2d6ff33');for(let i=0;i<9;i++){const xx=z.x+Math.sin(t*4+i)*z.radius*.8;line(c,[[xx,z.y],[xx+10,z.y-18-Math.sin(i+t*6)*10]],z.type==='fire'?'#ffb96d88':'#d0f7ed77',2);}}
-    for(const e of g.enemies)drawDungeonTelegraph(c,{...e,reducedMotion:this.fx.reducedMotion},actorTime);
+    drawBossEncounterWorld(c,g,actorTime);
+    for(const e of g.enemies){const actor={...e,reducedMotion:this.fx.reducedMotion};if(!drawBossMoveTelegraph(c,actor,actorTime))drawDungeonTelegraph(c,actor,actorTime);}
     for(const e of g.enemies){
       const key=e.key??e.id,previous=this.actorHistory.get(key),actor={...e,reducedMotion:this.fx.reducedMotion};
       // Enemy death poses are local presentation state. They never keep a
@@ -75,7 +77,7 @@ export class WorldRenderer{
     if(p.guard||p.fortress){c.strokeStyle='#dce7a4';c.lineWidth=3;c.beginPath();c.arc(p.x,p.y-35,48,-Math.PI*.5,Math.PI*.5);c.stroke();}
     if(g.grapple)line(c,[[p.x,p.y-30],[g.grapple.x,g.grapple.y]],'#ffe2a7',2);
     for(const b of g.projectiles){glow(c,b.x,b.y,23,(b.color||'#c9f4df')+'55');oval(c,b.x,b.y,b.kind==='ice'?14:7,b.kind==='needle'?3:7,b.color||'#c7f7e4');line(c,[[b.x,b.y],[b.x-b.vx*2,b.y-b.vy*2]],b.color||'#c7f7e4',3);}
-    for(const b of g.enemyShots){glow(c,b.x,b.y,18,(b.color||'#fba37c')+'44');poly(c,[[b.x-7,b.y],[b.x,b.y-7],[b.x+7,b.y],[b.x,b.y+7]],b.color||'#fba37c');}
+    for(const b of g.enemyShots){if(drawBossProjectile(c,b,actorTime))continue;glow(c,b.x,b.y,18,(b.color||'#fba37c')+'44');poly(c,[[b.x-7,b.y],[b.x,b.y-7],[b.x+7,b.y],[b.x,b.y+7]],b.color||'#fba37c');}
     for(const wave of g.waves){const col=wave.color||b.color;glow(c,wave.x,510,45,col+'44');poly(c,[[wave.x-26,520],[wave.x-10,481],[wave.x,500],[wave.x+16,465],[wave.x+25,520]],col);}
     for(const hz of g.hazards){
       if(hz.type==='bubble')oval(c,hz.x,hz.y-4,22,8,'#8ddeed77');
@@ -133,6 +135,7 @@ export class WorldRenderer{
     }
   }
   platform(c,p,b,t,g){
+    if(drawBossPlatform(c,p,t))return;
     if(g&&isTunnel(g)){drawTunnelPlatform(c,p,g.room.biome,t);return;}
     c.fillStyle=b.ground;c.fillRect(p.x,p.y,p.w,p.h);const under=c.createLinearGradient(0,p.y,0,p.y+p.h);under.addColorStop(0,'#06131c00');under.addColorStop(1,'#06101be8');c.fillStyle=under;c.fillRect(p.x,p.y,p.w,p.h);
     line(c,[[p.x,p.y],[p.x+p.w,p.y]],b.color+'55',3);
@@ -188,7 +191,7 @@ export class WorldRenderer{
     oval(c,5,-32,3,4,'#fff0cd');oval(c,15,-32,3,4,'#fff0cd');if(e.state==='windup')text(c,'!',0,-83,'#ffce91',22);c.restore();
   }
   boss(c,e,t,g){
-    if(drawArenaBoss(c,e,g?.bossInfo?.(e.boss)||BOSSES[e.boss],t))return;
+    if(drawArenaBoss(c,e,g?.bossInfo?.(e.boss)||BOSSES[e.boss],t)){drawBossWeapon(c,e,t);return;}
     if(drawChronicleBoss(c,e,t))return;
     const b=BOSSES[e.boss],col=b.color;if(drawDungeonChampion(c,e,b,t))return;c.save();c.translate(e.x,e.y);c.scale(e.face,1);if(e.flash)c.globalAlpha=.55;
     const breathe=Math.sin(t*2)*3,wind=e.state==='windup',rage=e.phase>=2;c.translate(0,breathe+(e.state==='recover'?8:0));c.rotate(e.state==='charge'?.1:wind?-.045:0);glow(c,0,-70,160,col+(rage?'22':'10'));
