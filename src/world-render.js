@@ -8,6 +8,7 @@ import { findFighter } from './roster.js';
 import { BIOMES, BOSSES } from './world.js';
 import { MINIONS } from './designs.js';
 import {drawDungeonMinion,drawDungeonChampion,drawDungeonTelegraph} from './dungeon-art.js';
+import {isTunnel,drawTunnelBackdrop,drawTunnelStructure,drawTunnelPlatform,drawRecoverySpring} from './tunnel-render.js';
 const TAU=Math.PI*2;
 const poly=(c,pts,fill,stroke)=>{c.beginPath();pts.forEach(([x,y],i)=>i?c.lineTo(x,y):c.moveTo(x,y));c.closePath();if(fill){c.fillStyle=fill;c.fill();}if(stroke){c.strokeStyle=stroke;c.lineWidth=2;c.stroke();}};
 const oval=(c,x,y,rx,ry,color)=>{c.beginPath();c.ellipse(x,y,Math.max(.1,rx),Math.max(.1,ry),0,0,TAU);c.fillStyle=color;c.fill();};
@@ -24,11 +25,12 @@ export class WorldRenderer{
     const target=Math.max(0,Math.min(g.worldWidth-view,g.player.x-view*.38+g.player.vx*7));
     if(this.lastRoom!==g.roomId){this.camera=target;this.cameraY=Math.min(0,g.player.y-245);this.lastRoom=g.roomId;}this.camera+=(target-this.camera)*.12;this.cameraY+=(Math.min(0,g.player.y-245)-this.cameraY)*.09;
     c.save();c.scale(scale,scale);const impulse=this.fx.camera();c.translate(impulse.x,impulse.y);if(impulse.zoom!==1){c.translate(view/2,330);c.scale(impulse.zoom,impulse.zoom);c.translate(-view/2,-330);}
-    this.backdrop(c,b,view,660,this.camera,t);this.fx.drawAmbient(c,g,this.camera,this.cameraY,view,660,t);
+    if(isTunnel(g))drawTunnelBackdrop(c,g,this.camera,this.cameraY,view,660,t);else this.backdrop(c,b,view,660,this.camera,t);this.fx.drawAmbient(c,g,this.camera,this.cameraY,view,660,t);
     c.save();c.translate(-this.camera,-this.cameraY);
+    if(isTunnel(g))drawTunnelStructure(c,g,this.camera,this.cameraY,view,660,t);
     // Luminous dust lives in the scene instead of following the camera.
     for(let i=0;i<55;i++){const x=noise(i+9)*g.worldWidth,y=70+noise(i+72)*420+Math.sin(t*.5+i)*15;glow(c,x,y,4,b.color+'25');oval(c,x,y,.8,.8,b.color+'99');}
-    for(const p of g.platforms)if(!p.veil)this.platform(c,p,b,t);
+    for(const p of g.platforms)if(!p.veil)this.platform(c,p,b,t,g);
     for(const pit of g.thorns){
       glow(c,pit.x+pit.w/2,pit.y,Math.min(220,pit.w),b.color+'16');
       for(let i=0;i<pit.w;i+=23)poly(c,[[pit.x+i,pit.y+12],[pit.x+i+12,pit.y-20-noise(i)*14],[pit.x+i+23,pit.y+12]],b.color+'55');
@@ -36,6 +38,7 @@ export class WorldRenderer{
     }
     drawRPGWorld(c,g,t);
     for(const o of g.room.objects)this.object(c,o,g,t);
+    for(const spring of g.recoveryPoints||[])drawRecoverySpring(c,spring,t);
     for(const a of g.room.anchors){line(c,[[a.x,a.y-36],[a.x,a.y]],'#d6b87866',1);glow(c,a.x,a.y,25,'#ffdd932a');poly(c,[[a.x,a.y-9],[a.x+8,a.y],[a.x,a.y+9],[a.x-8,a.y]],'#f8d895');}
     for(const r of g.relics)if(!r.collected){const yy=r.y+Math.sin(t*3+r.x)*6;glow(c,r.x,yy,35,b.color+'30');poly(c,[[r.x,yy-13],[r.x+8,yy],[r.x,yy+13],[r.x-8,yy]],b.color,'#efffe6');}
     for(const z of g.zones){glow(c,z.x,z.y-25,z.radius,z.type==='fire'?'#ff9b3833':z.type==='wind'?'#bfffe128':'#e2d6ff33');for(let i=0;i<9;i++){const xx=z.x+Math.sin(t*4+i)*z.radius*.8;line(c,[[xx,z.y],[xx+10,z.y-18-Math.sin(i+t*6)*10]],z.type==='fire'?'#ffb96d88':'#d0f7ed77',2);}}
@@ -70,8 +73,8 @@ export class WorldRenderer{
     for(const e of g.effects)this.effect(c,e,t,b);
     this.fx.drawWorld(c,g,t);
     for(const f of g.combat?.fields||[]){if(!Number.isFinite(f.x))continue;const radius=f.radius||100;c.save();c.globalAlpha=Math.min(.6,f.life/25);c.strokeStyle=f.color||b.color;c.lineWidth=2;c.setLineDash(f.type==='time'?[8,12]:[]);c.beginPath();c.ellipse(f.x,f.y,radius*(.9+Math.sin(t*5)*.04),f.type==='gravity'?radius*.6:35,t*.15,0,TAU);c.stroke();glow(c,f.x,f.y,radius,(f.color||b.color)+'14');c.restore();}
-    const near=g.room.objects.filter(o=>Math.abs(o.x-p.x)<90&&Math.abs((o.y||520)-p.y)<95).sort((x,y)=>Math.abs(x.x-p.x)-Math.abs(y.x-p.x))[0];
-    if(near){const defeated=id=>g.fragments.has(id)||g.defeatedBosses?.has(id),locked=near.need>g.fragments.size||near.ability&&!g.abilities.has(near.ability)||near.boss&&!defeated(near.boss)||near.requiresBoss&&!defeated(near.requiresBoss);text(c,'[ E ]  '+(locked?'SEALED · ':'')+near.name,near.x,(near.y||520)-110,locked?'#b6acbf':'#f6e5bb',11);}
+    const near=g.room.objects.filter(o=>Math.abs(o.x-p.x)<90&&Math.abs((o.y??520)-p.y)<95).sort((x,y)=>Math.abs(x.x-p.x)-Math.abs(y.x-p.x))[0];
+    if(near){const defeated=id=>g.bossDefeated?.(id)||g.fragments.has(id)||g.defeatedBosses?.has(id),locked=near.need>g.fragments.size||near.ability&&!g.abilities.has(near.ability)||near.boss&&!defeated(near.boss)||near.requiresBoss&&!defeated(near.requiresBoss);text(c,'[ E ]  '+(locked?'SEALED · ':'')+near.name,near.x,(near.y??520)-110,locked?'#b6acbf':'#f6e5bb',11);}
     c.restore();
     // Soft foreground silhouette and cinematic light rays.
     const vign=c.createLinearGradient(0,0,0,660);vign.addColorStop(0,'#07101d77');vign.addColorStop(.3,'transparent');vign.addColorStop(.85,'transparent');vign.addColorStop(1,'#040a14bb');c.fillStyle=vign;c.fillRect(0,0,view,660);
@@ -113,7 +116,8 @@ export class WorldRenderer{
       for(let i=0;i<12;i++){const xx=i*170-(cam*.2)%170,yy=400+Math.sin(t+i)*20;poly(c,[[xx-30,yy],[xx+20,yy-80],[xx+45,yy+70],[xx,yy+110]],'#2a203c');}
     }
   }
-  platform(c,p,b,t){
+  platform(c,p,b,t,g){
+    if(g&&isTunnel(g)){drawTunnelPlatform(c,p,g.room.biome,t);return;}
     c.fillStyle=b.ground;c.fillRect(p.x,p.y,p.w,p.h);const under=c.createLinearGradient(0,p.y,0,p.y+p.h);under.addColorStop(0,'#06131c00');under.addColorStop(1,'#06101be8');c.fillStyle=under;c.fillRect(p.x,p.y,p.w,p.h);
     line(c,[[p.x,p.y],[p.x+p.w,p.y]],b.color+'55',3);
     for(let i=0;i<p.w;i+=42){const xx=p.x+i;line(c,[[xx,p.y+10],[xx+noise(i)*20,p.y+34],[xx+30,p.y+46]],'#b9d0be0b',1);}
@@ -122,9 +126,9 @@ export class WorldRenderer{
   }
   object(c,o,g,t){
     if(['npc','merchant'].includes(o.kind)){let drawn=false;drawNPCAnimation(c,o,g,t,()=>{drawn=drawRPGObject(c,o,g,t);});if(drawn)return;}else if(drawRPGObject(c,o,g,t))return;
-    const x=o.x,y=o.y||520,col=BIOMES[g.room.biome].color,key=g.roomId+':'+o.id,used=g.opened.has(key);
-    if(o.kind==='bench'){
-      glow(c,x,y-62,100,'#f4dea92a');line(c,[[x-32,y-14],[x-32,y],[x+30,y],[x+30,y-14]],'#6a7264',7);line(c,[[x-42,y-23],[x+42,y-23]],'#9b9f83',7);line(c,[[x+50,y],[x+50,y-105],[x+28,y-105]],'#a4a78a',3);oval(c,x+27,y-89,8,14,'#fae4b5');glow(c,x+27,y-89,35,'#ffe2a550');
+    const x=o.x,y=o.y??520,col=BIOMES[g.room.biome].color,key=g.roomId+':'+o.id,used=g.opened.has(key);
+    if(o.kind==='camp'||o.kind==='bench'){
+      line(c,[[x-27,y],[x-30,y-20],[x+18,y-26],[x+31,y-8],[x+29,y]],'#776c58',6);poly(c,[[x-33,y-26],[x-28,y-52],[x+19,y-52],[x+27,y-28]],'#6f7360','#a5a48566');line(c,[[x-26,y-40],[x+20,y-40]],'#3c4a4288',3);line(c,[[x+38,y],[x+38,y-80],[x+22,y-80]],'#8f9c7e',2);oval(c,x+21,y-67,5,9,'#e2c891');glow(c,x+21,y-67,24,'#ead79a28');text(c,'SUPPLY CAMP',x,y-100,'#bbc1a9',8);
     }else if(o.kind==='npc'){
       drawNPCAnimation(c,o,g,t,()=>{
       oval(c,x,y,20,6,'#08151e88');poly(c,[[x-15,y-63],[x+10,y-62],[x+23,y-3],[x-22,y-3]],'#d0d6bb','#263e3d');oval(c,x,y-79,13,16,'#d9b996');poly(c,[[x-18,y-85],[x-9,y-108],[x+12,y-106],[x+20,y-85]],'#b5c5b9');line(c,[[x+22,y-52],[x+31,y-8]],'#c7b783',3);oval(c,x+31,y-54,6,10,'#edd69b');text(c,'PROF. VELL',x,y-126,'#cbd8c4',9);});
@@ -142,7 +146,7 @@ export class WorldRenderer{
     }else if(o.kind==='lever'){
       line(c,[[x-15,y],[x+15,y]],'#91a582',5);line(c,[[x,y],[x+(used?24:-24),y-42]],'#cfcea0',4);oval(c,x+(used?24:-24),y-42,6,6,used?'#b4deb0':'#efd8a0');
     }else if(o.kind==='door'){
-      const defeated=id=>g.fragments.has(id)||g.defeatedBosses?.has(id),locked=o.ability&&!g.abilities.has(o.ability)||o.boss&&!defeated(o.boss)||o.requiresBoss&&!defeated(o.requiresBoss);
+      const defeated=id=>g.bossDefeated?.(id)||g.fragments.has(id)||g.defeatedBosses?.has(id),locked=o.ability&&!g.abilities.has(o.ability)||o.boss&&!defeated(o.boss)||o.requiresBoss&&!defeated(o.requiresBoss);
       line(c,[[x-26,y],[x-26,y-77],[x,y-103],[x+26,y-77],[x+26,y]],locked?'#655b70':'#8caa92',5);line(c,[[x-18,y-4],[x-18,y-72],[x,y-89],[x+18,y-72],[x+18,y-4]],col+'44',1);
       glow(c,x,y-47,46,locked?'#bd94e622':col+'18');text(c,locked?'◇':'≋',x,y-45,locked?'#b79ac4':col,21);
       if(!locked)for(let i=0;i<4;i++){const yy=y-10-(t*19+i*21)%80;oval(c,x+Math.sin(i*2+t)*12,yy,1,1,col+'99');}

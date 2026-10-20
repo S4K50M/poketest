@@ -6,12 +6,13 @@ The playable prototype includes:
 
 - **42 rooms across six dimensions**, nine major bosses, twelve minibosses, eleven companions, and nineteen wild species.
 - Branching dungeons, vertical climbs, optional vaults, looping shortcuts, and a discovered-room atlas without route arrows.
-- Three-phase guardians, stronger knockback, scarcer waylights, and committed healing make expeditions dangerous.
+- Three-phase guardians, stronger knockback, scarce automatic Wellsprings, and committed Focus healing make expeditions dangerous.
 - Three active companions that switch mid-fight, healing, crafting, equipment, and exploration tools.
 - Launchers, aerial combos, dash cancels, directional shields, timed parries, boss posture breaks, and visible attack cooldowns.
 - **Twelve combat arts**, with ten unlocked through progression, optional bosses, and companion mastery.
 - Eight quest lines, three permanent covenants, talent trees, hidden history, and multiple endings.
-- Animated Canvas creature rigs, elemental particles, biome ambience, and reduced-motion controls.
+- Enclosed tunnels, cavern walls, stone shelves, biome geology, animated Canvas rigs, and reduced-motion controls.
+- Two or three seeded recovery springs per gate; party wipes revive that gate’s enemies and open Game Over with Retry or Save & Title.
 
 This is a single-player 2D campaign prototype. The original 1v1 arena has been replaced.
 
@@ -30,7 +31,7 @@ You can also open `index.html` directly. Keep the complete `assets/`, `src/`, an
 
 ## Start playing
 
-Choose three companions, begin the expedition, and walk right to Professor Vell. Use **E** to advance dialogue and enter the first portal.
+Choose three companions, begin the expedition, and walk right to Professor Vell. Use **E** to advance dialogue and enter the first portal. Walk into a glowing **Wellspring** to restore every companion and bind your respawn point; camps provide services without healing.
 
 | Input | Action |
 | --- | --- |

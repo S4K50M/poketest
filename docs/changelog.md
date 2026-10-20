@@ -1,5 +1,12 @@
 # Changelog
 
+## Wellsprings, gate resurrection, and tunnels
+
+- Replaced healing benches with utility camps and two or three seeded Wellsprings per gate, placed inside the dungeons. Grounded entry automatically restores party health/Focus and binds the respawn point; each spring works once per attempt. The sanctuary hearth remains reusable.
+- Added persistent Game Over with Retry and Save & Title. A wipe costs 10% of Lumens and reawakens that gate’s enemies, including bosses and minibosses, while preserving story progress and claimed rewards.
+- Split current enemy defeat state from lifetime reward claims so resurrected enemies cannot duplicate first-victory payouts. Saved layouts, spring usage, and pending death survive reload.
+- Replaced exposed floating-shelf scenery with enclosed cave backwalls, ceilings, strata, textured stone shelves, biome geology, and local lighting, preserving traversal collisions.
+
 ## Six dimensions and the descent
 
 - Expanded from 18 to 42 rooms with vertical dungeons, branching high passages, deep vaults, loops, and 24 new story inscriptions. Replaced route arrows with a discovered-room atlas.

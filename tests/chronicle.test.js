@@ -10,7 +10,7 @@ import { playCampaign } from './helpers/campaign-route.js';
 const roundTrip = g => new RPGCampaign(undefined, {save:JSON.parse(JSON.stringify(g.save()))});
 const frames = (g,n) => {for(let i=0;i<n;i++)g.step();};
 
-test('RPG waylight services require a grounded companion within both axes of a bench',()=>{
+test('RPG camp services require a grounded companion within both axes of a station',()=>{
   const g=new RPGCampaign();
   Object.assign(g.player,{x:200,y:520,grounded:true});
   assert(g.atBench());

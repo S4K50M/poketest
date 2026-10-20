@@ -35,6 +35,8 @@ The PORT prefix shown here uses POSIX shell syntax; use your shell’s equivalen
 | `npm run test:rpg` | Run RPG Chromium integration |
 | `npm run test:combat` | Run Momentum Chromium integration |
 | `npm run test:mobile` | Run landscape, rotation, menu, and multitouch integration |
+| `npm run test:echo` | Check nonblocking echo pickups and journal records |
+| `npm run test:recovery` | Check automatic recovery, death penalties, Game Over, and Retry |
 
 npm start does not build first. After editing JavaScript without a watcher, run npm run build before starting or refreshing the game. CSS and HTML are served directly; changing them does not require a JavaScript rebuild.
 
@@ -44,7 +46,8 @@ npm start does not build first. After editing JavaScript without a watcher, run 
 2. Enter the Last Lantern. Walk right with D to meet Professor Vell.
 3. Advance dialogue with E. Move to the first region portal and press E.
 4. Use J/K/L to fight, Space to jump, and Shift to dash. G raises Guard; H explains the new combat routes and arts.
-5. Rest at a waylight to restore the party and set a checkpoint. Open M for the atlas, I for inventory, and N for the chronicle.
+5. Walk into a glowing Wellspring to restore the whole party and set your respawn point automatically. Each gate contains two or three in varied interior locations, not a healing bench at its entrance. Open M for the atlas, I for inventory, and N for the chronicle.
+6. If all three companions fall, Game Over explains the gate-wide enemy revival and 10% Lumen loss. Retry returns to your last activated spring; Save & Title keeps the pending death in your save.
 
 The [gameplay guide](gameplay.md) lists all controls and resources. The [combat guide](combat.md) explains unlocks and defensive timing. Sound starts muted; use the sound button to enable it. Reduced motion is available in the Arsenal.
 

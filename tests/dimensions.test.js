@@ -24,13 +24,17 @@ test('each of the six dimension gates contains a mandatory depth, a sentinel, an
   assert.equal(Object.keys(MINIBOSSES).length,12);
 });
 
-test('waylights are scarce and a party wipe returns to an explicitly kindled refuge',()=>{
-  const rooms=Object.values(ROOMS),benches=rooms.flatMap(r=>r.objects.filter(o=>o.kind==='bench'));
-  assert.equal(benches.length,7,'only the sanctuary and the six gate entries retain base-campaign waylights');
-  assert(benches.length/rooms.length<.2,'most chambers must require an expedition away from free healing');
-  for(const c of CHAPTERS)for(const suffix of ['heart','nexus','descent','ascent','vault'])assert(!ROOMS[c.id+'-'+suffix].objects.some(o=>o.kind==='bench'));
-  const g=new CampaignEngine();g.loadRoom('moss-nexus');g.lumens=100;g.party.forEach(m=>m.hp=0);g.respawn(true);
-  assert.equal(g.roomId,'sanctuary');assert.equal(g.lumens,90);assert(g.party.every(m=>m.hp===m.maxHp));
+test('sitting benches no longer heal and gate recovery is sparse across deeper chambers',()=>{
+  const g=new CampaignEngine(),rooms=Object.values(ROOMS);
+  assert.equal(rooms.flatMap(r=>r.objects.filter(o=>o.kind==='bench')).length,0);
+  for(const ch of CHAPTERS){
+    const points=rooms.filter(r=>r.biome===ch.id).flatMap(r=>g.recoveryForRoom(r.id));
+    assert(points.length>=2&&points.length<=3,'each whole gate has only two or three automatic recovery points');
+    assert(points.every(p=>p.x>400),'recovery is placed inside chambers rather than at every entrance');
+  }
+  g.loadRoom('moss-nexus');g.lumens=100;g.party.forEach(m=>m.hp=0);g.respawn(true);
+  assert.equal(g.phase,'gameover');assert.equal(g.lumens,90);assert(g.retryAfterDeath());
+  assert.equal(g.roomId,'sanctuary');assert(g.party.every(m=>m.hp===m.maxHp));
 });
 
 test('guardians have larger health pools, three phases, and four distinct telegraphed attacks',()=>{

@@ -57,3 +57,37 @@ dialog[open]{animation:menu-arrive .2s ease-out}dialog::backdrop{animation:veil-
 @media(max-width:760px){.dimension-tabs{grid-template-columns:repeat(4,minmax(0,1fr))}.dimension-tab{min-height:70px;padding:8px}.dimension-tab>span{font-size:20px;margin-bottom:6px}.atlas-room-detail{display:block}.atlas-room-detail .secondary{margin-top:12px}.atlas-heading{gap:10px}.atlas-heading h3{font-size:26px}.dungeon-atlas{min-width:0;height:430px}.atlas-room{width:105px}.atlas-room strong{font-size:14px}.atlas-room small{font-size:5px}}
 .atlas-gate{position:absolute;transform:translate(-50%,-50%);width:150px;min-height:78px;padding:10px;text-align:center;border:1px solid var(--gate);background:#14292e;box-shadow:0 0 30px #9cc5940b}.atlas-gate>span{display:block;font-size:24px;color:var(--gate);margin-bottom:6px}.atlas-gate strong{display:block;font:500 19px var(--head)}.atlas-gate small{display:block;font-size:7px;letter-spacing:1px;margin-top:5px;color:#afc4ad}.atlas-gate.sealed{border-style:dashed;opacity:.6}.atlas-gate:hover{background:#2c453c;opacity:1}
 @media(max-width:760px){.atlas-gate{width:115px;min-height:70px;padding:7px}.atlas-gate strong{font-size:15px}.atlas-gate>span{font-size:20px}.atlas-gate small{font-size:6px;letter-spacing:.5px}}
+
+/* A fallen expedition remains visible beneath its final choice. */
+body.game-over #world-canvas{filter:saturate(.45) brightness(.65)}
+#overlay[data-view='gameover']{width:min(820px,94vw);border-color:#b17d7166;background:radial-gradient(ellipse at 50% 15%,#643c4328,transparent 58%),linear-gradient(155deg,#18212b,#0c1720)}
+#overlay[data-view='gameover']::backdrop{background:#050b12c9;backdrop-filter:blur(5px)}
+#overlay[data-view='gameover'] .modal-header{margin-bottom:0;min-height:16px}
+#overlay[data-view='gameover'] .modal-header>.eyebrow{color:#b79b8c;font-size:7px}
+.game-over-panel{position:relative;padding:0 28px 8px;text-align:center}
+.fallen-sigil{position:relative;width:120px;height:105px;margin:4px auto 15px;color:#d4a48a;display:grid;place-items:center}
+.fallen-sigil>span{font-size:75px;line-height:1;text-shadow:0 0 65px #c4815966;transform:rotate(-8deg)}
+.fallen-sigil>i{position:absolute;left:9px;right:9px;top:9px;bottom:9px;border:1px solid #d5ad852e;border-radius:50%;transform:rotate(-22deg)}
+.fallen-sigil>i:nth-of-type(2){inset:23px 0;border-radius:50%;transform:rotate(35deg)}
+.fallen-sigil>i:nth-of-type(3){inset:37px -8px;border-color:#d5ad851c;transform:rotate(-25deg)}
+.game-over-panel>.eyebrow{font-size:8px;color:#b8b39b;letter-spacing:1.8px;line-height:1.6}
+.game-over-panel h2{font:500 65px/.92 var(--head);margin:16px 0 20px;color:#f0e5cf}
+.game-over-panel h2 em{color:#d1ad92}
+.game-over-panel #gameover-description{font-size:12px;line-height:1.8;color:#aab6ad;margin:0 auto 22px}
+.death-costs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;border-top:1px solid #b1977d3b;border-bottom:1px solid #b1977d3b;padding:18px 0;margin:0 0 20px}
+.death-costs>div+div{border-left:1px solid #b1977d29}
+.death-costs b{font:500 30px/1 var(--head);color:#dcc1a1;display:block}
+.death-costs b small{font-size:16px}
+.death-costs span{display:block;color:#a5af9e;font-size:7px;letter-spacing:.9px;margin-top:8px;line-height:1.5}
+.death-return{font-size:7px;letter-spacing:1.4px;color:#839d93;margin:0 0 21px;line-height:1.6}
+.death-return strong{display:block;font:500 23px var(--head);color:#d4d2b8;letter-spacing:0;margin:5px 0}
+.death-return>span{display:block;font-size:10px;letter-spacing:0;color:#98ad9e}
+.death-actions{display:flex;justify-content:center;gap:12px}
+.death-actions>button{min-height:48px;flex:1;max-width:290px;font-size:9px;letter-spacing:1px;padding:13px 17px}
+.death-actions>.primary{background:#b6b78e;color:#11252a}
+.death-actions>.secondary{border-color:#6d817066;color:#c7cdb2}
+.death-key{font-size:7px;letter-spacing:1.3px;color:#718f85;margin-top:17px}
+.atlas-spring-note{display:flex;gap:10px;align-items:center;font-size:10px;line-height:1.7;padding:12px 15px;border:1px solid #9dbf9b33;color:#a7c9b6;background:#5687650c;margin-top:12px}
+.atlas-spring-note>span{font-size:22px;color:#c2e8c2;flex-shrink:0}
+body.recovery-flash #game-screen::after{content:'';position:absolute;inset:0;z-index:4;pointer-events:none;box-shadow:inset 0 0 100px #adf7cf3d,inset 0 0 20px #d4f7c45e;animation:wellspring-wake .9s ease-out forwards}
+@keyframes wellspring-wake{0%{opacity:0}15%{opacity:1}100%{opacity:0}}

@@ -26,7 +26,7 @@ ROOMS['echo-garden'] = {
   anchors: [],
   relics: [],
   objects: [
-    {id: 'bench', kind: 'bench', x: 200, name: 'Garden Waylight'},
+    {id: 'camp', kind: 'camp', x: 200, name: 'Garden Camp'},
     {id: 'return', kind: 'door', x: 95, to: 'sanctuary', name: 'Return'},
   ],
 };
@@ -84,4 +84,10 @@ A content addition should be reachable through real inputs, have a safe way back
 
 Use `map: {x, y}`, `depth`, and `dungeon` on a room to place it in the dimensional atlas. Upper rooms may use negative Y; retain a safe arrival shelf at every door’s destination `spawn: {x,y}`. Use `??` rather than `||` for Y defaults: zero is a valid platform height. Spawns accept `y`, `left`, `right`, and `introX`.
 
-A `requiresBoss` field seals a door or hoard until `bossDefeated(id)` succeeds. Dimensional miniboss definitions use `miniboss: true`; their rewards persist in defeated spawn keys and must never add a main fragment. New deep rooms have no benches. Verify both directions of each connection with real movement and the abilities actually available on first arrival.
+A `requiresBoss` field seals a door or hoard until `bossDefeated(id)` succeeds. Dimensional miniboss definitions use `miniboss: true`; their current victory state uses defeated spawn keys and their first payout is tracked in claimedEnemyRewards; they must never add a main fragment. A gate death can resurrect them without paying that reward again. Do not add healing benches to new deep rooms. Verify both directions of each connection with real movement and the abilities actually available on first arrival.
+
+## Recovery points and tunnel art
+
+[recovery.js](../src/recovery.js) derives two or three Wellsprings per dimension gate from the saved worldSeed. Positions must land on actual reachable shelves and remain away from door arrivals. Add candidates to this layout rather than placing healing camps in every room. Activation is automatic on grounded entry, once per attempt; camp objects provide services only. Nearby springs also support crafting and companion changes even after their healing charge is spent. Verify seed variation, stable reload positions, spent-state persistence, and gate-specific rearming on death.
+
+[tunnel-render.js](../src/tunnel-render.js) builds cave ceilings, backwalls, strata, stone shelves, and recovery basins around existing geometry. Keep decorative rock outside traversable space and collision edges legible. Tunnels must not invent a blocking surface that the simulation lets the player cross. Review climbs, projectile telegraphs, the actor silhouette, and mobile views after changing foreground rock or lighting.

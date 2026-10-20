@@ -44,14 +44,14 @@ test('ore, caches, and lantern shrines give rewards once, including across saves
   g.loadRoom('hidden-grove');Object.assign(g.player,{x:1080,y:220});assert(g.useTool('lantern'));assert.equal(g.shrines.size,1);assert(!g.useTool('lantern'));
   const restored=new CampaignEngine(undefined,{save:JSON.parse(JSON.stringify(g.save()))});assert.equal(restored.shrines.size,1);assert(!restored.useTool('lantern'));assert.equal(restored.inventory.heartwood,g.inventory.heartwood);
 });
-test('crafting is transactional, requires a bench, consumes materials and supports two charm slots',()=>{
+test('crafting is transactional, requires a camp, consumes materials and supports two charm slots',()=>{
   const g=new CampaignEngine();g.inventory.heartwood=10;g.inventory.ember=4;assert(g.craft('fang'));assert.equal(g.inventory.heartwood,6);assert(g.equipped.includes('fang'));assert(!g.craft('fang'));assert(g.craft('thorn'));g.inventory.pearl=3;assert(g.craft('pulse'));assert.equal(g.equipped.length,2);assert(!g.equip('pulse'));assert(g.equip('fang'));assert(g.equip('pulse'));
   g.player.x=450;const before=g.inventory.heartwood;assert(!g.craft('flask'));assert.equal(g.inventory.heartwood,before);g.player.x=200;assert(g.craft('flask'));assert.equal(g.inventory.heartwood,before-2);g.player.x=750;g.lumens=24;assert(g.buyUpgrade());assert.equal(g.upgrades,1);assert.equal(g.lumens,0);assert.equal(g.checkpoint.x,150);
 });
 test('Focus healing and consumable flasks preserve independent companion resources',()=>{
   const g=new CampaignEngine();g.player.hp=2;g.player.spirit=80;g.input('heal');frames(g,71);assert.equal(g.player.hp,2,'healing cannot finish before its full 72-frame channel');g.step();assert.equal(g.player.hp,3);assert(g.player.spirit<41);g.releaseHeal();assert(g.useFlask());assert.equal(g.player.hp,6);assert.equal(g.inventory.flask,2);assert(g.input('slot2'));assert.equal(g.player.hp,g.player.maxHp);assert(!g.useFlask());assert.equal(g.inventory.flask,2);
 });
-test('fast travel requires a discovered destination, a bench, and clear surroundings',()=>{
+test('fast travel requires a discovered destination, a camp, and clear surroundings',()=>{
   const g=new CampaignEngine();assert(!g.fastTravel('frost-path'));g.visited.add('moss-path');g.player.x=470;assert(!g.fastTravel('moss-path'));g.player.x=200;assert(g.fastTravel('moss-path'));assert.equal(g.roomId,'moss-path');assert.equal(g.player.x,300);g.enemies[0].x=400;assert(!g.fastTravel('sanctuary'));
 });
 test('boss rewards are unique, unlock abilities and companions, and survive room reloads',()=>{
@@ -76,15 +76,18 @@ test('every guardian has three phases and four telegraphed attacks with jump, po
   }
   assert.deepEqual([...elementalHazards].sort(),['lightning','root','stasis']);
 });
-test('a wipe returns to the last kindled waylight, resets the living guardian, and retains progression',()=>{
-  const g=new CampaignEngine();g.player.x=200;assert(g.input('interact'));g.loadRoom('forge-heart',270);g.enemies[0].hp=15;g.lumens=100;g.inventory.ember=5;g.abilities.add('claw');g.party.forEach(m=>m.hp=0);g.respawn(true);assert.equal(g.roomId,'sanctuary');assert.equal(g.player.x,200);assert.equal(g.lumens,90);assert.equal(g.inventory.ember,5);assert(g.abilities.has('claw'));assert(g.party.every(m=>m.hp===m.maxHp));g.loadRoom('forge-heart');assert.equal(g.enemies[0].hp,g.enemies[0].maxHp);
+test('a wipe pauses at game over and retry returns to recovery without losing earned progression',()=>{
+  const g=new CampaignEngine();g.loadRoom('forge-heart',270);g.enemies[0].hp=15;g.lumens=100;g.inventory.ember=5;g.abilities.add('claw');g.party.forEach(m=>m.hp=0);g.respawn(true);
+  assert.equal(g.phase,'gameover');assert.equal(g.lumens,90);assert.equal(g.inventory.ember,5);assert(g.abilities.has('claw'));assert(g.party.every(m=>m.hp===0));
+  assert(g.retryAfterDeath());assert.equal(g.roomId,'sanctuary');assert.equal(g.player.x,200);assert(g.party.every(m=>m.hp===m.maxHp));
+  g.loadRoom('forge-heart');assert.equal(g.enemies[0].hp,g.enemies[0].maxHp);
 });
 test('save loading clamps values, rejects invalid parties, and handles partial data without crashing',()=>{
   const g=new CampaignEngine();assert(!g.loadSave(null));assert(!g.loadSave({version:1}));assert(!g.loadSave({version:2,party:[null,null,null],room:'sanctuary'}));assert(!g.loadSave({version:2,party:g.save().party,room:'constructor'}));const s=g.save();s.party[0].hp=-999;s.party[1].spirit=100000;s.lumens=-100;const r=new CampaignEngine(undefined,{save:s});assert.equal(r.party[0].hp,0);assert.equal(r.party[1].spirit,100);assert.equal(r.lumens,0);assert(r.player.hp>0);
   const invalid={...s,party:[s.party[0],s.party[0],s.party[2]]};assert(!g.loadSave(invalid));assert.equal(g.roomId,'sanctuary');
   assert(!g.loadSave({...s,party:[{id:'mycora'},s.party[1],s.party[2]],unlocked:[]}));assert.equal(g.unlocked.size,8);
 });
-for(const id of ['mycora','lumivern','chronowl'])test(`${id} can be rescued, recruited only at a bench, and damage foes with its signature`,()=>{
+for(const id of ['mycora','lumivern','chronowl'])test(`${id} can be rescued, recruited only at a camp, and damage foes with its signature`,()=>{
   const g=new CampaignEngine();g.unlocked.add(id);g.player.x=470;assert(!g.replaceParty(0,id));g.player.x=200;assert(g.replaceParty(0,id));g.loadRoom('moss-path',600);const e=g.enemies[0];e.x=680;e.state='patrol';g.setInputs({});assert(g.input('special'));assert.equal(g.player.spirit,id==='lumivern'?75:79);frames(g,24);assert(e.hp<e.maxHp);assert(g.player.spirit<=100);
 });
 for(const lead of ROSTER.slice(0,8))test(`${lead.name} leads a complete six-biome campaign using real movement, grappling, attacks and party switches`,()=>{

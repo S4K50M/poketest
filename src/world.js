@@ -134,15 +134,18 @@ for(const [i,ch]of CHAPTERS.entries()){
 ROOMS['hidden-grove'].map={x:0,y:-2};
 ROOMS['star-observatory'].map={x:1,y:-3};
 export const DIALOGUES={
-  mender:[['Ash, the Mender','I used to mend cages. Vell taught me to mend bridges instead. Strange how the same hands can do both.'],['Ash, the Mender','Take the high path over the furnace. Jump toward a wall, then Space again to climb. Every bench can shape your materials into charms.']],
+  mender:[['Ash, the Mender','I used to mend cages. Vell taught me to mend bridges instead. Strange how the same hands can do both.'],['Ash, the Mender','Take the high path over the furnace. Jump toward a wall, then Space again to climb. Camps can shape your materials into charms. Springs restore your party when you walk through their light.']],
   archivist:[['The Paper Archivist','I have been looking for the last page for a hundred years. It says: “A living heart cannot belong to a kingdom.”'],['The Paper Archivist','Golden anchors remember the old roads. Press U when one is above you. Chain your grapples across the drowned stacks.']],
 
   vell:[
     ['Professor Vell','Once, the Worldheart joined every creature to every living thing. Then the sky cracked. The roads vanished. And the heart fell silent.'],
     ['Professor Vell','But you brought three little heartbeats here. I can hear the forest answering them. Follow that pulse into the Mourningwild.'],
     ['Professor Vell','A / D to run. Space to jump. Shift to dash. J for quick strikes; K breaks armor. Hold F, standing still, to heal with Focus. A hit restores Focus.'],
-    ['Professor Vell','Switch your companions with 1 / 2 / 3 or Q. Their health and Focus are separate. E opens doors and rests at benches. M opens your map. I opens your pack.'],
+    ['Professor Vell','Switch your companions with 1 / 2 / 3 or Q. Their health and Focus are separate. E opens doors and camp services. Walk into a glowing spring to recover automatically. M opens your map. I opens your pack.'],
   ],
 };
 export const DEFAULT_PARTY=['pyrojaw','voltantis','zephyrix'];
 export const SAVE_KEY='kinetic-worldheart-v2';
+
+// Camps offer equipment and travel services; healing is supplied by seeded springs.
+for(const room of Object.values(ROOMS))for(const object of room.objects)if(object.kind==='bench'){object.kind='camp';object.name='Wayfarer’s Camp';}

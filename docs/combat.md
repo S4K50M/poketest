@@ -28,7 +28,7 @@ Power rushes share the finite aerial dash budget. Companion signature skills rem
 
 All eleven playable rigs now articulate anticipation, contact, recovery, running, airborne movement, shielding, casting and recoil. Every boss and minion receives state-based action/death animation; bosses add phase energy, ground runes and posture cues. Travelers breathe, look toward the player and animate books or accessories. Layered biome particles, elemental impact sparks, dash trails, camera impulses and animated interface feedback complete the presentation. **Reduced motion**, in the Arsenal, removes camera shake and softens flashes; the browser’s preference is used for a new journey.
 
-Version-4 saves retain the existing `kinetic-worldheart-v2` key and migrate both v2 and v3 progress. They add equipped arts, selected slot, motion preference and combat statistics. Action/art cooldowns and shared recovery now persist; midfight poses, fields and Flow are transient; loading returns to the saved room checkpoint as before.
+Version-4 saves retain the existing `kinetic-worldheart-v2` key and migrate both v2 and v3 progress. They add equipped arts, selected slot, motion preference and combat statistics. Action/art cooldowns and shared recovery now persist; midfight poses, fields and Flow are transient; normal loading returns to the saved room checkpoint. A pending death instead reopens Game Over until Retry; the [save guide](save-format.md) describes seeded recovery and gate resurrection.
 
 ## Attack cadence and anti-spam rules
 

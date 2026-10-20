@@ -8,7 +8,7 @@ There are **42 rooms, six dimensions, nine major bosses, twelve minibosses, 11 c
 
 | Region | Places | Guardian | Ability / rescue |
 | --- | --- | --- | --- |
-| Sanctuary | The Last Lantern | — | Professor Vell, six portals, workbench, waylight |
+| Sanctuary | The Last Lantern | — | Professor Vell, six portals, workbench, reusable recovery hearth |
 | Mourningwild | The Rootway, Matron’s Bower, Hidden Grove | Briar Matron | Root Claw wall jump; Mycora |
 | Cinder Cathedral | Pilgrim’s Furnace, Bellows Altar | Saint Bellows | Ember Thread grapple |
 | Drowned Archive | Sunken Stacks, Ink Chamber | Ink Leviathan | Tideglass Seal; Lumivern |
@@ -16,11 +16,11 @@ There are **42 rooms, six dimensions, nine major bosses, twelve minibosses, 11 c
 | Pale Meridian | Stillwood, Last Second | Hourglass Stag | Rift Step; Chronowl |
 | Hollow Crown | Unwritten Road, Heart Below | Hollow Sovereign | Final memory and two endings |
 
-The sanctuary connects the chapters. Each restored fragment opens another portal. Each gate road leads through a vertical descent and a warden court before its guardian. High passages and vaults branch from these chambers and reconnect through shortcuts; the original hidden branches reward returning after new abilities awaken. The atlas records discoveries and offers fast travel between discovered waylights.
+The sanctuary connects the chapters. Each restored fragment opens another portal. Each gate road leads through a vertical descent and a warden court before its guardian. High passages and vaults branch from these chambers and reconnect through shortcuts; the original hidden branches reward returning after new abilities awaken. The atlas records discovered passages, recovery springs, and utility camps. Activated springs and camps support fast travel without a health refill.
 
-Traversal includes a lever-operated rootbridge, wall climbing, furnace gaps, grapple crossings, moving sky platforms, a high frozen ascent, and a physical violet veil that only an awakened dash can cross. Benches, the workbench, story inscriptions, travelers, material caches, ore veins, and hidden shrines all have interactions.
+Traversal includes a lever-operated rootbridge, wall climbing, furnace gaps, grapple crossings, moving sky platforms, a high frozen ascent, and a physical violet veil that only an awakened dash can cross. Camps, the workbench, story inscriptions, travelers, material caches, ore veins, and hidden shrines all have interactions. Wellsprings activate automatically when entered.
 
-Room counts include the sanctuary, 12 original main-route rooms, 24 new dungeon chambers, and the five original optional rooms. Ten waylights remain: the sanctuary, the six gate roads, and the three forbidden dungeons. The six biome count excludes the sanctuary palette.
+Room counts include the sanctuary, 12 original main-route rooms, 24 new dungeon chambers, and the five original optional rooms. Each gate contains two or three seeded Wellsprings in its interior chambers; the sanctuary also has a reusable hearth. Former benches are utility camps rather than healing points. The six biome count excludes the sanctuary palette.
 
 ```mermaid
 flowchart TD
@@ -37,7 +37,7 @@ flowchart TD
   Frost --> Cradle[Cradle Zero · Storm Wings + chronicle gates]
 ```
 
-The hub portals unlock in chapter order through the six main fragments. Optional guardians use a separate defeated-boss set; defeating them cannot skip main portal gates. The atlas shows discovered destinations. Fast travel requires a nearby waylight on the same ground, a destination with a waylight, and no nearby living threat.
+The hub portals unlock in chapter order through the six main fragments. Optional guardians use a separate defeated-boss set; defeating them cannot skip main portal gates. The atlas shows discovered destinations. Fast travel requires a nearby service point on the same ground, a discovered destination camp or activated spring, and no nearby living threat. It does not heal the party or bind a new respawn spring.
 
 ## Optional chronicle
 
@@ -49,7 +49,7 @@ The sanctuary has seen ninety-nine expeditions. Iona’s living map knows every 
 
 Choose among the Lantern Compact (+1 party heart), the Drowned Choir (+20% Focus on direct hits), and the Unwritten (shorter dash recovery). The oath is permanent for that expedition. Each offers a different answer to the Worldheart’s fate; completing its stories improves its epilogue. The true endings follow the optional arc, beyond the original two main-campaign endings. Completing Pip’s story lets you carry the blank egg; after the true ending it hatches into a small familiar that assists nearby fights.
 
-Cradle Zero also requires victories over Belltwin and Palimpsest and a sworn covenant to enter through its branch. The Nullheart stays sealed until the Hollow Sovereign has also been defeated. Each optional dungeon has its own waylight, inscriptions, travelers, rewards, and a return route.
+Cradle Zero also requires victories over Belltwin and Palimpsest and a sworn covenant to enter through its branch. The Nullheart stays sealed until the Hollow Sovereign has also been defeated. Each optional dungeon has a utility camp, inscriptions, travelers, rewards, and a return route. Recovery springs are budgeted across the whole gate rather than guaranteed at each dungeon entrance.
 
 The eight quest definitions, prerequisites, objectives, and rewards live in [chronicle.js](../src/chronicle.js). The three optional guardians are registered through [rpg-world.js](../src/rpg-world.js), while their combat behavior lives in [rpg.js](../src/rpg.js).
 
@@ -102,4 +102,10 @@ Each dimension now has four deeper chambers: a vertical descent, a warden court,
 | Pale Meridian | A stolen tomorrow waits inside the second that never ended | 185-pixel climbs demanding earned double jumps |
 | Hollow Crown | The first cage held the creature that would become your family | Long broken ascents, vault loops, and awakened traversal |
 
-The atlas shows room connections as you discover them, with depth labels and current position. A waylight icon marks actual rest locations; discovering an ordinary room does not enable fast travel there. The prototype expands exploration substantially; its scale remains smaller than a full commercial metroidvania.
+The atlas shows room connections as you discover them, with depth labels and current position. Wellspring markers distinguish unused and spent recovery points, and camp markers identify utility services. Discovering an ordinary room does not enable fast travel there. The prototype expands exploration substantially; its scale remains smaller than a full commercial metroidvania.
+
+## Tunnel presentation and gate death
+
+Outside the sanctuary, chambers are enclosed by layered rock walls, irregular ceilings, arches, and textured shelves attached to receding stone strata. Roots, volcanic masonry, flooded limestone, storm ruins, ice, and rift basalt give the six dimensions distinct geology. Foreground detail and local light preserve readable collision edges; the platforming physics are unchanged.
+
+A party wipe reawakens the enemies throughout the current dimension, including the gate’s minibosses and guardians. Your recovered story fragments and abilities remain unlocked, and repeated victories do not duplicate unique loot or first-victory rewards. The Game Over screen shows the penalty before you retry from the last activated spring.

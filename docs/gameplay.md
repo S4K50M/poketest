@@ -4,7 +4,7 @@
 
 ## First expedition
 
-Choose three distinct companions and begin at the Last Lantern. Move toward Professor Vell, use E to read the opening dialogue, and enter the Mourningwild portal. Restore guardian fragments to open the next chapter. Benches restore the party and establish checkpoints. M opens the atlas; N opens quests, talents, equipment, bonds, covenants, and history.
+Choose three distinct companions and begin at the Last Lantern. Move toward Professor Vell, use E to read the opening dialogue, and enter the Mourningwild portal. Restore guardian fragments to open the next chapter. Walking into a glowing Wellspring automatically restores every companion’s health and Focus and binds your respawn point. Camps provide utility services without healing. M opens the atlas; N opens quests, talents, equipment, bonds, covenants, and history.
 
 ## Controls
 
@@ -26,10 +26,10 @@ Choose three distinct companions and begin at the Last Lantern. Move toward Prof
 | F, held while still | Channel one heart for 40 Focus over 72 frames |
 | V | Drink a Bramble Flask; restore three hearts |
 | 1 / 2 / 3, or Q | Switch among the three active companions |
-| E | Talk, rest, read, open a cache, pull a lever, enter a door |
+| E | Talk, use camp services, read, open a cache, pull a lever, enter a door |
 | U | Grapple toward a nearby golden anchor after unlocking Ember Thread |
 | T / C | Use / cycle the Resonance Pick and Echo Lantern |
-| B | Buy a party-wide Heartwood upgrade near a waylight |
+| B | Buy a party-wide Heartwood upgrade near a service point |
 | M / I / N | Atlas / inventory and crafting / RPG chronicle |
 | R | Threefold Resonance Surge, when its gauge reaches 100% |
 | Escape | Pause |
@@ -38,7 +38,7 @@ Mobile screens require landscape. Portrait shows a rotate prompt on the home scr
 
 ## Party and survival
 
-Each companion keeps independent hearts, Focus, and signature state; repeat attack cooldowns apply across the party. Switching preserves location, velocity, debuffs, and spent air resources. It cannot refill jumps or grant free invulnerability. A knocked-out companion yields to a living partner. A full party wipe revives the party at the last kindled waylight, resets surviving guardians to full health, and loses 10% of Lumens.
+Each companion keeps independent hearts, Focus, and signature state; repeat attack cooldowns apply across the party. Switching preserves location, velocity, debuffs, and spent air resources. It cannot refill jumps or grant free invulnerability. A knocked-out companion yields to a living partner. A full party wipe opens **Game Over**, loses 10% of Lumens, and revives enemies throughout the gate where you died, including its bosses and minibosses. Other gates stay unchanged. Retry restores the party at your last activated Wellspring. Story milestones, abilities, and claimed unique rewards remain yours; revived enemies cannot pay their first-victory rewards again.
 
 The eight supplied identities retain their different anatomy and elemental skills: the quadrupedal magma gator, mantis-wasp, glacier yeti, cloud griffin, rock beetle, shadow jackal, natural nose-lance shark, and chrome dragon. The new companions use separate deer, moth, and owl rigs:
 
@@ -52,9 +52,9 @@ Minions include shell enemies that need a heavy hit, static grubs that punish cl
 
 Defeating creatures and finding echoes awards Bond XP and Lumens. Bond levels improve party health and damage. Caches and ore provide regional materials; the Resonance Pick breaks ore and the Echo Lantern reveals hidden shrine rewards. Rewards persist across room changes and cannot be collected twice.
 
-Craft flasks and four charms at benches or the Mender’s Workbench. Equip two charms: Feral Fang improves damage, Wellspring improves Focus regeneration, Swift Feather improves running and grapple range, and Briar Heart retaliates when hit. Heartwood forging offers three party-wide upgrades. Companions can be replaced only near a bench or workbench.
+Craft flasks and four charms near camps, the Mender’s Workbench, or Wellsprings, including spent springs. Equip two charms: Feral Fang improves damage, Wellspring improves Focus regeneration, Swift Feather improves running and grapple range, and Briar Heart retaliates when hit. Heartwood forging offers three party-wide upgrades. Companion changes require a service point. Changing companions and traveling between camps do not supply a free heal.
 
-The original campaign save records party health, progression, inventory, charms, discoveries, claimed rewards, defeated creatures, story notes, endings, and a room checkpoint. Reloading starts at that checkpoint; it does not preserve the exact midair position or a guardian’s partial health. Autosaves happen during play and at room changes, rewards, resting, crafting, and leaving. An older arena save is not used by the new campaign.
+The original campaign save records party health, progression, inventory, charms, discoveries, claimed rewards, defeated creatures, story notes, endings, and a room checkpoint. Reloading starts at that checkpoint; it does not preserve the exact midair position or a guardian’s partial health. Autosaves happen during play and at room changes, rewards, spring activation, crafting, death, and leaving. A saved pending death reopens Game Over after continuing. An older arena save is not used by the new campaign.
 
 J, K, and L have shared-party repeat cooldowns of 0.2s, 0.6s, and 1.5s. Arts have individual timers plus shared cast recovery; Surge requires its gauge and a 15s cooldown. Time your next input rather than repeatedly tapping. Cooldowns survive swaps and reloads; the HUD and touch controls show remaining time.
 
@@ -82,4 +82,8 @@ For exact timing and art unlocks, see the [combat reference](combat.md). For che
 
 Each of the six sanctuary gates leads through a road, a vertical descent, and a warden court to the guardian’s chamber. Optional high passages and buried vaults branch off this route. The high passage loops back toward the gate; the vault has a stronger optional reaver and a sealed hoard. Read local inscriptions and use M to inspect discovered connections. There are no directional route arrows. Later descents require precise double jumps; air dashes and grapple anchors help control crossings. Double jump does not bypass the court’s guardian seal.
 
-Ten waylights remain across 42 rooms: one in the sanctuary, one at each of the six gate roads, and one in each forbidden dungeon. Guardian chambers and the 24 new deep rooms have none. Rest with E to bind the checkpoint. A fall costs a heart and returns to the current room entry or local rested bench. A party wipe revives the party at the **last kindled waylight**, removes 10% of Lumens, and resets a surviving guardian’s health. Main and forbidden guardian victories award one flask without fully healing the party; dimensional minibosses award materials instead. Base healing requires 72 uninterrupted frames and 40 Focus.
+Each dimension gate is one level and contains **two or three Wellsprings**, distributed among its interior chambers. Their locations vary with a new expedition’s saved world seed and remain stable across reloads. Enter the light while grounded to fully restore all three companions and Focus, with no E press or sitting animation. A spring works once per attempt; remaining beside it cannot repeatedly heal you. Death rearms the springs in that gate. The sanctuary hearth is reusable when you leave and return.
+
+Camps replace the old healing benches. They support preparation and travel, but never refill health or change your respawn spring. Crossing a door changes the local fall checkpoint, not the last activated spring. A nonlethal fall costs a heart and returns to that local checkpoint. If the party is wiped, **Game Over** holds the simulation until you choose **Retry** or **Save & Title**. Retry returns to the last activated spring; a save made on Game Over still requires that choice after reload.
+
+Main and forbidden guardian victories award one flask without fully healing the party; dimensional minibosses award materials instead. Base Focus healing still requires 72 uninterrupted frames and 40 Focus. The new cave walls, ceilings, rock shelves, roots, masonry, and local lighting change the dungeon presentation without changing these traversal rules.

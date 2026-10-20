@@ -351,17 +351,21 @@
   ROOMS["hidden-grove"].map = { x: 0, y: -2 };
   ROOMS["star-observatory"].map = { x: 1, y: -3 };
   var DIALOGUES = {
-    mender: [["Ash, the Mender", "I used to mend cages. Vell taught me to mend bridges instead. Strange how the same hands can do both."], ["Ash, the Mender", "Take the high path over the furnace. Jump toward a wall, then Space again to climb. Every bench can shape your materials into charms."]],
+    mender: [["Ash, the Mender", "I used to mend cages. Vell taught me to mend bridges instead. Strange how the same hands can do both."], ["Ash, the Mender", "Take the high path over the furnace. Jump toward a wall, then Space again to climb. Camps can shape your materials into charms. Springs restore your party when you walk through their light."]],
     archivist: [["The Paper Archivist", "I have been looking for the last page for a hundred years. It says: \u201CA living heart cannot belong to a kingdom.\u201D"], ["The Paper Archivist", "Golden anchors remember the old roads. Press U when one is above you. Chain your grapples across the drowned stacks."]],
     vell: [
       ["Professor Vell", "Once, the Worldheart joined every creature to every living thing. Then the sky cracked. The roads vanished. And the heart fell silent."],
       ["Professor Vell", "But you brought three little heartbeats here. I can hear the forest answering them. Follow that pulse into the Mourningwild."],
       ["Professor Vell", "A / D to run. Space to jump. Shift to dash. J for quick strikes; K breaks armor. Hold F, standing still, to heal with Focus. A hit restores Focus."],
-      ["Professor Vell", "Switch your companions with 1 / 2 / 3 or Q. Their health and Focus are separate. E opens doors and rests at benches. M opens your map. I opens your pack."]
+      ["Professor Vell", "Switch your companions with 1 / 2 / 3 or Q. Their health and Focus are separate. E opens doors and camp services. Walk into a glowing spring to recover automatically. M opens your map. I opens your pack."]
     ]
   };
   var DEFAULT_PARTY = ["pyrojaw", "voltantis", "zephyrix"];
   var SAVE_KEY = "kinetic-worldheart-v2";
+  for (const room of Object.values(ROOMS)) for (const object of room.objects) if (object.kind === "bench") {
+    object.kind = "camp";
+    object.name = "Wayfarer\u2019s Camp";
+  }
 
   // src/designs.js
   var DESIGNS = {
@@ -922,6 +926,10 @@
     { id: "ora", kind: "merchant", talk: "ora", x: 610, name: "Ora, the Relic Peddler" },
     { id: "covenant-stone", kind: "covenant", x: 825, name: "The Covenant Stone" }
   );
+  for (const room of Object.values(ROOMS)) for (const object of room.objects) if (object.kind === "bench") {
+    object.kind = "camp";
+    object.name = "Wayfarer\u2019s Camp";
+  }
 
   // src/roster.js
   var ROSTER = [
@@ -2669,6 +2677,36 @@
     }
   };
 
+  // src/recovery.js
+  var random = (seed3) => () => {
+    seed3 = Math.imul(seed3, 1664525) + 1013904223 >>> 0;
+    return seed3 / 4294967296;
+  };
+  var point = (id, room, x, y = 520) => ({ id, room, x, y, name: "Wellspring of Remembrance" });
+  var HUB_RECOVERY = Object.freeze(point("sanctuary:hearth", "sanctuary", 200));
+  var validSeed = (value) => Number.isInteger(value) && value > 0 && value <= 4294967295;
+  var newWorldSeed = () => 1 + Math.floor(Math.random() * 4294967294);
+  function recoveryLayout(seed3) {
+    const points = [{ ...HUB_RECOVERY }];
+    for (const [index, ch] of CHAPTERS.entries()) {
+      const pick = random((seed3 ^ Math.imul(index + 1, 2654435761)) >>> 0), id = ch.id;
+      const shelves = ROOMS[id + "-descent"].platforms.filter((p) => p.y < 520 && !p.moving);
+      const shelf = shelves[1 + Math.floor(pick() * Math.min(3, shelves.length - 1))];
+      points.push(point(id + ":climb", id + "-descent", shelf.x + shelf.w * 0.5, shelf.y));
+      points.push(point(id + ":court", id + "-nexus", pick() < 0.5 ? 1460 : 1550));
+      if (pick() < 0.5) {
+        const upper = pick() < 0.5;
+        points.push(upper ? point(id + ":secret", id + "-ascent", pick() < 0.5 ? 565 : 680, -750) : point(id + ":secret", id + "-vault", pick() < 0.5 ? 1210 : 2760));
+      }
+    }
+    return points;
+  }
+  function recoverySavePoint(value, points) {
+    if (!value || !Object.hasOwn(ROOMS, value.room)) return { ...HUB_RECOVERY };
+    const found = points.find((p) => p.room === value.room && (value.id === p.id || Math.abs(value.x - p.x) < 2 && Math.abs(value.y - p.y) < 2));
+    return found ? { id: found.id, room: found.room, x: found.x, y: found.y } : { ...HUB_RECOVERY };
+  }
+
   // src/difficulty.js
   var clamp4 = (n, a, b) => Math.max(a, Math.min(b, n));
   var DUNGEON_HEAL = Object.freeze({ frames: 72, cost: 40, amount: 1 });
@@ -2877,7 +2915,13 @@
       this.grapple = null;
       this.landing = 0;
       this.tutorial = 0;
-      this.safeRest = { room: "sanctuary", x: 200, y: 520 };
+      this.worldSeed = validSeed(options.worldSeed) ? options.worldSeed : newWorldSeed();
+      this.spentRecovery = /* @__PURE__ */ new Set();
+      this.discoveredRecovery = /* @__PURE__ */ new Set();
+      this.claimedEnemyRewards = /* @__PURE__ */ new Set();
+      this.respawnedEnemies = /* @__PURE__ */ new Set();
+      this.death = null;
+      this.safeRest = { ...HUB_RECOVERY };
       this.combat = new CombatDirector(this);
       this.loadRoom("sanctuary", 150, false);
       if (options.save) this.loadSave(options.save);
@@ -2888,6 +2932,12 @@
         room: this.roomId,
         checkpoint: { ...this.checkpoint },
         safeRest: { ...this.safeRest },
+        worldSeed: this.worldSeed,
+        spentRecovery: [...this.spentRecovery],
+        discoveredRecovery: [...this.discoveredRecovery],
+        claimedEnemyRewards: [...this.claimedEnemyRewards],
+        respawnedEnemies: [...this.respawnedEnemies],
+        death: this.death ? structuredClone(this.death) : null,
         party: this.party.map((m) => ({ id: m.data.id, hp: m.hp, maxHp: m.maxHp, spirit: m.spirit })),
         activeSlot: this.activeSlot,
         level: this.level,
@@ -2933,9 +2983,17 @@
         return { data, maxHp, hp: finite(m.hp, 0, maxHp, maxHp), spirit: finite(m.spirit, 0, 100, 100), skillCooldown: 0 };
       });
       this.activeSlot = Math.floor(finite(s.activeSlot, 0, 2));
-      if (!this.party.some((m) => m.hp > 0)) this.restoreParty();
-      if (!this.party[this.activeSlot].hp) this.activeSlot = this.party.findIndex((m) => m.hp > 0);
+      const pendingDeath = s.death && Object.hasOwn(ROOMS, s.death.room) && ROOMS[s.death.room].biome === s.death.gate;
+      if (!this.party.some((m) => m.hp > 0) && !pendingDeath) this.restoreParty();
+      if (!this.party[this.activeSlot].hp && this.party.some((m) => m.hp > 0)) this.activeSlot = this.party.findIndex((m) => m.hp > 0);
       for (const key of ["visited", "opened", "defeated", "memories", "shrines"]) this[key] = list(key);
+      this.claimedEnemyRewards = /* @__PURE__ */ new Set([...this.defeated, ...list("claimedEnemyRewards")]);
+      this.respawnedEnemies = list("respawnedEnemies", (key) => Object.values(ROOMS).some((r) => r.enemies.some((e, n) => r.id + ":" + n === key)));
+      this.worldSeed = validSeed(s.worldSeed) ? s.worldSeed : this.worldSeed;
+      this._recoveryLayout = null;
+      const recoveryIds = new Set(this.allRecovery().map((p) => p.id));
+      this.spentRecovery = list("spentRecovery", (id) => recoveryIds.has(id));
+      this.discoveredRecovery = /* @__PURE__ */ new Set([...this.spentRecovery, ...list("discoveredRecovery", (id) => recoveryIds.has(id))]);
       this.discovered = list("discovered", (x) => !!MINIONS[x]);
       for (const key of Object.keys(this.inventory)) this.inventory[key] = Math.floor(finite(s.inventory?.[key], 0, 999, 0));
       this.inventory.pickaxe = 1;
@@ -2947,9 +3005,18 @@
       this.finished = !!s.finished;
       this.ending = ["restore", "release"].includes(s.ending) ? s.ending : null;
       for (const key of Object.keys(this.stats)) this.stats[key] = finite(s.stats?.[key], 0, 99999999);
-      const rest = s.safeRest, restRoom = rest && Object.hasOwn(ROOMS, rest.room) ? ROOMS[rest.room] : null, bench = restRoom?.objects.find((o) => o.kind === "bench" && Math.abs(o.x - rest.x) < 2 && Math.abs((o.y ?? 520) - rest.y) < 2);
-      this.safeRest = bench ? { room: rest.room, x: bench.x, y: bench.y ?? 520 } : { room: "sanctuary", x: 200, y: 520 };
+      this.safeRest = recoverySavePoint(s.safeRest, this.allRecovery());
       this.loadRoom(s.room, { x: finite(s.checkpoint?.x, 60, ROOMS[s.room].width - 60, 150), y: finite(s.checkpoint?.y, -2400, 520, 520) }, false);
+      if (pendingDeath) {
+        this.death = { gate: s.death.gate, room: s.death.room, returnTo: recoverySavePoint(s.death.returnTo, this.allRecovery()), lostLumens: finite(s.death.lostLumens, 0, 99999), restoredEnemies: finite(s.death.restoredEnemies, 0, 999) };
+        this.phase = "gameover";
+        this.paused = true;
+        this.party.forEach((m) => m.hp = 0);
+        this.player.respawning = 1;
+      } else {
+        this.death = null;
+        this.phase = "playing";
+      }
       return true;
     }
     loadRoom(id, spawn = 150, persist = true) {
@@ -2963,8 +3030,8 @@
       this.visited.add(id);
       this.enemies = this.room.enemies.map((spec, n) => {
         const boss = spec.boss && BOSSES[spec.boss], d = MINIONS[spec.kind], key = id + ":" + n;
-        const health = boss ? bossHealth(boss) : Math.round(d.hp * (1.25 + (spec.elite ? 0.35 : 0))), cleared = this.defeated.has(key) || spec.boss && this.fragments.has(spec.boss), floor3 = spec.y ?? 520;
-        return { id: n, key, kind: spec.kind, boss: spec.boss, x: spec.x, y: floor3, baseY: floor3, homeY: floor3, home: spec.x, hp: cleared ? 0 : health, maxHp: health, face: -1, state: "patrol", timer: 70, flash: 0, stun: 0, vx: 0, slow: 0, flipped: 0, left: spec.left ?? Math.max(60, spec.x - (boss ? 500 : 240)), right: spec.right ?? Math.min(this.worldWidth - 60, spec.x + (boss ? 500 : 240)), introX: spec.introX ?? spec.x - 640, pattern: 0, phase: 1, rewarded: !!cleared };
+        const health = boss ? bossHealth(boss) : Math.round(d.hp * (1.25 + (spec.elite ? 0.35 : 0))), cleared = this.defeated.has(key) || spec.boss && this.fragments.has(spec.boss) && !this.respawnedEnemies.has(key), floor3 = spec.y ?? 520;
+        return { id: n, key, kind: spec.kind, boss: spec.boss, x: spec.x, y: floor3, baseY: floor3, homeY: floor3, home: spec.x, hp: cleared ? 0 : health, maxHp: health, face: -1, state: "patrol", timer: 70, flash: 0, stun: 0, vx: 0, slow: 0, flipped: 0, left: spec.left ?? Math.max(60, spec.x - (boss ? 500 : 240)), right: spec.right ?? Math.min(this.worldWidth - 60, spec.x + (boss ? 500 : 240)), introX: spec.introX ?? spec.x - 640, pattern: 0, phase: 1, rewarded: !!cleared || this.claimedEnemyRewards.has(key) };
       });
       this.relics = this.room.relics.map((r) => ({ ...r, collected: this.opened.has(r.id) }));
       this.bell = { x: -5e3, y: 430, r: 24, flash: 0 };
@@ -2982,6 +3049,8 @@
       this.cancelHeal();
       Object.assign(p, { x: arrival.x, y: arrival.y, vx: 0, vy: 0, grounded: true, jumpCount: 0, jumpBuffer: 0, dash: 0, dashCooldown: 0, wall: 0, wallLock: 0, attack: null, airDashes: 0, respawning: 0, slow: 0, root: 0, slick: 0, burn: 0, guard: 0, armor: 0, fortress: false, specialHeld: false, skillVector: null, invul: 30 });
       for (const o of this.room.objects) if (o.kind === "lever" && this.opened.has(id + ":" + o.id)) this.platforms.push({ ...o.bridge });
+      this.recoveryPoints = this.recoveryForRoom(id);
+      this._insideRecovery = new Set(this.recoveryPoints.filter((r) => Math.abs(r.x - arrival.x) < 46 && Math.abs(r.y - arrival.y) < 24).map((r) => r.id));
       this.combat?.reset();
       this.checkpoint = { ...arrival };
       this.transition = 100;
@@ -3081,6 +3150,7 @@
         this.effects.push({ type: "land", x: this.player.x, y: this.player.y, life: 20 });
         this.emit("land");
       }
+      this.updateRecovery();
       if (this.grapple) {
         const p = this.player, g = this.grapple, dx = g.x - p.x, dy = g.y - p.y, len = Math.hypot(dx, dy);
         p.x += dx * 0.18;
@@ -3164,9 +3234,16 @@
       return ok;
     }
     awardEnemy(e) {
-      if (e.rewarded) return;
+      if (e.rewarded) {
+        this.defeated.add(e.key);
+        this.respawnedEnemies.delete(e.key);
+        this.save();
+        return;
+      }
       super.awardEnemy(e);
       this.defeated.add(e.key);
+      this.claimedEnemyRewards.add(e.key);
+      this.respawnedEnemies.delete(e.key);
       const ch = CHAPTERS.find((c) => c.id === this.room.biome);
       if (ch) this.inventory[BOSSES[ch.boss].material]++;
       if (e.boss && BOSSES[e.boss].miniboss) {
@@ -3197,24 +3274,109 @@
       }
       this.save();
     }
+    allRecovery() {
+      return this._recoveryLayout ?? (this._recoveryLayout = recoveryLayout(this.worldSeed));
+    }
+    recoveryForRoom(id) {
+      return this.allRecovery().filter((p) => p.room === id).map((p) => ({ ...p, used: p.id !== HUB_RECOVERY.id && this.spentRecovery.has(p.id) }));
+    }
+    updateRecovery() {
+      if (this.phase !== "playing" || this.player.respawning) return;
+      const p = this.player, inside = /* @__PURE__ */ new Set();
+      for (const r of this.recoveryPoints) {
+        if (!p.grounded || Math.abs(r.x - p.x) >= 46 || Math.abs(r.y - p.y) >= 24) continue;
+        inside.add(r.id);
+        if (this._insideRecovery?.has(r.id) || r.used) continue;
+        this.restoreParty();
+        this.safeRest = { id: r.id, room: r.room, x: r.x, y: r.y };
+        this.checkpoint = { x: r.x, y: r.y };
+        this.discoveredRecovery.add(r.id);
+        if (r.id !== HUB_RECOVERY.id) {
+          this.spentRecovery.add(r.id);
+          r.used = true;
+        }
+        this.effects.push({ type: "heal", x: r.x, y: r.y - 30, life: 45 });
+        this.say("WELLSPRING AWAKENED \xB7 PARTY FULLY RESTORED \xB7 CHECKPOINT SAVED");
+        this.save();
+        this.emit("recovery", { id: r.id, room: r.room });
+      }
+      this._insideRecovery = inside;
+    }
+    atBench() {
+      const p = this.player;
+      return !!(p.grounded && (this.room.objects.some((o) => ["camp", "workbench"].includes(o.kind) && Math.abs(p.x - o.x) < 110 && Math.abs(p.y - (o.y ?? 520)) < 55) || this.recoveryPoints.some((r) => Math.abs(p.x - r.x) < 110 && Math.abs(p.y - r.y) < 55)));
+    }
     respawn(wipe = false) {
-      const before = this.stats.wipes;
-      super.respawn(wipe);
+      if (this.phase === "gameover") return;
+      const lethalFall = !wipe && this.player.hp <= 1 && !this.party.some((m, i) => i !== this.activeSlot && m.hp > 0);
+      if (wipe || lethalFall) {
+        this.stats.falls++;
+        this.beginGameOver();
+        return;
+      }
+      super.respawn(false);
       this.combat?.reset();
       this.grapple = null;
-      if (this.stats.wipes > before) {
-        const rest = this.safeRest || { room: "sanctuary", x: 200, y: 520 };
-        this.loadRoom(rest.room, { x: rest.x, y: rest.y }, false);
-        this.player.respawning = 30;
-        this.player.invul = 60;
-        this.say("PARTY FALLEN \xB7 RETURNED TO THE LAST KINDLED WAYLIGHT \xB7 10% LUMENS LOST");
-      }
       for (const e of this.enemies) if (e.hp > 0 && e.boss) {
         e.hp = e.maxHp;
         e.phase = 1;
         e.pattern = 0;
       }
       this.save();
+    }
+    beginGameOver() {
+      if (this.phase === "gameover") return;
+      const gate = this.room.biome, room = this.roomId, before = this.lumens;
+      this.stats.wipes++;
+      this.lumens = Math.floor(this.lumens * 0.9);
+      let restoredEnemies = 0;
+      for (const r of Object.values(ROOMS)) if (r.biome === gate) {
+        r.enemies.forEach((spec, n) => {
+          const key = r.id + ":" + n;
+          if (this.defeated.has(key) || spec.boss && this.bossDefeated(spec.boss)) this.claimedEnemyRewards.add(key);
+          this.defeated.delete(key);
+          this.respawnedEnemies.add(key);
+          restoredEnemies++;
+        });
+        for (const key of [...this.defeated]) if (key.startsWith(r.id + ":event:")) this.defeated.delete(key);
+      }
+      for (const r of this.allRecovery()) if (ROOMS[r.room].biome === gate) this.spentRecovery.delete(r.id);
+      this.phase = "gameover";
+      this.paused = true;
+      this.party.forEach((m) => m.hp = 0);
+      this.cancelHeal();
+      this.combat.reset();
+      this.grapple = null;
+      this.setInputs({});
+      Object.assign(this.player, { respawning: 1, invul: 0, vx: 0, vy: 0, attack: null, dash: 0, specialHeld: false, fortress: false, guard: 0, armor: 0 });
+      this.projectiles = [];
+      this.enemyShots = [];
+      this.waves = [];
+      this.hazards = [];
+      this.zones = [];
+      this.effects = [];
+      this.decoy = null;
+      this.skillStrike = null;
+      this.enemies = [];
+      this.death = { gate, room, returnTo: { ...this.safeRest }, lostLumens: before - this.lumens, restoredEnemies };
+      this.recoveryPoints = this.recoveryForRoom(room);
+      this.save();
+      this.emit("gameover", structuredClone(this.death));
+    }
+    retryAfterDeath() {
+      if (this.phase !== "gameover" || !this.death) return false;
+      const rest = recoverySavePoint(this.death.returnTo, this.allRecovery());
+      this.death = null;
+      this.phase = "playing";
+      this.paused = false;
+      this.restoreParty();
+      this.loadRoom(rest.room, { x: rest.x, y: rest.y }, false);
+      this.safeRest = rest;
+      this.player.respawning = 30;
+      this.player.invul = 60;
+      this.save();
+      this.emit("retry");
+      return true;
     }
     bossDefeated(id) {
       return this.fragments.has(id) || this.defeatedBosses?.has(id) || Object.values(ROOMS).some((r) => r.enemies.some((e, n) => e.boss === id && this.defeated.has(r.id + ":" + n)));
@@ -3249,20 +3411,12 @@
       if (near.kind === "npc") {
         const chapter = CHAPTERS[Math.min(this.fragments.size, 5)];
         this.storyStage = Math.max(1, this.storyStage);
-        this.showDialogue(this.fragments.size ? [["Professor Vell", chapter.story], ["Professor Vell", "The sanctuary remembers every companion you rescue. Change your party at a bench, craft at the workbench, and follow the new portal."]] : DIALOGUES.vell);
+        this.showDialogue(this.fragments.size ? [["Professor Vell", chapter.story], ["Professor Vell", "The sanctuary remembers every companion you rescue. Change your party at a camp, craft at the workbench, and follow the new portal."]] : DIALOGUES.vell);
         return true;
       }
-      if (near.kind === "bench") {
-        if (this.enemies.some((e) => e.hp > 0 && Math.abs(e.x - p.x) < 220 && Math.abs(e.y - p.y) < 160)) {
-          this.say("WAYLIGHT UNSAFE \xB7 CLEAR NEARBY CREATURES FIRST");
-          return false;
-        }
-        this.safeRest = { room: this.roomId, x: near.x, y: near.y ?? 520 };
-        this.checkpoint = { x: near.x, y: near.y ?? 520 };
-        this.restoreParty();
-        this.say("WAYLIGHT KINDLED \xB7 PARTY RESTORED \xB7 PROGRESS SAVED");
-        this.emit("bench");
-        this.save();
+      if (near.kind === "camp") {
+        this.say("WAYFARER\u2019S CAMP \xB7 EQUIPMENT & CRAFTING \xB7 FIND A WELLSPRING TO RECOVER");
+        this.emit("workbench");
         return true;
       }
       if (near.kind === "workbench") {
@@ -3399,8 +3553,8 @@
       return true;
     }
     buyUpgrade() {
-      if (!this.player.grounded || !this.room.objects.some((o) => ["bench", "workbench"].includes(o.kind) && Math.abs(this.player.x - o.x) < 110 && Math.abs(this.player.y - (o.y ?? 520)) < 60)) {
-        this.say("RETURN TO A WAYLIGHT OR THE MENDER\u2019S WORKBENCH");
+      if (!this.atBench()) {
+        this.say("RETURN TO A CAMP, WELLSPRING, OR THE MENDER\u2019S WORKBENCH");
         return false;
       }
       if (this.upgrades >= 3) {
@@ -3424,9 +3578,9 @@
       return true;
     }
     craft(id) {
-      const atBench = this.room.objects.some((o) => ["workbench", "bench"].includes(o.kind) && Math.abs(this.player.x - o.x) < 110 && Math.abs(this.player.y - (o.y ?? 520)) < 50);
+      const atBench = this.atBench();
       if (!atBench) {
-        this.say("CRAFT AT A WORKBENCH OR WAYLIGHT BENCH");
+        this.say("CRAFT AT A CAMP, WELLSPRING, OR WORKBENCH");
         return false;
       }
       const cost = id === "flask" ? { heartwood: 2 } : CHARMS[id]?.cost;
@@ -3459,38 +3613,36 @@
     }
     replaceParty(slot, id) {
       if (!Number.isInteger(slot) || slot < 0 || slot > 2 || !this.unlocked.has(id) || this.party.some((m) => m.data.id === id)) return false;
-      if (!this.room.objects.some((o) => ["bench", "workbench"].includes(o.kind) && Math.abs(this.player.x - o.x) < 110)) {
-        this.say("CHANGE COMPANIONS AT A WAYLIGHT BENCH");
+      if (!this.atBench()) {
+        this.say("CHANGE COMPANIONS AT A CAMP OR WELLSPRING");
         return false;
       }
       const data = findFighter(id), maxHp = data.maxHp + this.level - 1 + this.upgrades;
-      this.party[slot] = { data, maxHp, hp: maxHp, spirit: 100, skillCooldown: 0 };
+      const previous = this.party[slot];
+      this.party[slot] = { data, maxHp, hp: Math.min(maxHp, previous.hp), spirit: previous.spirit, skillCooldown: previous.skillCooldown };
       this.save();
       this.emit("switch");
       return true;
     }
     fastTravel(id) {
-      if (id !== "sanctuary" && !this.visited.has(id)) {
-        this.say("DISCOVER THIS WAYLIGHT BEFORE TRAVELING");
+      if (!Object.hasOwn(ROOMS, id) || id !== "sanctuary" && !this.visited.has(id)) {
+        this.say("DISCOVER THIS CAMP BEFORE TRAVELING");
         return false;
       }
       if (this.enemies.some((e) => e.hp > 0 && Math.abs(e.x - this.player.x) < 600)) {
         this.say("CLEAR NEARBY ENEMIES BEFORE TRAVELING");
         return false;
       }
-      if (!this.room.objects.some((o) => o.kind === "bench" && Math.abs(o.x - this.player.x) < 110)) {
-        this.say("REST AT A WAYLIGHT BENCH TO FAST TRAVEL");
+      if (!this.atBench()) {
+        this.say("REACH A CAMP OR WELLSPRING TO FAST TRAVEL");
         return false;
       }
-      const bench = ROOMS[id]?.objects.find((o) => o.kind === "bench");
-      if (!bench) {
-        this.say("NO WAYLIGHT IN THIS CHAMBER");
+      const spring = this.recoveryForRoom(id).find((r) => this.discoveredRecovery.has(r.id)), camp2 = ROOMS[id].objects.find((o) => o.kind === "camp"), arrival = spring || camp2;
+      if (!arrival) {
+        this.say("NO DISCOVERED CAMP OR WELLSPRING IN THIS CHAMBER");
         return false;
       }
-      this.restoreParty();
-      const arrival = { x: bench.x, y: bench.y ?? 520 };
-      this.safeRest = { room: id, ...arrival };
-      return this.loadRoom(id, arrival);
+      return this.loadRoom(id, { x: arrival.x, y: arrival.y ?? 520 });
     }
     finishEnding(choice) {
       if (!this.finished || !["restore", "release"].includes(choice)) return false;
@@ -3641,7 +3793,7 @@
     }
     snapshot() {
       const s = super.snapshot();
-      return { ...s, mode: "campaign", combat: this.combat.snapshot(), room: this.roomId, roomName: this.room.name, biome: this.room.biome, chapter: CHAPTERS[Math.min(this.fragments.size, 5)].title, abilities: [...this.abilities], fragments: [...this.fragments], unlocked: [...this.unlocked], visited: [...this.visited], inventory: { ...this.inventory }, charms: [...this.charms], equipped: [...this.equipped], memories: [...this.memories], shrines: [...this.shrines], combo: this.combo, finished: this.finished, ending: this.ending, playtime: this.playtime, enemies: this.enemies.map((e) => ({ id: e.id, boss: e.boss, kind: e.kind, hp: e.hp, maxHp: e.maxHp, state: e.state, x: e.x, y: e.y, phase: e.phase })), nearby: this.room.objects.filter((o) => Math.abs(o.x - this.player.x) < 100).map((o) => o.id) };
+      return { ...s, mode: "campaign", worldSeed: this.worldSeed, recoveryPoints: this.recoveryPoints.map((r) => ({ ...r })), spentRecovery: [...this.spentRecovery], discoveredRecovery: [...this.discoveredRecovery], death: this.death ? structuredClone(this.death) : null, safeRest: { ...this.safeRest }, combat: this.combat.snapshot(), room: this.roomId, roomName: this.room.name, biome: this.room.biome, chapter: CHAPTERS[Math.min(this.fragments.size, 5)].title, abilities: [...this.abilities], fragments: [...this.fragments], unlocked: [...this.unlocked], visited: [...this.visited], inventory: { ...this.inventory }, charms: [...this.charms], equipped: [...this.equipped], memories: [...this.memories], shrines: [...this.shrines], combo: this.combo, finished: this.finished, ending: this.ending, playtime: this.playtime, enemies: this.enemies.map((e) => ({ id: e.id, boss: e.boss, kind: e.kind, hp: e.hp, maxHp: e.maxHp, state: e.state, x: e.x, y: e.y, phase: e.phase })), nearby: this.room.objects.filter((o) => Math.abs(o.x - this.player.x) < 100).map((o) => o.id) };
     }
   };
 
@@ -3768,7 +3920,7 @@
       if (s.party.some((m) => m.hp > 0)) this.party.forEach((m, i) => {
         if (Number.isFinite(s.party[i].hp)) m.hp = clamp6(s.party[i].hp, 0, m.maxHp);
       });
-      if (!this.player.hp) this.activeSlot = this.party.findIndex((m) => m.hp > 0);
+      if (!this.player.hp && this.phase !== "gameover") this.activeSlot = this.party.findIndex((m) => m.hp > 0);
       this.acceptAutostartQuests();
       this.refreshKnowledge();
       this.combat.load(s.combat);
@@ -3799,27 +3951,21 @@
       return result;
     }
     atBench() {
-      const p = this.player;
-      return !!(p.grounded && this.room.objects.some((o) => ["bench", "workbench"].includes(o.kind) && Math.abs(p.x - o.x) < 110 && Math.abs(p.y - (o.y ?? 520)) < 55));
+      return super.atBench();
     }
     fastTravel(id) {
-      if (!this.atBench()) {
-        this.say("REACH A WAYLIGHT ON THE SAME GROUND TO TRAVEL");
-        return false;
-      }
-      if (!ROOMS[id]?.objects.some((o) => o.kind === "bench")) {
-        this.say("THIS PLACE HAS NO WAYLIGHT \xB7 USE ITS DOOR");
-        return false;
-      }
       return super.fastTravel(id);
     }
     replaceParty(slot, id) {
       if (!this.atBench()) {
-        this.say("REST AT A WAYLIGHT TO CHANGE COMPANIONS");
+        this.say("REACH A CAMP OR WELLSPRING TO CHANGE COMPANIONS");
         return false;
       }
-      const ok = super.replaceParty(slot, id);
-      if (ok) this.applyFactionBoon();
+      const hp = this.party[slot]?.hp, ok = super.replaceParty(slot, id);
+      if (ok) {
+        this.applyFactionBoon();
+        this.party[slot].hp = Math.min(this.party[slot].hp, hp);
+      }
       return ok;
     }
     runMultiplier() {
@@ -3871,7 +4017,7 @@
       } finally {
         this.rewardSource = previousSource;
       }
-      if (this.enemies !== frameEnemies || this.player.respawning) return;
+      if (this.enemies !== frameEnemies || this.player.respawning || this.phase !== "playing") return;
       if (this.rpgReady && e.hp < hp && !options.dot) {
         const before = this.bondRank(owner);
         this.companionXP[owner] = Math.min(1e3, (this.companionXP[owner] || 0) + 2);
@@ -3917,7 +4063,7 @@
       if (this.paused || this.phase !== "playing") return;
       const heals = this.stats.heals, frameEnemies = this.enemies;
       super.step();
-      if (!this.rpgReady || this.enemies !== frameEnemies || this.player.respawning) return;
+      if (!this.rpgReady || this.enemies !== frameEnemies || this.player.respawning || this.phase !== "playing") return;
       const mods = this.equipmentMods();
       this.player.spirit = Math.min(100, this.player.spirit + mods.focus * 0.4);
       if (this.talents.has("reservoir")) this.party.forEach((m, i) => {
@@ -3935,11 +4081,16 @@
       }
     }
     awardEnemy(e) {
-      if (e.rewarded) return;
+      if (e.rewarded) {
+        super.awardEnemy(e);
+        return;
+      }
       const beforeCoins = this.lumens;
       if (own(CHRONICLE_BOSSES, e.boss)) {
         AdventureSystems.prototype.awardEnemy.call(this, e);
         this.defeated.add(e.key);
+        this.claimedEnemyRewards.add(e.key);
+        this.respawnedEnemies.delete(e.key);
         this.defeatedBosses.add(e.boss);
         this.gainXP(100);
         this.lumens += 55;
@@ -4475,20 +4626,20 @@
     c.lineJoin = "round";
     c.stroke();
   }
-  function oval(c, x, y, rx, ry, color, stroke, width = 1) {
+  function oval(c, x, y, rx, ry, color, stroke2, width = 1) {
     c.beginPath();
     c.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), 0, 0, TAU);
     if (color) {
       c.fillStyle = color;
       c.fill();
     }
-    if (stroke) {
-      c.strokeStyle = stroke;
+    if (stroke2) {
+      c.strokeStyle = stroke2;
       c.lineWidth = width;
       c.stroke();
     }
   }
-  function poly(c, points, color, stroke, width = 1) {
+  function poly(c, points, color, stroke2, width = 1) {
     c.beginPath();
     points.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y));
     c.closePath();
@@ -4496,8 +4647,8 @@
       c.fillStyle = color;
       c.fill();
     }
-    if (stroke) {
-      c.strokeStyle = stroke;
+    if (stroke2) {
+      c.strokeStyle = stroke2;
       c.lineWidth = width;
       c.stroke();
     }
@@ -5370,7 +5521,7 @@
     const full = hex.length === 3 ? hex.split("").map((n) => n + n).join("") : hex.slice(0, 6);
     return /^[\da-f]{6}$/i.test(full) ? `rgba(${parseInt(full.slice(0, 2), 16)},${parseInt(full.slice(2, 4), 16)},${parseInt(full.slice(4, 6), 16)},${clamp9(opacity)})` : `rgba(193,227,223,${clamp9(opacity)})`;
   };
-  function poly2(c, points, fill, stroke, width = 1.5) {
+  function poly2(c, points, fill, stroke2, width = 1.5) {
     c.beginPath();
     points.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y));
     c.closePath();
@@ -5378,22 +5529,22 @@
       c.fillStyle = fill;
       c.fill();
     }
-    if (stroke) {
-      c.strokeStyle = stroke;
+    if (stroke2) {
+      c.strokeStyle = stroke2;
       c.lineWidth = width;
       c.lineJoin = "round";
       c.stroke();
     }
   }
-  function oval2(c, x, y, rx, ry, fill, stroke, width = 1.5) {
+  function oval2(c, x, y, rx, ry, fill, stroke2, width = 1.5) {
     c.beginPath();
     c.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), 0, 0, TAU3);
     if (fill) {
       c.fillStyle = fill;
       c.fill();
     }
-    if (stroke) {
-      c.strokeStyle = stroke;
+    if (stroke2) {
+      c.strokeStyle = stroke2;
       c.lineWidth = width;
       c.stroke();
     }
@@ -5971,26 +6122,26 @@
 
   // src/creatures.js
   var TAU4 = Math.PI * 2;
-  function poly3(c, p, fill, stroke = "#111b1d", width = 2) {
+  function poly3(c, p, fill, stroke2 = "#111b1d", width = 2) {
     c.beginPath();
     p.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y));
     c.closePath();
     c.fillStyle = fill;
     c.fill();
-    if (stroke) {
-      c.strokeStyle = stroke;
+    if (stroke2) {
+      c.strokeStyle = stroke2;
       c.lineWidth = width;
       c.lineJoin = "round";
       c.stroke();
     }
   }
-  function oval3(c, x, y, rx, ry, fill, stroke = null) {
+  function oval3(c, x, y, rx, ry, fill, stroke2 = null) {
     c.beginPath();
     c.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), 0, 0, TAU4);
     c.fillStyle = fill;
     c.fill();
-    if (stroke) {
-      c.strokeStyle = stroke;
+    if (stroke2) {
+      c.strokeStyle = stroke2;
       c.lineWidth = 2;
       c.stroke();
     }
@@ -6553,14 +6704,14 @@
     c.lineJoin = "round";
     c.stroke();
   };
-  var poly4 = (c, p, col, stroke) => {
+  var poly4 = (c, p, col, stroke2) => {
     c.beginPath();
     p.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y));
     c.closePath();
     c.fillStyle = col;
     c.fill();
-    if (stroke) {
-      c.strokeStyle = stroke;
+    if (stroke2) {
+      c.strokeStyle = stroke2;
       c.lineWidth = 1.5;
       c.stroke();
     }
@@ -6775,15 +6926,15 @@
 
   // src/render.js
   var TAU6 = Math.PI * 2;
-  function ellipse2(c, x, y, rx, ry, fill, stroke = null, line7 = 2) {
+  function ellipse2(c, x, y, rx, ry, fill, stroke2 = null, line7 = 2) {
     c.beginPath();
     c.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), 0, 0, TAU6);
     if (fill) {
       c.fillStyle = fill;
       c.fill();
     }
-    if (stroke) {
-      c.strokeStyle = stroke;
+    if (stroke2) {
+      c.strokeStyle = stroke2;
       c.lineWidth = line7;
       c.stroke();
     }
@@ -7040,9 +7191,259 @@
     c.restore();
   }
 
-  // src/world-render.js
+  // src/tunnel-render.js
   var TAU8 = Math.PI * 2;
-  var poly6 = (c, pts, fill, stroke) => {
+  var noise2 = (n) => {
+    const a = Math.sin(n * 127.1 + 37) * 43758.5453;
+    return a - Math.floor(a);
+  };
+  var polygon = (c, points, fill, stroke2, width = 1) => {
+    c.beginPath();
+    for (const [i, p] of points.entries()) i ? c.lineTo(...p) : c.moveTo(...p);
+    c.closePath();
+    if (fill) {
+      c.fillStyle = fill;
+      c.fill();
+    }
+    if (stroke2) {
+      c.strokeStyle = stroke2;
+      c.lineWidth = width;
+      c.stroke();
+    }
+  };
+  var stroke = (c, points, color, width = 1) => {
+    c.beginPath();
+    for (const [i, p] of points.entries()) i ? c.lineTo(...p) : c.moveTo(...p);
+    c.strokeStyle = color;
+    c.lineWidth = width;
+    c.lineCap = "round";
+    c.lineJoin = "round";
+    c.stroke();
+  };
+  var ellipse3 = (c, x, y, rx, ry, color) => {
+    c.beginPath();
+    c.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), 0, 0, TAU8);
+    c.fillStyle = color;
+    c.fill();
+  };
+  var glow6 = (c, x, y, r, color) => {
+    const gradient2 = c.createRadialGradient(x, y, 0, x, y, r);
+    gradient2.addColorStop(0, color);
+    gradient2.addColorStop(1, "transparent");
+    ellipse3(c, x, y, r, r, gradient2);
+  };
+  var PALETTES = {
+    moss: { void: "#071415", back: "#112727", wall: "#183331", shadow: "#0c1d20", stone: "#35483e", face: "#26372f", edge: "#7f9a75", vein: "#8fb795", light: "#b9e5b3" },
+    forge: { void: "#160f12", back: "#2a1c1c", wall: "#3b2925", shadow: "#1c1719", stone: "#55433c", face: "#382b28", edge: "#a8896b", vein: "#e08c4f", light: "#ffc68e" },
+    reef: { void: "#07151d", back: "#102b35", wall: "#1b3b43", shadow: "#0b202a", stone: "#40585a", face: "#263f46", edge: "#9ebbb0", vein: "#78bcbf", light: "#a5ede5" },
+    storm: { void: "#10111d", back: "#222534", wall: "#333a49", shadow: "#161d2b", stone: "#505361", face: "#343a4c", edge: "#9f9eb8", vein: "#a29ac7", light: "#ded1ff" },
+    frost: { void: "#101d29", back: "#1e3442", wall: "#304d5a", shadow: "#192c3c", stone: "#566a71", face: "#354b5b", edge: "#b7d5d4", vein: "#a5d4e5", light: "#dcf7ff" },
+    rift: { void: "#160e1d", back: "#291f32", wall: "#3a2c43", shadow: "#201528", stone: "#514257", face: "#33283d", edge: "#a08fba", vein: "#c18aaa", light: "#f8b7d8" }
+  };
+  var tunnelPalette = (biome) => PALETTES[biome] || PALETTES.moss;
+  var isTunnel = (game2) => game2.room.biome !== "sanctuary";
+  function arch(c, x, y, width, height, color, edge) {
+    c.beginPath();
+    c.moveTo(x - width, y + height);
+    c.lineTo(x - width, y);
+    c.bezierCurveTo(x - width, y - height * 0.75, x + width, y - height * 0.75, x + width, y);
+    c.lineTo(x + width, y + height);
+    c.closePath();
+    c.fillStyle = color;
+    c.fill();
+    if (edge) {
+      c.strokeStyle = edge;
+      c.lineWidth = 8;
+      c.stroke();
+    }
+  }
+  function ceilingAt(g, x) {
+    const nearby = g.platforms.filter((p) => !p.veil && x >= p.x - 210 && x <= p.x + p.w + 210);
+    const top = Math.min(...(nearby.length ? nearby : g.platforms).map((p) => p.y));
+    return top - 310 - 26 * noise2(Math.floor(x / 110) + g.roomId.length);
+  }
+  function drawTunnelBackdrop(c, g, camX, camY, width, height, t) {
+    const p = tunnelPalette(g.room.biome), background = c.createLinearGradient(0, 0, 0, height);
+    background.addColorStop(0, p.void);
+    background.addColorStop(0.58, p.back);
+    background.addColorStop(1, p.void);
+    c.fillStyle = background;
+    c.fillRect(0, 0, width, height);
+    c.save();
+    c.translate(-camX * 0.18, -camY * 0.12);
+    const originX = Math.floor(camX * 0.18 / 240) * 240, originY = Math.floor(camY * 0.12 / 170) * 170;
+    for (let row = -2; row < 8; row++) for (let n = -2; n < Math.ceil(width / 240) + 3; n++) {
+      const x = originX + n * 240 + row % 2 * 90, y = originY + row * 170, seed3 = (n + 1) * 31 + row * 17;
+      const top = y - 15 - noise2(seed3) * 28, bottom = y + 155 + noise2(seed3 + 1) * 35;
+      const facet = [[x - 30, top + 15], [x + 99, top - 10], [x + 236, top + 21], [x + 260, bottom - 31], [x + 144, bottom + 9], [x + 17, bottom - 2]];
+      polygon(c, facet, noise2(seed3 + 4) > 0.5 ? p.wall + "60" : p.shadow + "60");
+      stroke(c, [[x - 30, top + 15], [x + 99, top - 10], [x + 236, top + 21]], p.vein + "16", 1.2);
+      stroke(c, [[x + 236, top + 21], [x + 219, top + 65], [x + 235, top + 100]], p.void + "80", 1.6);
+      stroke(c, [[x + 14, top + 65], [x + 42, top + 82], [x + 35, top + 110]], p.vein + "11", 1);
+    }
+    c.restore();
+    const spacing = 630, offset = camX * 0.32 % spacing;
+    for (let i = -1; i < Math.ceil(width / spacing) + 1; i++) {
+      const x = i * spacing - offset, y = 240 + noise2(Math.floor(camX * 0.32 / spacing) + i + 63) * 90;
+      c.save();
+      c.globalAlpha = 0.72;
+      arch(c, x, y, 93, 290, p.shadow, p.wall);
+      arch(c, x + 8, y + 16, 64, 280, p.void);
+      c.restore();
+      for (let stone = 0; stone < 7; stone++) {
+        const angle = Math.PI + stone * Math.PI / 6, xx = x + Math.cos(angle) * 99, yy = y + Math.sin(angle) * 73;
+        polygon(c, [[xx - 19, yy - 12], [xx + 14, yy - 17], [xx + 22, yy + 9], [xx - 12, yy + 14]], p.wall, p.vein + "0e");
+      }
+    }
+    for (let layer = 0; layer < 8; layer++) {
+      const y = (layer * 121 - camY * 0.2) % 920 - 90, points = [];
+      for (let n = -1; n < Math.ceil(width / 145) + 2; n++) points.push([n * 145 - camX * 0.27 % 145, y + Math.sin(n * 0.75 + layer * 2) * 24 + noise2(n + layer * 17) * 17]);
+      stroke(c, points, p.vein + "12", layer % 3 === 0 ? 2 : 1);
+    }
+    if (g.room.biome === "forge" || g.room.biome === "storm") for (let i = -1; i < Math.ceil(width / 300) + 1; i++) {
+      const x = i * 300 - camX * 0.4 % 300;
+      polygon(c, [[x - 25, -50], [x + 18, -50], [x + 27, height + 40], [x - 36, height + 40]], p.shadow + "aa");
+      stroke(c, [[x - 12, 90], [x + 14, 82], [x + 8, 120], [x - 17, 136]], p.vein + "18", 2);
+    }
+    for (let i = -1; i < Math.ceil(width / 310) + 2; i++) {
+      const tile = Math.floor(camX / 310) + i, x = tile * 310 - camX, y = 170 + noise2(tile + 53) * 260;
+      glow6(c, x, y, 135, p.light + "0b");
+      if (g.room.biome === "forge") {
+        stroke(c, [[x, y - 37], [x - 10, y], [x + 4, y + 40]], "#ef8d4040", 2);
+        glow6(c, x, y, 35, "#f49d4d25");
+      } else if (g.room.biome === "reef" || g.room.biome === "moss") {
+        for (let n = 0; n < 4; n++) ellipse3(c, x + Math.sin(n * 3) * 18, y + n * 5, 2.5, 1.5, p.light + "42");
+      } else if (g.room.biome === "frost") {
+        polygon(c, [[x, y + 26], [x + 8, y - 20], [x + 19, y + 14], [x + 11, y + 33]], p.vein + "32");
+      } else if (g.room.biome === "rift") {
+        stroke(c, [[x - 10, y - 40], [x + 8, y - 10], [x - 2, y + 12], [x + 13, y + 42]], p.vein + "38", 2);
+      }
+    }
+  }
+  function drawTunnelStructure(c, g, camX, camY, width, height, t) {
+    const p = tunnelPalette(g.room.biome), left = Math.max(0, Math.floor((camX - 100) / 90) * 90), right = Math.min(g.worldWidth, camX + width + 100);
+    const edge = [];
+    for (let x = left; x <= right + 90; x += 90) edge.push([x, ceilingAt(g, x)]);
+    const cap = camY - 1200;
+    polygon(c, [[left - 100, cap], [right + 190, cap], ...edge.slice().reverse()], p.shadow);
+    stroke(c, edge, p.stone + "b0", 13);
+    stroke(c, edge.map(([x, y]) => [x, y - 8]), p.wall, 17);
+    for (let x = left; x < right; x += 113) {
+      const y = ceilingAt(g, x), length = 18 + noise2(x + 19) * 55;
+      polygon(c, [[x - 18, y - 9], [x + 13, y - 5], [x + 3, y + length], [x - 7, y + length * 0.7]], p.shadow, p.stone + "88");
+      if (g.room.biome === "moss") {
+        stroke(c, [[x, y + 4], [x + 8, y + 55], [x - 5, y + 92 + Math.sin(t * 0.5 + x) * 3]], "#52715a88", 2);
+        for (let j = 0; j < 3; j++) ellipse3(c, x + 5 + j % 2 * 5, y + 40 + j * 17, 6, 2, "#68876777");
+      } else if (g.room.biome === "frost") polygon(c, [[x - 5, y + 5], [x + 5, y + 3], [x + 1, y + length + 20]], "#b9e1e359");
+    }
+    for (const shelf of g.platforms) {
+      if (shelf.veil || shelf.h > 70 || shelf.x + shelf.w < camX - 120 || shelf.x > camX + width + 120) continue;
+      const depth = 170 + noise2(shelf.x + shelf.y) * 170, base = shelf.y + depth;
+      c.save();
+      c.globalAlpha = 0.9;
+      polygon(c, [[shelf.x + 6, shelf.y + 14], [shelf.x + shelf.w - 6, shelf.y + 14], [shelf.x + shelf.w + 100, base - 28], [shelf.x + shelf.w * 0.65, base + 70], [shelf.x - 84, base]], p.wall);
+      polygon(c, [[shelf.x + shelf.w * 0.66, shelf.y + 20], [shelf.x + shelf.w + 65, base - 28], [shelf.x + shelf.w * 0.65, base + 70]], p.shadow);
+      for (let n = 1; n < 4; n++) {
+        const yy = shelf.y + depth * n / 4;
+        stroke(c, [[shelf.x - 7 - n * 9, yy], [shelf.x + shelf.w * 0.42, yy + 10], [shelf.x + shelf.w + 15 + n * 8, yy - 4]], p.vein + "14", 2);
+      }
+      c.restore();
+    }
+    for (const o of g.room.objects) if (["door", "portal"].includes(o.kind) && o.x > camX - 130 && o.x < camX + width + 130) {
+      const y = o.y ?? 520;
+      c.save();
+      c.globalAlpha = 0.75;
+      arch(c, o.x, y - 74, 47, 75, p.void, p.stone + "55");
+      c.restore();
+    }
+    for (const x of [0, g.worldWidth]) if (x > camX - 65 && x < camX + width + 65) {
+      const side = x ? 1 : -1;
+      polygon(c, [[x, camY - 50], [x + side * 90, camY - 50], [x + side * 90, camY + height + 80], [x, camY + height + 80], [x - side * 6, camY + height * 0.64], [x, camY + height * 0.3]], p.shadow);
+    }
+    for (let i = 0; i < 32; i++) {
+      const x = camX + noise2(i + Math.floor(camX / 250) * 53) * width, y = camY + (noise2(i + 97) * height + t * (g.room.biome === "reef" ? 12 : 3)) % height;
+      if (i % 7 === 0 && ["moss", "reef", "frost"].includes(g.room.biome)) stroke(c, [[x, y], [x - 1, y + 6]], p.light + "20", 1);
+      else ellipse3(c, x, y, 0.6 + noise2(i) * 0.9, 0.6 + noise2(i) * 0.9, p.light + "22");
+    }
+  }
+  function drawTunnelPlatform(c, shelf, biome, t) {
+    const p = tunnelPalette(biome), { x, y, w, h } = shelf, depth = Math.max(12, h), seed3 = x + y;
+    const silhouette = [[x, y], [x + w, y], [x + w, y + Math.min(depth, 17)]];
+    for (let xx = x + w; xx > x; xx -= 29) silhouette.push([Math.max(x, xx - 9), y + depth * (0.72 + noise2(xx + seed3) * 0.28)]);
+    silhouette.push([x, y + Math.min(depth, 14)]);
+    polygon(c, silhouette, p.face);
+    c.save();
+    c.beginPath();
+    for (const [i, point2] of silhouette.entries()) i ? c.lineTo(...point2) : c.moveTo(...point2);
+    c.closePath();
+    c.clip();
+    const shade = c.createLinearGradient(0, y, 0, y + depth);
+    shade.addColorStop(0, p.stone);
+    shade.addColorStop(0.15, p.face);
+    shade.addColorStop(1, p.shadow);
+    c.fillStyle = shade;
+    c.fillRect(x, y, w, depth);
+    for (let layer = 0; layer < Math.ceil(depth / 28); layer++) {
+      const yy = y + 12 + layer * 29;
+      stroke(c, [[x, yy], [x + w * 0.22, yy + 4], [x + w * 0.59, yy - 3], [x + w, yy + 5]], p.edge + (layer % 2 ? "0b" : "14"), 1);
+    }
+    for (let xx = x + 13; xx < x + w; xx += 42) {
+      const yy = y + 12 + noise2(xx) * Math.min(depth * 0.65, 80), d = 7 + noise2(xx + 3) * 16;
+      stroke(c, [[xx - 7, yy], [xx + 3, yy + d], [xx - 3, yy + d + 12]], "#020b106b", 1.4);
+      stroke(c, [[xx + 4, yy + d], [xx + 20, yy + d + 8]], p.edge + "20", 1);
+    }
+    c.restore();
+    stroke(c, [[x, y + 0.5], [x + w, y + 0.5]], p.edge + "b0", 2);
+    for (let xx = x + 3; xx < x + w - 2; xx += 19) {
+      const ww = Math.min(18, x + w - xx), chip = noise2(xx + seed3);
+      polygon(c, [[xx, y + 1], [xx + ww, y + 1], [xx + ww - 3, y + 4 + chip * 4], [xx + 4, y + 3]], p.stone);
+    }
+    if (biome === "moss") for (let xx = x + 9; xx < x + w - 7; xx += 24) {
+      const n = noise2(xx);
+      ellipse3(c, xx, y + 2, 9 + n * 5, 2, "#69815f99");
+      if (n > 0.65) stroke(c, [[xx, y + 3], [xx + 3, y + 12], [xx - 1, y + 21]], "#596f5299", 1.4);
+    }
+    else if (biome === "forge") {
+      for (let xx = x + 37; xx < x + w; xx += 87) stroke(c, [[xx, y + 9], [xx - 4, y + 17], [xx + 4, y + 21]], "#d68a4d44", 1.4);
+    } else if (biome === "reef") {
+      for (let xx = x + 15; xx < x + w; xx += 53) {
+        ellipse3(c, xx, y + 6, 8, 2, "#779b9277");
+        stroke(c, [[xx, y + 4], [xx + 4, y - 5]], "#8bafaa44", 1);
+      }
+    } else if (biome === "frost") stroke(c, [[x + 4, y + 2], [x + w * 0.31, y + 4], [x + w * 0.78, y + 2], [x + w - 4, y + 3]], "#cbe5e877", 3);
+    if (shelf.moving) {
+      for (const xx of [x + w * 0.25, x + w * 0.75]) {
+        stroke(c, [[xx, y + 5], [xx + 4, y - 30], [xx, y - 62]], p.edge + "55", 2);
+        for (let n = 0; n < 3; n++) ellipse3(c, xx + n % 2 * 3, y - 15 - n * 17, 3, 6, p.stone);
+      }
+    }
+  }
+  function drawRecoverySpring(c, point2, t) {
+    const { x, y } = point2, spent = point2.used, light = spent ? "#667d84" : "#b8f3db";
+    if (!spent) {
+      glow6(c, x, y - 28, 95, "#a5eadb23");
+      glow6(c, x, y - 20, 34, "#e3fff139");
+    }
+    polygon(c, [[x - 36, y - 2], [x - 31, y - 18], [x - 21, y - 25], [x + 27, y - 22], [x + 37, y - 10], [x + 30, y - 2]], "#43514d", "#748c7b");
+    ellipse3(c, x, y - 18, 28, 8, spent ? "#243b3b" : "#77bfae");
+    ellipse3(c, x, y - 19, 23, 4, spent ? "#3a5350" : "#c3f9df");
+    for (const side of [-1, 1]) {
+      polygon(c, [[x + side * 25, y - 14], [x + side * 31, y - 55], [x + side * 38, y - 31], [x + side * 34, y - 6]], "#55675b", "#8ba78d66");
+      stroke(c, [[x + side * 30, y - 27], [x + side * 32, y - 40]], light + "88", 1.5);
+    }
+    if (!spent) for (let i = 0; i < 7; i++) {
+      const rise = (t * 19 + i * 11) % 63, xx = x + Math.sin(i * 2 + t) * 18;
+      ellipse3(c, xx, y - 23 - rise, 1 + Math.sin(i + t) * 0.35, 1.5, light + "b0");
+    }
+    c.font = "600 8px Barlow, sans-serif";
+    c.textAlign = "center";
+    c.fillStyle = spent ? "#83938d" : "#d7f4dd";
+    c.fillText(spent ? "SPRING QUIET" : "RECOVERY SPRING", x, y - 80);
+  }
+
+  // src/world-render.js
+  var TAU9 = Math.PI * 2;
+  var poly6 = (c, pts, fill, stroke2) => {
     c.beginPath();
     pts.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y));
     c.closePath();
@@ -7050,15 +7451,15 @@
       c.fillStyle = fill;
       c.fill();
     }
-    if (stroke) {
-      c.strokeStyle = stroke;
+    if (stroke2) {
+      c.strokeStyle = stroke2;
       c.lineWidth = 2;
       c.stroke();
     }
   };
   var oval6 = (c, x, y, rx, ry, color) => {
     c.beginPath();
-    c.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), 0, 0, TAU8);
+    c.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), 0, 0, TAU9);
     c.fillStyle = color;
     c.fill();
   };
@@ -7071,7 +7472,7 @@
     c.lineJoin = "round";
     c.stroke();
   };
-  var glow6 = (c, x, y, r, col) => {
+  var glow7 = (c, x, y, r, col) => {
     const g = c.createRadialGradient(x, y, 0, x, y, r);
     g.addColorStop(0, col);
     g.addColorStop(1, "transparent");
@@ -7083,7 +7484,7 @@
     c.textAlign = align;
     c.fillText(txt, x, y);
   };
-  var noise2 = (n) => {
+  var noise3 = (n) => {
     const a = Math.sin(n * 127.1 + 37) * 43758.5453;
     return a - Math.floor(a);
   };
@@ -7127,19 +7528,21 @@
         c.scale(impulse.zoom, impulse.zoom);
         c.translate(-view2 / 2, -330);
       }
-      this.backdrop(c, b, view2, 660, this.camera, t);
+      if (isTunnel(g)) drawTunnelBackdrop(c, g, this.camera, this.cameraY, view2, 660, t);
+      else this.backdrop(c, b, view2, 660, this.camera, t);
       this.fx.drawAmbient(c, g, this.camera, this.cameraY, view2, 660, t);
       c.save();
       c.translate(-this.camera, -this.cameraY);
+      if (isTunnel(g)) drawTunnelStructure(c, g, this.camera, this.cameraY, view2, 660, t);
       for (let i = 0; i < 55; i++) {
-        const x = noise2(i + 9) * g.worldWidth, y = 70 + noise2(i + 72) * 420 + Math.sin(t * 0.5 + i) * 15;
-        glow6(c, x, y, 4, b.color + "25");
+        const x = noise3(i + 9) * g.worldWidth, y = 70 + noise3(i + 72) * 420 + Math.sin(t * 0.5 + i) * 15;
+        glow7(c, x, y, 4, b.color + "25");
         oval6(c, x, y, 0.8, 0.8, b.color + "99");
       }
-      for (const p2 of g.platforms) if (!p2.veil) this.platform(c, p2, b, t);
+      for (const p2 of g.platforms) if (!p2.veil) this.platform(c, p2, b, t, g);
       for (const pit of g.thorns) {
-        glow6(c, pit.x + pit.w / 2, pit.y, Math.min(220, pit.w), b.color + "16");
-        for (let i = 0; i < pit.w; i += 23) poly6(c, [[pit.x + i, pit.y + 12], [pit.x + i + 12, pit.y - 20 - noise2(i) * 14], [pit.x + i + 23, pit.y + 12]], b.color + "55");
+        glow7(c, pit.x + pit.w / 2, pit.y, Math.min(220, pit.w), b.color + "16");
+        for (let i = 0; i < pit.w; i += 23) poly6(c, [[pit.x + i, pit.y + 12], [pit.x + i + 12, pit.y - 20 - noise3(i) * 14], [pit.x + i + 23, pit.y + 12]], b.color + "55");
         if (g.room.biome === "reef") {
           c.fillStyle = "#61c5d128";
           c.fillRect(pit.x, 570, pit.w, 100);
@@ -7148,18 +7551,19 @@
       }
       drawRPGWorld(c, g, t);
       for (const o of g.room.objects) this.object(c, o, g, t);
+      for (const spring of g.recoveryPoints || []) drawRecoverySpring(c, spring, t);
       for (const a2 of g.room.anchors) {
         line6(c, [[a2.x, a2.y - 36], [a2.x, a2.y]], "#d6b87866", 1);
-        glow6(c, a2.x, a2.y, 25, "#ffdd932a");
+        glow7(c, a2.x, a2.y, 25, "#ffdd932a");
         poly6(c, [[a2.x, a2.y - 9], [a2.x + 8, a2.y], [a2.x, a2.y + 9], [a2.x - 8, a2.y]], "#f8d895");
       }
       for (const r of g.relics) if (!r.collected) {
         const yy = r.y + Math.sin(t * 3 + r.x) * 6;
-        glow6(c, r.x, yy, 35, b.color + "30");
+        glow7(c, r.x, yy, 35, b.color + "30");
         poly6(c, [[r.x, yy - 13], [r.x + 8, yy], [r.x, yy + 13], [r.x - 8, yy]], b.color, "#efffe6");
       }
       for (const z of g.zones) {
-        glow6(c, z.x, z.y - 25, z.radius, z.type === "fire" ? "#ff9b3833" : z.type === "wind" ? "#bfffe128" : "#e2d6ff33");
+        glow7(c, z.x, z.y - 25, z.radius, z.type === "fire" ? "#ff9b3833" : z.type === "wind" ? "#bfffe128" : "#e2d6ff33");
         for (let i = 0; i < 9; i++) {
           const xx = z.x + Math.sin(t * 4 + i) * z.radius * 0.8;
           line6(c, [[xx, z.y], [xx + 10, z.y - 18 - Math.sin(i + t * 6) * 10]], z.type === "fire" ? "#ffb96d88" : "#d0f7ed77", 2);
@@ -7197,9 +7601,9 @@
       c.restore();
       drawRPGAuras(c, g, t);
       if (p.healing) {
-        glow6(c, p.x, p.y - 30, 80, "#abf2ce38");
+        glow7(c, p.x, p.y - 30, 80, "#abf2ce38");
         for (let i = 0; i < 6; i++) {
-          const ang = t * 3 + i * TAU8 / 6;
+          const ang = t * 3 + i * TAU9 / 6;
           oval6(c, p.x + Math.cos(ang) * 32, p.y - 35 + Math.sin(ang) * 35, 2, 2, "#dcffe0");
         }
       }
@@ -7212,17 +7616,17 @@
       }
       if (g.grapple) line6(c, [[p.x, p.y - 30], [g.grapple.x, g.grapple.y]], "#ffe2a7", 2);
       for (const b2 of g.projectiles) {
-        glow6(c, b2.x, b2.y, 23, (b2.color || "#c9f4df") + "55");
+        glow7(c, b2.x, b2.y, 23, (b2.color || "#c9f4df") + "55");
         oval6(c, b2.x, b2.y, b2.kind === "ice" ? 14 : 7, b2.kind === "needle" ? 3 : 7, b2.color || "#c7f7e4");
         line6(c, [[b2.x, b2.y], [b2.x - b2.vx * 2, b2.y - b2.vy * 2]], b2.color || "#c7f7e4", 3);
       }
       for (const b2 of g.enemyShots) {
-        glow6(c, b2.x, b2.y, 18, (b2.color || "#fba37c") + "44");
+        glow7(c, b2.x, b2.y, 18, (b2.color || "#fba37c") + "44");
         poly6(c, [[b2.x - 7, b2.y], [b2.x, b2.y - 7], [b2.x + 7, b2.y], [b2.x, b2.y + 7]], b2.color || "#fba37c");
       }
       for (const wave of g.waves) {
         const col = wave.color || b.color;
-        glow6(c, wave.x, 510, 45, col + "44");
+        glow7(c, wave.x, 510, 45, col + "44");
         poly6(c, [[wave.x - 26, 520], [wave.x - 10, 481], [wave.x, 500], [wave.x + 16, 465], [wave.x + 25, 520]], col);
       }
       for (const hz of g.hazards) {
@@ -7235,8 +7639,8 @@
             text(c, "!", hz.x, hz.y - 25, col, 18);
           } else if (hz.type === "lightning") {
             line6(c, [[hz.x + 20, 0], [hz.x - 10, 200], [hz.x + 10, 185], [hz.x - 8, 400], [hz.x + 12, 390], [hz.x, hz.y]], col, 5);
-            glow6(c, hz.x, hz.y - 70, 100, col + "44");
-          } else for (let i = 0; i < 5; i++) poly6(c, [[hz.x - 36 + i * 15, hz.y], [hz.x - 25 + i * 15, hz.y - 65 - noise2(i) * 55], [hz.x - 13 + i * 15, hz.y]], col + "99");
+            glow7(c, hz.x, hz.y - 70, 100, col + "44");
+          } else for (let i = 0; i < 5; i++) poly6(c, [[hz.x - 36 + i * 15, hz.y], [hz.x - 25 + i * 15, hz.y - 65 - noise3(i) * 55], [hz.x - 13 + i * 15, hz.y]], col + "99");
         }
       }
       for (const e of g.effects) this.effect(c, e, t, b);
@@ -7250,15 +7654,15 @@
         c.lineWidth = 2;
         c.setLineDash(f.type === "time" ? [8, 12] : []);
         c.beginPath();
-        c.ellipse(f.x, f.y, radius * (0.9 + Math.sin(t * 5) * 0.04), f.type === "gravity" ? radius * 0.6 : 35, t * 0.15, 0, TAU8);
+        c.ellipse(f.x, f.y, radius * (0.9 + Math.sin(t * 5) * 0.04), f.type === "gravity" ? radius * 0.6 : 35, t * 0.15, 0, TAU9);
         c.stroke();
-        glow6(c, f.x, f.y, radius, (f.color || b.color) + "14");
+        glow7(c, f.x, f.y, radius, (f.color || b.color) + "14");
         c.restore();
       }
-      const near = g.room.objects.filter((o) => Math.abs(o.x - p.x) < 90 && Math.abs((o.y || 520) - p.y) < 95).sort((x, y) => Math.abs(x.x - p.x) - Math.abs(y.x - p.x))[0];
+      const near = g.room.objects.filter((o) => Math.abs(o.x - p.x) < 90 && Math.abs((o.y ?? 520) - p.y) < 95).sort((x, y) => Math.abs(x.x - p.x) - Math.abs(y.x - p.x))[0];
       if (near) {
-        const defeated = (id) => g.fragments.has(id) || g.defeatedBosses?.has(id), locked = near.need > g.fragments.size || near.ability && !g.abilities.has(near.ability) || near.boss && !defeated(near.boss) || near.requiresBoss && !defeated(near.requiresBoss);
-        text(c, "[ E ]  " + (locked ? "SEALED \xB7 " : "") + near.name, near.x, (near.y || 520) - 110, locked ? "#b6acbf" : "#f6e5bb", 11);
+        const defeated = (id) => g.bossDefeated?.(id) || g.fragments.has(id) || g.defeatedBosses?.has(id), locked = near.need > g.fragments.size || near.ability && !g.abilities.has(near.ability) || near.boss && !defeated(near.boss) || near.requiresBoss && !defeated(near.requiresBoss);
+        text(c, "[ E ]  " + (locked ? "SEALED \xB7 " : "") + near.name, near.x, (near.y ?? 520) - 110, locked ? "#b6acbf" : "#f6e5bb", 11);
       }
       c.restore();
       const vign = c.createLinearGradient(0, 0, 0, 660);
@@ -7277,10 +7681,10 @@
       sky.addColorStop(1, b.sky[1]);
       c.fillStyle = sky;
       c.fillRect(0, 0, w, h);
-      glow6(c, w * 0.65 - cam * 0.035, 180, 360, b.color + "15");
+      glow7(c, w * 0.65 - cam * 0.035, 180, 360, b.color + "15");
       if (["forest", "sanctuary"].includes(b.kind)) {
         for (let layer = 0; layer < 3; layer++) for (let i = -2; i < 12; i++) {
-          const spacing = 210 + layer * 110, x = i * spacing - cam * (0.08 + layer * 0.13) % spacing, base = 600, top = -100 + noise2(i + layer * 34) * 160, col = ["#18343b", "#183c3c", "#163835"][layer];
+          const spacing = 210 + layer * 110, x = i * spacing - cam * (0.08 + layer * 0.13) % spacing, base = 600, top = -100 + noise3(i + layer * 34) * 160, col = ["#18343b", "#183c3c", "#163835"][layer];
           poly6(c, [[x - 40 - layer * 9, base], [x - 14, top], [x + 25, top - 50], [x + 35, base]], col);
           for (const side of [-1, 1]) for (let j = 0; j < 3; j++) {
             const yy = 80 + j * 120;
@@ -7290,10 +7694,10 @@
           if (layer === 2) line6(c, [[x - 2, base], [x + 12, 220]], "#45665b22", 3);
         }
         for (let i = 0; i < 18; i++) {
-          const x = i * 95 - cam * 0.27 % 95, y = 470 + noise2(i) * 90;
+          const x = i * 95 - cam * 0.27 % 95, y = 470 + noise3(i) * 90;
           line6(c, [[x, y + 40], [x + 5, y]], "#5c8b7355", 2);
           oval6(c, x + 5, y, 13, 5, "#90b99a44");
-          glow6(c, x + 5, y - 2, 20, "#c5e4aa0c");
+          glow7(c, x + 5, y - 2, 20, "#c5e4aa0c");
           if (i % 3 === 0) {
             line6(c, [[x + 9, 0], [x + 4, 130], [x + 23, 205]], "#71a68a33", 1);
             for (let j = 0; j < 4; j++) oval6(c, x + 3 + j * 4, 80 + j * 26, 6, 3, "#7eb39933");
@@ -7322,7 +7726,7 @@
           c.bezierCurveTo(x + 30, 90, x + 210, 90, x + 210, 230);
           c.lineTo(x + 210, 540);
           c.stroke();
-          glow6(c, x + 120, 330, 70, "#f58d3d23");
+          glow7(c, x + 120, 330, 70, "#f58d3d23");
           for (let j = 0; j < 5; j++) line6(c, [[x + 90 + j * 14, 230], [x + 90 + j * 14, 440]], "#f6a46028", 4);
         }
         for (let i = 0; i < 20; i++) {
@@ -7333,7 +7737,7 @@
         for (let i = 0; i < 12; i++) {
           const x = i * 150 - cam * 0.16 % 150;
           c.fillStyle = "#143444";
-          c.fillRect(x, 190 + noise2(i) * 100, 45, 500);
+          c.fillRect(x, 190 + noise3(i) * 100, 45, 500);
           for (let j = 0; j < 5; j++) line6(c, [[x + 4, 240 + j * 55], [x + 42, 240 + j * 55]], "#2c526155", 3);
         }
         for (let i = 0; i < 30; i++) {
@@ -7341,16 +7745,16 @@
           c.strokeStyle = "#a4e7ed25";
           c.lineWidth = 1;
           c.beginPath();
-          c.arc(x, y, 3 + noise2(i) * 8, 0, TAU8);
+          c.arc(x, y, 3 + noise3(i) * 8, 0, TAU9);
           c.stroke();
         }
         for (let i = 0; i < 6; i++) {
-          const x = (i * 241 + t * 15 - cam * 0.04) % (w + 160) - 80, y = 160 + noise2(i + 20) * 250;
+          const x = (i * 241 + t * 15 - cam * 0.04) % (w + 160) - 80, y = 160 + noise3(i + 20) * 250;
           poly6(c, [[x - 24, y], [x, y - 8], [x + 30, y], [x, y + 8]], "#9edbe422");
         }
       } else if (b.kind === "storm") {
         for (let i = 0; i < 6; i++) {
-          const x = i * 350 - cam * 0.13 % 350, y = 260 + noise2(i) * 180;
+          const x = i * 350 - cam * 0.13 % 350, y = 260 + noise3(i) * 180;
           poly6(c, [[x - 110, y], [x + 110, y], [x + 50, y + 110], [x, y + 160], [x - 55, y + 80]], "#272740");
           poly6(c, [[x - 110, y], [x - 40, y - 20], [x + 100, y - 15], [x + 110, y]], "#64617e");
           c.fillStyle = "#28273f";
@@ -7365,24 +7769,24 @@
       } else if (b.kind === "frost") {
         for (let i = 0; i < 8; i++) {
           const x = i * 220 - cam * 0.12 % 220;
-          poly6(c, [[x - 150, 560], [x, 80 + noise2(i) * 130], [x + 170, 560]], "#3b5b6d");
-          poly6(c, [[x, 80 + noise2(i) * 130], [x + 56, 240], [x + 17, 210], [x - 20, 245], [x - 50, 220]], "#a1b9c444");
+          poly6(c, [[x - 150, 560], [x, 80 + noise3(i) * 130], [x + 170, 560]], "#3b5b6d");
+          poly6(c, [[x, 80 + noise3(i) * 130], [x + 56, 240], [x + 17, 210], [x - 20, 245], [x - 50, 220]], "#a1b9c444");
         }
         for (let i = 0; i < 50; i++) {
-          const x = (i * 63 + t * (6 + noise2(i) * 14)) % (w + 30), y = (i * 77 + t * 20) % 660;
-          oval6(c, x, y, noise2(i) * 2 + 0.5, noise2(i) * 2 + 0.5, "#e8f7ff66");
+          const x = (i * 63 + t * (6 + noise3(i) * 14)) % (w + 30), y = (i * 77 + t * 20) % 660;
+          oval6(c, x, y, noise3(i) * 2 + 0.5, noise3(i) * 2 + 0.5, "#e8f7ff66");
         }
       } else {
         const x = w * 0.6 - cam * 0.025, y = 200;
-        glow6(c, x, y, 250, "#ffa0c02a");
+        glow7(c, x, y, 250, "#ffa0c02a");
         oval6(c, x, y, 105, 105, "#180f29");
         c.strokeStyle = "#efa7c455";
         c.lineWidth = 2;
         c.beginPath();
-        c.arc(x, y, 122, 0, TAU8);
+        c.arc(x, y, 122, 0, TAU9);
         c.stroke();
         for (let i = 0; i < 14; i++) {
-          const ang = i * TAU8 / 14 + t * 0.08, xx = x + Math.cos(ang) * 160, yy = y + Math.sin(ang) * 160;
+          const ang = i * TAU9 / 14 + t * 0.08, xx = x + Math.cos(ang) * 160, yy = y + Math.sin(ang) * 160;
           c.save();
           c.translate(xx, yy);
           c.rotate(ang);
@@ -7395,7 +7799,11 @@
         }
       }
     }
-    platform(c, p, b, t) {
+    platform(c, p, b, t, g) {
+      if (g && isTunnel(g)) {
+        drawTunnelPlatform(c, p, g.room.biome, t);
+        return;
+      }
       c.fillStyle = b.ground;
       c.fillRect(p.x, p.y, p.w, p.h);
       const under = c.createLinearGradient(0, p.y, 0, p.y + p.h);
@@ -7406,10 +7814,10 @@
       line6(c, [[p.x, p.y], [p.x + p.w, p.y]], b.color + "55", 3);
       for (let i = 0; i < p.w; i += 42) {
         const xx = p.x + i;
-        line6(c, [[xx, p.y + 10], [xx + noise2(i) * 20, p.y + 34], [xx + 30, p.y + 46]], "#b9d0be0b", 1);
+        line6(c, [[xx, p.y + 10], [xx + noise3(i) * 20, p.y + 34], [xx + 30, p.y + 46]], "#b9d0be0b", 1);
       }
       if (["forest", "sanctuary"].includes(b.kind)) for (let i = 5; i < p.w; i += 14) {
-        const xx = p.x + i, hh = 5 + noise2(i) * 10;
+        const xx = p.x + i, hh = 5 + noise3(i) * 10;
         line6(c, [[xx, p.y], [xx + Math.sin(t * 2 + i) * 3, p.y - hh]], i % 3 === 0 ? "#8ca48066" : "#5d8c7077", 1.5);
       }
       else if (b.kind === "frost") poly6(c, [[p.x, p.y], [p.x + p.w, p.y], [p.x + p.w - 14, p.y + 10], [p.x + 20, p.y + 8]], "#cce8e788");
@@ -7422,14 +7830,15 @@
         });
         if (drawn) return;
       } else if (drawRPGObject(c, o, g, t)) return;
-      const x = o.x, y = o.y || 520, col = BIOMES[g.room.biome].color, key = g.roomId + ":" + o.id, used = g.opened.has(key);
-      if (o.kind === "bench") {
-        glow6(c, x, y - 62, 100, "#f4dea92a");
-        line6(c, [[x - 32, y - 14], [x - 32, y], [x + 30, y], [x + 30, y - 14]], "#6a7264", 7);
-        line6(c, [[x - 42, y - 23], [x + 42, y - 23]], "#9b9f83", 7);
-        line6(c, [[x + 50, y], [x + 50, y - 105], [x + 28, y - 105]], "#a4a78a", 3);
-        oval6(c, x + 27, y - 89, 8, 14, "#fae4b5");
-        glow6(c, x + 27, y - 89, 35, "#ffe2a550");
+      const x = o.x, y = o.y ?? 520, col = BIOMES[g.room.biome].color, key = g.roomId + ":" + o.id, used = g.opened.has(key);
+      if (o.kind === "camp" || o.kind === "bench") {
+        line6(c, [[x - 27, y], [x - 30, y - 20], [x + 18, y - 26], [x + 31, y - 8], [x + 29, y]], "#776c58", 6);
+        poly6(c, [[x - 33, y - 26], [x - 28, y - 52], [x + 19, y - 52], [x + 27, y - 28]], "#6f7360", "#a5a48566");
+        line6(c, [[x - 26, y - 40], [x + 20, y - 40]], "#3c4a4288", 3);
+        line6(c, [[x + 38, y], [x + 38, y - 80], [x + 22, y - 80]], "#8f9c7e", 2);
+        oval6(c, x + 21, y - 67, 5, 9, "#e2c891");
+        glow7(c, x + 21, y - 67, 24, "#ead79a28");
+        text(c, "SUPPLY CAMP", x, y - 100, "#bbc1a9", 8);
       } else if (o.kind === "npc") {
         drawNPCAnimation(c, o, g, t, () => {
           oval6(c, x, y, 20, 6, "#08151e88");
@@ -7445,27 +7854,27 @@
         c.fillRect(x - 40, y - 36, 80, 9);
         line6(c, [[x - 31, y - 29], [x - 31, y], [x + 30, y], [x + 30, y - 29]], "#555e54", 6);
         poly6(c, [[x - 15, y - 40], [x - 6, y - 70], [x + 8, y - 70], [x + 25, y - 40]], "#a5a78a");
-        glow6(c, x, y - 55, 25, "#ffe6ac33");
+        glow7(c, x, y - 55, 25, "#ffe6ac33");
         text(c, "THE MENDER", x, y - 97, "#c8d5bf", 9);
       } else if (o.kind === "portal") {
         const active = o.need <= g.fragments.size, cc = BIOMES[o.id].color;
-        glow6(c, x, y - 66, 90, active ? cc + "23" : "#77777708");
+        glow7(c, x, y - 66, 90, active ? cc + "23" : "#77777708");
         c.strokeStyle = active ? cc + "88" : "#526161";
         c.lineWidth = 7;
         c.beginPath();
-        c.ellipse(x, y - 65, 37, 65, 0, Math.PI, TAU8);
+        c.ellipse(x, y - 65, 37, 65, 0, Math.PI, TAU9);
         c.lineTo(x + 37, y);
         c.stroke();
         line6(c, [[x - 37, y], [x - 37, y - 65]], active ? cc + "88" : "#526161", 7);
         for (let i = 0; i < 4; i++) if (active) {
-          const a = t * 0.7 + i * TAU8 / 4;
+          const a = t * 0.7 + i * TAU9 / 4;
           oval6(c, x + Math.cos(a) * 21, y - 60 + Math.sin(a) * 35, 1.5, 1.5, cc);
         }
         text(c, BIOMES[o.id].icon, x, y - 46, active ? cc : "#63716f", 23);
         text(c, String(o.need + 1).padStart(2, "0"), x, y - 150, active ? cc : "#64726e", 10);
       } else if (o.kind === "veil") {
         const active = g.abilities.has("blink");
-        glow6(c, x, 300, 200, "#d7a5e81b");
+        glow7(c, x, 300, 200, "#d7a5e81b");
         for (let i = 0; i < 8; i++) {
           const xx = x + Math.sin(t * 2 + i) * 8;
           line6(c, [[xx, 45], [xx + Math.sin(t + i) * 10, 280], [xx, 520]], active ? "#d5a7e75c" : "#d5a7e7bb", 2);
@@ -7476,10 +7885,10 @@
         line6(c, [[x, y], [x + (used ? 24 : -24), y - 42]], "#cfcea0", 4);
         oval6(c, x + (used ? 24 : -24), y - 42, 6, 6, used ? "#b4deb0" : "#efd8a0");
       } else if (o.kind === "door") {
-        const defeated = (id) => g.fragments.has(id) || g.defeatedBosses?.has(id), locked = o.ability && !g.abilities.has(o.ability) || o.boss && !defeated(o.boss) || o.requiresBoss && !defeated(o.requiresBoss);
+        const defeated = (id) => g.bossDefeated?.(id) || g.fragments.has(id) || g.defeatedBosses?.has(id), locked = o.ability && !g.abilities.has(o.ability) || o.boss && !defeated(o.boss) || o.requiresBoss && !defeated(o.requiresBoss);
         line6(c, [[x - 26, y], [x - 26, y - 77], [x, y - 103], [x + 26, y - 77], [x + 26, y]], locked ? "#655b70" : "#8caa92", 5);
         line6(c, [[x - 18, y - 4], [x - 18, y - 72], [x, y - 89], [x + 18, y - 72], [x + 18, y - 4]], col + "44", 1);
-        glow6(c, x, y - 47, 46, locked ? "#bd94e622" : col + "18");
+        glow7(c, x, y - 47, 46, locked ? "#bd94e622" : col + "18");
         text(c, locked ? "\u25C7" : "\u224B", x, y - 45, locked ? "#b79ac4" : col, 21);
         if (!locked) for (let i = 0; i < 4; i++) {
           const yy = y - 10 - (t * 19 + i * 21) % 80;
@@ -7488,20 +7897,20 @@
       } else if (o.kind === "memory") {
         line6(c, [[x - 15, y], [x - 12, y - 51], [x + 12, y - 51], [x + 16, y]], "#5d7a71", 4);
         text(c, "\u224B", x, y - 30, "#b4d8bf", 24);
-        if (!g.memories.has(key)) glow6(c, x, y - 36, 30, "#caecc02a");
+        if (!g.memories.has(key)) glow7(c, x, y - 36, 30, "#caecc02a");
       } else if (o.kind === "cache") {
         poly6(c, [[x - 24, y - 4], [x - 24, y - 29], [x - 12, y - 43], [x + 19, y - 43], [x + 27, y - 29], [x + 27, y - 4]], used ? "#35483f" : "#8d8c61", "#c7c3a277");
         line6(c, [[x - 23, y - 24], [x + 24, y - 24]], "#b9bd9177", 2);
         if (!used) {
-          glow6(c, x, y - 23, 25, "#ead49025");
+          glow7(c, x, y - 23, 25, "#ead49025");
           c.fillStyle = "#ead7a4";
           c.fillRect(x - 3, y - 26, 6, 10);
         }
       } else if (o.kind === "ore" && !used) {
-        for (let i = 0; i < 5; i++) poly6(c, [[x - 30 + i * 12, y], [x - 25 + i * 12, y - 25 - noise2(i) * 22], [x - 8 + i * 12, y]], i % 2 ? col + "88" : "#687b78", col + "66");
+        for (let i = 0; i < 5; i++) poly6(c, [[x - 30 + i * 12, y], [x - 25 + i * 12, y - 25 - noise3(i) * 22], [x - 8 + i * 12, y]], i % 2 ? col + "88" : "#687b78", col + "66");
       } else if (o.kind === "shrine") {
         poly6(c, [[x - 22, y], [x - 16, y - 48], [x, y - 70], [x + 16, y - 48], [x + 22, y]], "#4e6563", "#93bcb166");
-        glow6(c, x, y - 42, 35, g.shrines.has(key) ? "#f9e4aa44" : "#a0dfd01a");
+        glow7(c, x, y - 42, 35, g.shrines.has(key) ? "#f9e4aa44" : "#a0dfd01a");
         text(c, "\u25C7", x, y - 32, g.shrines.has(key) ? "#ffe9b0" : "#80a79c", 25);
       }
     }
@@ -7529,7 +7938,7 @@
         for (let i = 0; i < 5; i++) poly6(c, [[-30 + i * 12, -5], [-24 + i * 12, -35 - i % 2 * 15], [-10 + i * 12, -6]], col + "88", col);
         for (const s of [-1, 1]) line6(c, [[s * 12, -5], [s * 30, 1]], "#b5cfdf", 3);
       } else {
-        glow6(c, 0, -40, 40, col + "22");
+        glow7(c, 0, -40, 40, col + "22");
         poly6(c, [[-19, -16], [-11, -60], [7, -78], [24, -38], [12, -5], [0, -19]], "#8d628d", col);
         for (let i = 0; i < 4; i++) line6(c, [[-10 + i * 7, -5], [-20 + i * 12, Math.sin(t * 7 + i) * 9]], col + "55", 2);
       }
@@ -7549,7 +7958,7 @@
       const breathe = Math.sin(t * 2) * 3, wind = e.state === "windup", rage = e.phase >= 2;
       c.translate(0, breathe + (e.state === "recover" ? 8 : 0));
       c.rotate(e.state === "charge" ? 0.1 : wind ? -0.045 : 0);
-      glow6(c, 0, -70, 160, col + (rage ? "22" : "10"));
+      glow7(c, 0, -70, 160, col + (rage ? "22" : "10"));
       if (e.boss === "briar" || e.boss === "hourglass") {
         for (const side of [-1, 1]) {
           line6(c, [[side * 35, -85], [side * 58, -38], [side * 72, 0]], e.boss === "briar" ? "#607e65" : "#8ca9b6", 15);
@@ -7564,7 +7973,7 @@
           c.strokeStyle = "#e0deb7";
           c.lineWidth = 2;
           c.beginPath();
-          c.arc(4, -144, 40, 0, TAU8);
+          c.arc(4, -144, 40, 0, TAU9);
           c.stroke();
           line6(c, [[4, -144], [4, -169], [19, -144]], "#e7dcae", 2);
         }
@@ -7577,7 +7986,7 @@
           line6(c, [[side * 40, -115], [side * 90, -88], [side * 95, -12]], "#b27a59", 17);
           poly6(c, [[side * 85, -18], [side * 118, -33], [side * 132, -4], [side * 86, 0]], "#57525b", col + "99");
         }
-        glow6(c, 0, -108, 40, "#ff8d3f66");
+        glow7(c, 0, -108, 40, "#ff8d3f66");
         oval6(c, 0, -109, 8, 20, "#ffe2a1");
       } else if (e.boss === "leviathan") {
         for (let i = 0; i < 7; i++) {
@@ -7604,7 +8013,7 @@
         line6(c, [[32, -108], [81, -64], [110, -172]], col, 4);
       } else {
         for (let i = 0; i < 6; i++) {
-          const ang = i * TAU8 / 6 + t * 0.3;
+          const ang = i * TAU9 / 6 + t * 0.3;
           line6(c, [[Math.cos(ang) * 30, -110 + Math.sin(ang) * 30], [Math.cos(ang) * 115, -110 + Math.sin(ang) * 115]], col + "55", 3);
           oval6(c, Math.cos(ang) * 115, -110 + Math.sin(ang) * 115, 6, 6, col + "88");
         }
@@ -7614,14 +8023,14 @@
         poly6(c, [[-34, -197], [-47, -235], [-15, -219], [0, -247], [15, -218], [46, -235], [34, -197]], "#b1859b", "#efbece");
       }
       if (wind) {
-        glow6(c, 0, -70, 90, "#ffcc7c33");
+        glow7(c, 0, -70, 90, "#ffcc7c33");
         text(c, "!", 0, -260, "#ffe4a0", 34);
       }
       if (rage) {
         c.strokeStyle = col + "55";
         c.lineWidth = 1;
         c.beginPath();
-        c.ellipse(0, -50, 100 + Math.sin(t * 8) * 5, 20, 0, 0, TAU8);
+        c.ellipse(0, -50, 100 + Math.sin(t * 8) * 5, 20, 0, 0, TAU9);
         c.stroke();
       }
       c.restore();
@@ -7653,14 +8062,14 @@
       } else {
         const radius = (35 - e.life) * 2 + 16, col = ["heal", "swap"].includes(e.type) ? "#c9f7c7" : e.type === "mist" ? "#c7a3e9" : b.color;
         if (radius > 0) {
-          glow6(c, e.x, e.y, radius, col + "22");
+          glow7(c, e.x, e.y, radius, col + "22");
           c.strokeStyle = col + "99";
           c.lineWidth = 2;
           c.beginPath();
-          c.arc(e.x, e.y, radius * 0.65, 0, TAU8);
+          c.arc(e.x, e.y, radius * 0.65, 0, TAU9);
           c.stroke();
           for (let i = 0; i < 8; i++) {
-            const angle = i * TAU8 / 8;
+            const angle = i * TAU9 / 8;
             line6(c, [[e.x + Math.cos(angle) * radius * 0.5, e.y + Math.sin(angle) * radius * 0.5], [e.x + Math.cos(angle) * radius, e.y + Math.sin(angle) * radius]], col + "88", 2);
           }
         }
@@ -7678,7 +8087,7 @@
       this.backdrop(c, BIOMES.moss, ww, 660, Math.sin(t * 0.08) * 70, t);
       this.platform(c, { x: 0, y: 570, w: ww, h: 200 }, BIOMES.moss, t);
       const mid = ww * 0.65;
-      glow6(c, mid, 260, 185, "#dfffdc12");
+      glow7(c, mid, 260, 185, "#dfffdc12");
       c.strokeStyle = "#89af9433";
       c.lineWidth = 8;
       c.beginPath();
@@ -7687,10 +8096,10 @@
       c.strokeStyle = "#b8d4af22";
       c.lineWidth = 1;
       c.beginPath();
-      c.arc(mid, 265, 140, 0, TAU8);
+      c.arc(mid, 265, 140, 0, TAU9);
       c.stroke();
       for (let i = 0; i < 12; i++) {
-        const ang = i * TAU8 / 12 + t * 0.03, x = mid + Math.cos(ang) * 140, y = 265 + Math.sin(ang) * 140;
+        const ang = i * TAU9 / 12 + t * 0.03, x = mid + Math.cos(ang) * 140, y = 265 + Math.sin(ang) * 140;
         poly6(c, [[x, y - 5], [x + 3, y], [x, y + 5], [x - 3, y]], "#d7e7b466");
       }
       const positions = [{ x: mid - 105, y: 544, s: 0.83, face: 1 }, { x: mid + 100, y: 552, s: 0.72, face: -1 }, { x: mid + 15, y: 465, s: 0.58, face: 1 }];
@@ -7699,8 +8108,8 @@
         drawCreature(c, findFighter(ids[i]), p.x, p.y, p.s, p.face, { walk: 0, attack: Math.sin(t * 0.7) * 0.05 }, t, { aura: true });
       });
       for (let i = 0; i < 30; i++) {
-        const x = noise2(i) * ww, y = 50 + noise2(i + 22) * 480 + Math.sin(t + i) * 8;
-        glow6(c, x, y, 6, "#e4ffbc22");
+        const x = noise3(i) * ww, y = 50 + noise3(i + 22) * 480 + Math.sin(t + i) * 8;
+        glow7(c, x, y, 6, "#e4ffbc22");
         oval6(c, x, y, 1, 1, "#e3f8be88");
       }
       const shade = c.createLinearGradient(0, 0, ww, 0);
@@ -7715,15 +8124,16 @@
 
   // src/exploration-ui.js
   var escape2 = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
-  var checkpoint = (room) => room.objects.some((o) => o.kind === "bench");
+  var camp = (room) => room.objects.some((o) => ["camp", "workbench"].includes(o.kind));
+  var springs = (g, room) => g.recoveryForRoom?.(room.id) || [];
   var exits = (room) => room.objects.filter((o) => o.to && ROOMS[o.to]);
   function regionAtlas(g, region, selectedId, live = false) {
     const biome = BIOMES[region] || BIOMES.moss, rooms = Object.values(ROOMS).filter((r) => r.biome === region);
     const visited = (id) => g.visited.has(id), frontier = /* @__PURE__ */ new Set();
     for (const room of Object.values(ROOMS)) if (visited(room.id)) for (const door2 of exits(room)) frontier.add(door2.to);
     const plotted = rooms.map((r, i) => {
-      const point = r.map || r.mapPosition || (["clockwork-ossuary", "paper-moon", "cradle-zero"].includes(r.id) ? { x: 0, y: 3 } : {});
-      return { room: r, x: Number.isFinite(point.x) ? point.x : Number.isFinite(r.mapX) ? r.mapX : 1 + i % 4, y: Number.isFinite(point.y) ? point.y : Number.isFinite(r.mapY) ? r.mapY : Math.floor(i / 4) };
+      const point2 = r.map || r.mapPosition || (["clockwork-ossuary", "paper-moon", "cradle-zero"].includes(r.id) ? { x: 0, y: 3 } : {});
+      return { room: r, x: Number.isFinite(point2.x) ? point2.x : Number.isFinite(r.mapX) ? r.mapX : 1 + i % 4, y: Number.isFinite(point2.y) ? point2.y : Number.isFinite(r.mapY) ? r.mapY : Math.floor(i / 4) };
     });
     const xs = plotted.map((p) => p.x), ys = plotted.map((p) => p.y), minX = Math.min(...xs, 0), maxX = Math.max(...xs, 1), minY = Math.min(...ys, 0), maxY = Math.max(...ys, 1);
     const position = new Map(plotted.map((p) => [p.room.id, rooms.length === 1 ? { x: 50, y: 50 } : { x: 10 + (p.x - minX) / Math.max(1, maxX - minX) * 80, y: 16 + (p.y - minY) / Math.max(1, maxY - minY) * 68 }]));
@@ -7738,8 +8148,8 @@
     }
     const selected = rooms.find((r) => r.id === selectedId && (visited(r.id) || frontier.has(r.id))) || rooms.find((r) => r.id === g.roomId) || rooms.find((r) => visited(r.id)) || rooms.find((r) => frontier.has(r.id));
     const nodes = plotted.map(({ room }) => {
-      const known2 = visited(room.id), edge = frontier.has(room.id), here = g.roomId === room.id, pos = position.get(room.id), safe = checkpoint(room), boss = room.enemies.some((e) => e.boss), icon = here ? "\u25CF" : known2 ? safe ? "\u2726" : boss ? "\u25C8" : "\u25AA" : edge ? "\u25C7" : "\xB7";
-      return `<button class="atlas-room ${known2 ? "charted" : edge ? "frontier" : "uncharted"} ${here ? "current" : ""} ${selected?.id === room.id ? "selected" : ""}" data-inspect-room="${room.id}" style="left:${pos.x}%;top:${pos.y}%" ${!known2 && !edge ? "disabled" : ""} aria-label="${escape2(here ? "You are here: " + room.name : known2 ? room.name : edge ? "Uncharted passage" : "Uncharted room")}" ${here ? 'aria-current="location"' : ""}><span aria-hidden="true">${icon}</span><strong>${known2 ? escape2(room.name) : edge ? "Uncharted passage" : "???"}</strong><small>${here ? "YOU ARE HERE" : known2 ? safe ? "WAYLIGHT" : boss ? "GUARDIAN CHAMBER" : escape2(room.dungeon || "EXPLORED") : edge ? "PASSAGE DISCOVERED" : "UNKNOWN"}</small></button>`;
+      const known2 = visited(room.id), edge = frontier.has(room.id), here = g.roomId === room.id, pos = position.get(room.id), points2 = springs(g, room), safe = points2.some((p) => !p.used), station = camp(room), boss = room.enemies.some((e) => e.boss), icon = here ? "\u25CF" : known2 ? safe ? "\u2726" : station ? "\u2B1F" : boss ? "\u25C8" : "\u25AA" : edge ? "\u25C7" : "\xB7";
+      return `<button class="atlas-room ${known2 ? "charted" : edge ? "frontier" : "uncharted"} ${here ? "current" : ""} ${selected?.id === room.id ? "selected" : ""}" data-inspect-room="${room.id}" style="left:${pos.x}%;top:${pos.y}%" ${!known2 && !edge ? "disabled" : ""} aria-label="${escape2(here ? "You are here: " + room.name : known2 ? room.name : edge ? "Uncharted passage" : "Uncharted room")}" ${here ? 'aria-current="location"' : ""}><span aria-hidden="true">${icon}</span><strong>${known2 ? escape2(room.name) : edge ? "Uncharted passage" : "???"}</strong><small>${here ? "YOU ARE HERE" : known2 ? safe ? "WELLSPRING" : station ? "CAMP \xB7 CRAFT & TRAVEL" : boss ? "GUARDIAN CHAMBER" : escape2(room.dungeon || "EXPLORED") : edge ? "PASSAGE DISCOVERED" : "UNKNOWN"}</small></button>`;
     }).join("");
     const gateNodes = region === "sanctuary" ? CHAPTERS.map((chapter2, i) => {
       const angle = (i * 60 - 90) * Math.PI / 180, x = 50 + Math.cos(angle) * 34, y = 50 + Math.sin(angle) * 32, b = BIOMES[chapter2.id], sealed = chapter2.need > g.fragments.size;
@@ -7750,9 +8160,9 @@
       const b = BIOMES[chapter2.id], count = Object.values(ROOMS).filter((r) => r.biome === chapter2.id && visited(r.id)).length;
       return `<button class="dimension-tab ${region === chapter2.id ? "active" : ""}" data-region="${chapter2.id}" aria-pressed="${region === chapter2.id}" style="--dimension:${b.color}"><span aria-hidden="true">${b.icon}</span><strong>${i ? "GATE " + String(i).padStart(2, "0") : "THE NEXUS"}</strong><small>${b.name} \xB7 ${count} mapped</small></button>`;
     }).join("");
-    const chapter = CHAPTERS.find((ch) => ch.id === region), known = selected && visited(selected.id), canTravel = live && known && checkpoint(selected);
-    const detail = selected ? `<div class="atlas-room-detail"><div><p class="eyebrow">${known ? checkpoint(selected) ? "WAYLIGHT \xB7 A RARE SAFE HAVEN" : selected.id === g.roomId ? "CURRENT LOCATION" : "CHARTED ROOM" : "BEYOND THE EDGE OF YOUR MAP"}</p><h3>${known ? escape2(selected.name) : "An unopened passage"}</h3><p>${known ? escape2(selected.story?.replace?.("|", " \u2014 ") || selected.story || selected.description || selected.subtitle || "Explore the platforms above and below. The doors connect this chamber to the surrounding dungeon.") : "Enter this room to record its name, history, and connecting passages."}</p>${known ? `<p class="atlas-room-meta">${escape2(selected.dungeon || biome.name)}${selected.depth !== void 0 ? " \xB7 DEPTH " + escape2(selected.depth) : ""} \xB7 ${exits(selected).length} passage${exits(selected).length === 1 ? "" : "s"}</p>` : ""}</div>${known && checkpoint(selected) ? `<button class="secondary" data-travel="${selected.id}" ${canTravel ? "" : "disabled"}>TRAVEL TO WAYLIGHT</button>` : ""}</div>` : `<div class="atlas-room-detail"><p>This dimension has not been charted. Find its gate in the Last Lantern and step through.</p></div>`;
-    return `<div class="dimension-tabs" aria-label="Choose a dimension">${tabs}</div><div class="atlas-heading"><div><p class="eyebrow">${region === "sanctuary" ? "THE SIXFOLD NEXUS" : escape2(chapter?.title || "DIMENSIONAL DUNGEON")}</p><h3>${biome.name}</h3></div><span>${rooms.filter((r) => visited(r.id)).length} / ${rooms.length} ROOMS MAPPED</span></div><div class="dungeon-atlas" style="--dimension:${biome.color}" aria-label="${escape2(biome.name)} room map"><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">${connections.join("")}</svg>${nodes}${gateNodes}<span class="atlas-depth-label">HIGHER CHAMBERS<br>\u2502<br>DEEPER CHAMBERS</span></div><div class="atlas-legend"><span><b>\u25CF</b> Your location</span><span><b>\u2726</b> Waylight</span><span><b>\u25C8</b> Guardian</span><span><b>\u25C7</b> Uncharted passage</span><span>Routes appear as you explore</span></div>${detail}${chapter ? `<p class="atlas-story">${escape2(chapter.story)}</p>` : ""}`;
+    const chapter = CHAPTERS.find((ch) => ch.id === region), known = selected && visited(selected.id), points = selected ? springs(g, selected) : [], destination = selected && (camp(selected) || points.some((p) => g.discoveredRecovery?.has(p.id))), canTravel = live && known && destination;
+    const detail = selected ? `<div class="atlas-room-detail"><div><p class="eyebrow">${known ? camp(selected) ? "CAMP \xB7 CRAFTING & TRAVEL" : points.some((p) => !p.used) ? "WELLSPRING \xB7 AUTOMATIC FULL RECOVERY" : selected.id === g.roomId ? "CURRENT LOCATION" : "CHARTED ROOM" : "BEYOND THE EDGE OF YOUR MAP"}</p><h3>${known ? escape2(selected.name) : "An unopened passage"}</h3><p>${known ? escape2(selected.story?.replace?.("|", " \u2014 ") || selected.story || selected.description || selected.subtitle || "Explore the platforms above and below. The doors connect this chamber to the surrounding dungeon.") : "Enter this room to record its name, history, and connecting passages."}</p>${known ? `<p class="atlas-room-meta">${escape2(selected.dungeon || biome.name)}${selected.depth !== void 0 ? " \xB7 DEPTH " + escape2(selected.depth) : ""} \xB7 ${exits(selected).length} passage${exits(selected).length === 1 ? "" : "s"}</p>` : ""}</div>${known && destination ? `<button class="secondary" data-travel="${selected.id}" ${canTravel ? "" : "disabled"}>${camp(selected) ? "TRAVEL TO CAMP" : "TRAVEL TO WELLSPRING"}</button>` : ""}</div>` : `<div class="atlas-room-detail"><p>This dimension has not been charted. Find its gate in the Last Lantern and step through.</p></div>`;
+    return `<div class="dimension-tabs" aria-label="Choose a dimension">${tabs}</div><div class="atlas-heading"><div><p class="eyebrow">${region === "sanctuary" ? "THE SIXFOLD NEXUS" : escape2(chapter?.title || "DIMENSIONAL DUNGEON")}</p><h3>${biome.name}</h3></div><span>${rooms.filter((r) => visited(r.id)).length} / ${rooms.length} ROOMS MAPPED</span></div><div class="dungeon-atlas" style="--dimension:${biome.color}" aria-label="${escape2(biome.name)} room map"><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">${connections.join("")}</svg>${nodes}${gateNodes}<span class="atlas-depth-label">HIGHER CHAMBERS<br>\u2502<br>DEEPER CHAMBERS</span></div><div class="atlas-legend"><span><b>\u25CF</b> Your location</span><span><b>\u2726</b> Wellspring</span><span><b>\u2B1F</b> Camp station</span><span><b>\u25C8</b> Guardian</span><span><b>\u25C7</b> Uncharted passage</span><span>Routes appear as you explore</span></div>${detail}${known && points.length ? `<p class="atlas-spring-note"><span>\u2726</span> ${points.filter((p) => !p.used).length} / ${points.length} wellsprings remain in this chamber. Walk through one for full-party recovery; it will become dormant until your next attempt.</p>` : ""}${chapter ? `<p class="atlas-story">${escape2(chapter.story)}</p>` : ""}`;
   }
 
   // src/main.js
@@ -7846,12 +8256,12 @@
     modal.inert = blocked;
     if (game) {
       if (changed) clearInputs();
-      game.paused = blocked || modal.open;
+      game.paused = blocked || modal.open || game.phase === "gameover";
     }
     if (changed) {
       accumulator = 0;
       if (blocked) $("landscape-button").focus({ preventScroll: true });
-      else (modal.open ? $("close-overlay") : active ? canvas : $("start-button")).focus({ preventScroll: true });
+      else (modal.open ? overlayFocus() : active ? canvas : $("start-button")).focus({ preventScroll: true });
     }
   }
   window.addEventListener("resize", syncMobileLayout);
@@ -7873,7 +8283,7 @@
     if (orientationBlocked) $("rotate-help").textContent = "Rotate your device manually, and check that rotation lock is off.";
   };
   function quickMenuHTML() {
-    return heading("Your next <em>move.</em>", "Combat stays under your thumbs. Everything else is one tap away.") + `<div class="quick-menu"><button class="primary" data-resume>RESUME ADVENTURE \u2192</button><div class="quick-section"><p class="eyebrow">01 \xB7 RECOVER & PREPARE</p><div class="quick-grid"><button data-quick-action="potion">\u271A<strong>Drink flask</strong><small>${game?.inventory.flask || 0} available \xB7 +3 hearts</small></button><button data-quick-action="powerCycle">\u21C4<strong>Cycle power</strong><small>Change your selected art</small></button><button data-overlay="arsenal">\u03DF<strong>Combat arsenal</strong><small>Equip powers & motion options</small></button><button data-overlay="inventory">\u25C7<strong>Inventory</strong><small>Equipment, items & crafting</small></button></div></div><div class="quick-section"><p class="eyebrow">02 \xB7 EXPLORE & PROGRESS</p><div class="quick-grid"><button data-overlay="map">\u2301<strong>World map</strong><small>Routes & waylights</small></button><button data-overlay="chronicle">\u224B<strong>Chronicle</strong><small>Quests, talents & story</small></button><button data-quick-action="tool">\u2692<strong>Use tool</strong><small>Current: ${escapeHtml(game?.tools[game.toolIndex] || "pickaxe")}</small></button><button data-overlay="party">\u22C8<strong>Companions</strong><small>Change roster at a waylight</small></button></div></div><div class="quick-footer"><button data-overlay="guide">CONTROLS & HELP</button><button data-toggle-sound aria-pressed="${sound}">SOUND \xB7 ${sound ? "ON" : "OFF"}</button><button data-return-home>SAVE & RETURN TO CAMP</button></div></div>`;
+    return heading("Your next <em>move.</em>", "Combat stays under your thumbs. Everything else is one tap away.") + `<div class="quick-menu"><button class="primary" data-resume>RESUME ADVENTURE \u2192</button><div class="quick-section"><p class="eyebrow">01 \xB7 RECOVER & PREPARE</p><div class="quick-grid"><button data-quick-action="potion">\u271A<strong>Drink flask</strong><small>${game?.inventory.flask || 0} available \xB7 +3 hearts</small></button><button data-quick-action="powerCycle">\u21C4<strong>Cycle power</strong><small>Change your selected art</small></button><button data-overlay="arsenal">\u03DF<strong>Combat arsenal</strong><small>Equip powers & motion options</small></button><button data-overlay="inventory">\u25C7<strong>Inventory</strong><small>Equipment, items & crafting</small></button></div></div><div class="quick-section"><p class="eyebrow">02 \xB7 EXPLORE & PROGRESS</p><div class="quick-grid"><button data-overlay="map">\u2301<strong>World map</strong><small>Tunnels & wellsprings</small></button><button data-overlay="chronicle">\u224B<strong>Chronicle</strong><small>Quests, talents & story</small></button><button data-quick-action="tool">\u2692<strong>Use tool</strong><small>Current: ${escapeHtml(game?.tools[game.toolIndex] || "pickaxe")}</small></button><button data-overlay="party">\u22C8<strong>Companions</strong><small>Change roster at a camp station</small></button></div></div><div class="quick-footer"><button data-overlay="guide">CONTROLS & HELP</button><button data-toggle-sound aria-pressed="${sound}">SOUND \xB7 ${sound ? "ON" : "OFF"}</button><button data-return-home>SAVE & RETURN TO CAMP</button></div></div>`;
   }
   function clearInputs() {
     held.clear();
@@ -7888,6 +8298,17 @@
   function events(e) {
     renderer.event(e, game);
     tone(e.type);
+    if (e.type === "gameover" && game && view === "game") {
+      rewardQueue = [];
+      openOverlay("gameover");
+      return;
+    }
+    if (e.type === "recovery") {
+      notice = "WELLSPRING AWAKENED \xB7 PARTY FULLY RESTORED";
+      noticeFrames = 240;
+      document.body.classList.add("recovery-flash");
+      setTimeout(() => document.body.classList.remove("recovery-flash"), 900);
+    }
     if (e.type === "memory") {
       notice = "ECHO RECORDED \xB7 " + e.title + " \xB7 N: WORLD HISTORY";
       noticeFrames = 240;
@@ -7924,7 +8345,7 @@
     if (e.type === "credits") openOverlay("credits");
   }
   function startCampaign(resume = false) {
-    closeOverlay();
+    closeOverlay(true);
     rewardQueue = [];
     game = new RPGCampaign(resume ? DEFAULT_PARTY : party, { save: resume ? saved : null, onEvent: events, onSave: store });
     view = "game";
@@ -7940,18 +8361,19 @@
     renderHud();
     canvas.focus({ preventScroll: true });
     window.scrollTo(0, 0);
-    if (game.trueEnding) openOverlay("trueending");
+    if (game.phase === "gameover") openOverlay("gameover");
+    else if (game.trueEnding) openOverlay("trueending");
     else if (game.finished && !game.ending) openOverlay("ending");
     syncMobileLayout();
   }
   function returnHome() {
     if (game) game.save();
     clearInputs();
-    closeOverlay();
+    closeOverlay(true);
     view = "home";
     $("home-screen").hidden = false;
     $("game-screen").hidden = true;
-    document.body.classList.remove("playing");
+    document.body.classList.remove("playing", "game-over", "recovery-flash");
     game = null;
     syncMobileLayout();
     renderHomeParty();
@@ -7972,7 +8394,11 @@
     const b = BIOMES[ch.id];
     return `<button class="biome-card" data-map-region="${ch.id}" data-icon="${b.icon}" style="--biome:${b.color};--biome-bg:${b.sky[1]}"><small>CHAPTER 0${i + 1}</small><h3>${b.name}</h3><p>${b.subtitle}</p></button>`;
   }).join("");
+  function overlayFocus() {
+    return overlayType === "gameover" ? modal.querySelector("[data-retry-death]") || modal : $("close-overlay");
+  }
   function openOverlay(type) {
+    if (game?.phase === "gameover") type = "gameover";
     if (type === "chronicle") $("overlay-kicker").textContent = "THE NINTH MEMORY";
     if (type === "map" && game) {
       mapRegion = game.room.biome;
@@ -7985,25 +8411,27 @@
     renderOverlay();
     modal.scrollTop = 0;
     if (!modal.open) modal.showModal();
-    $("close-overlay").focus({ preventScroll: true });
+    overlayFocus().focus({ preventScroll: true });
   }
-  function closeOverlay() {
+  function closeOverlay(force = false) {
+    if (game?.phase === "gameover" && !force) return;
     if (modal.open) modal.close();
     overlayType = "";
     if (game) {
-      game.paused = orientationBlocked;
+      game.paused = orientationBlocked || game.phase === "gameover";
       if (!orientationBlocked) canvas.focus({ preventScroll: true });
     }
     clearInputs();
   }
   modal.addEventListener("cancel", (e) => {
     e.preventDefault();
-    if (orientationBlocked) return;
+    if (orientationBlocked || overlayType === "gameover") return;
     if (overlayType === "dialogue") nextDialogue();
     else if (overlayType === "reward") dismissReward();
     else closeOverlay();
   });
   $("close-overlay").onclick = () => {
+    if (overlayType === "gameover") return;
     if (overlayType === "reward") dismissReward();
     else closeOverlay();
   };
@@ -8012,9 +8440,12 @@
   }
   function renderOverlay() {
     const g = state();
-    $("overlay-kicker").textContent = { map: "ATLAS OF THE BROKEN WORLD", inventory: "THE TRAVELER\u2019S PACK", party: "BONDS ARE YOUR STRONGEST WEAPON", pause: "TAKE A BREATH", codex: "PROFESSOR VELL\u2019S FIELD JOURNAL", guide: "MOVE WITH INTENT", dialogue: "A VOICE IN THE QUIET", reward: "A MEMORY RETURNS", ending: "THE WORLDHEART REMEMBERS", credits: "YOUR BONDS CHANGED THE WORLD" }[overlayType] || "KINETIC MONSTERS";
+    $("close-overlay").hidden = overlayType === "gameover";
+    modal.setAttribute("aria-describedby", overlayType === "gameover" ? "gameover-description" : "overlay-kicker");
+    $("overlay-kicker").textContent = { map: "ATLAS OF THE BROKEN WORLD", inventory: "THE TRAVELER\u2019S PACK", party: "BONDS ARE YOUR STRONGEST WEAPON", pause: "TAKE A BREATH", codex: "PROFESSOR VELL\u2019S FIELD JOURNAL", guide: "MOVE WITH INTENT", dialogue: "A VOICE IN THE QUIET", reward: "A MEMORY RETURNS", ending: "THE WORLDHEART REMEMBERS", credits: "YOUR BONDS CHANGED THE WORLD", gameover: "THE GATE REMEMBERS YOUR FALL" }[overlayType] || "KINETIC MONSTERS";
     const content = $("overlay-content");
-    if (overlayType === "quick") content.innerHTML = quickMenuHTML();
+    if (overlayType === "gameover") content.innerHTML = gameOverHTML(g);
+    else if (overlayType === "quick") content.innerHTML = quickMenuHTML();
     else if (overlayType === "arsenal") content.innerHTML = arsenalHTML(g, !!game);
     else if (overlayType === "chronicle") content.innerHTML = chronicleHTML(g, rpgTab, !!game);
     else if (overlayType === "merchant") content.innerHTML = merchantHTML(g, !!game);
@@ -8024,7 +8455,7 @@
     else if (overlayType === "party") content.innerHTML = partyHTML(g);
     else if (overlayType === "codex") content.innerHTML = codexHTML(g);
     else if (overlayType === "guide") content.innerHTML = guideHTML();
-    else if (overlayType === "pause") content.innerHTML = `<div class="pause-menu"><p class="eyebrow">${g.room.name.toUpperCase()}</p><h2 id="overlay-title">A quiet moment.</h2><p>Your companions will wait.<br>${notice || "Progress saves at waylights, doors, discoveries, and victories."}</p><button class="primary" data-resume>RETURN TO THE WORLD \u2192</button><button data-overlay="arsenal">KINETIC ARSENAL \xB7 POWERS & TECHNIQUES</button><button data-overlay="map">WORLD ATLAS</button><button data-overlay="inventory">INVENTORY & CRAFTING</button><button data-overlay="party">YOUR COMPANIONS</button><button data-overlay="chronicle">CHRONICLES \xB7 TALENTS \xB7 EQUIPMENT</button><button data-overlay="codex">CREATURE BESTIARY</button><button data-overlay="guide">CONTROLS & TECHNIQUES</button><button data-return-home>SAVE & RETURN TO CAMP</button></div>`;
+    else if (overlayType === "pause") content.innerHTML = `<div class="pause-menu"><p class="eyebrow">${g.room.name.toUpperCase()}</p><h2 id="overlay-title">A quiet moment.</h2><p>Your companions will wait.<br>${notice || "Progress saves at wellsprings, doors, discoveries, and victories."}</p><button class="primary" data-resume>RETURN TO THE WORLD \u2192</button><button data-overlay="arsenal">KINETIC ARSENAL \xB7 POWERS & TECHNIQUES</button><button data-overlay="map">WORLD ATLAS</button><button data-overlay="inventory">INVENTORY & CRAFTING</button><button data-overlay="party">YOUR COMPANIONS</button><button data-overlay="chronicle">CHRONICLES \xB7 TALENTS \xB7 EQUIPMENT</button><button data-overlay="codex">CREATURE BESTIARY</button><button data-overlay="guide">CONTROLS & TECHNIQUES</button><button data-return-home>SAVE & RETURN TO CAMP</button></div>`;
     else if (overlayType === "dialogue") content.innerHTML = dialogueHTML();
     else if (overlayType === "reward") content.innerHTML = rewardHTML(g);
     else if (overlayType === "ending") content.innerHTML = endingHTML();
@@ -8032,15 +8463,15 @@
     renderPortraits();
   }
   function mapHTML(g) {
-    return heading("Atlas of the <em>broken world.</em>", "Six gates. Vast dungeons. Learn the passages, unlock shortcuts, and chart your own way through.") + regionAtlas(g, mapRegion, mapRoom, !!game) + `<p class="modal-note">${g.visited.size} / ${Object.keys(ROOMS).length} places discovered \xB7 ${g.fragments.size} / 6 heart fragments \xB7 Fast travel connects discovered waylights only. M or Escape to close.</p>`;
+    return heading("Atlas of the <em>broken world.</em>", "Six gates. Vast dungeons. Learn the passages, unlock shortcuts, and chart your own way through.") + regionAtlas(g, mapRegion, mapRoom, !!game) + `<p class="modal-note">${g.visited.size} / ${Object.keys(ROOMS).length} places discovered \xB7 ${g.fragments.size} / 6 heart fragments \xB7 Camps provide travel and crafting. Wellsprings heal automatically and become retry checkpoints. M or Escape to close.</p>`;
   }
   function inventoryHTML(g) {
-    const crafting = game && g.room.objects.some((o) => ["bench", "workbench"].includes(o.kind) && Math.abs(g.player.x - o.x) < 110);
-    return heading("Everything you <em>carry.</em>", `${g.lumens} Lumens \xB7 Bond level ${g.level} \xB7 ${g.equipped.length}/2 charms equipped`) + `<div class="status-note">${crafting ? "WAYLIGHT IN REACH \xB7 Crafting and party changes available." : "CRAFTING \xB7 Rest at a waylight or visit the Mender\u2019s Workbench."}</div>${g.messageTime ? `<p class="status-note" role="status">${escapeHtml(g.message)}</p>` : ""}<div class="reliquary-banner"><span>NEW \xB7 RELIC EQUIPMENT & TALENT BUILDS</span><button class="secondary" data-open-reliquary>OPEN YOUR RELIQUARY \u2197</button></div><div class="inventory-grid"><div><h3 class="minor-heading">SUPPLIES & MATERIALS</h3><div class="item-list">${Object.entries(ITEMS).filter(([id]) => !["pickaxe", "lantern"].includes(id)).map(([id, d]) => `<div class="item-tile"><span>${d.icon}</span><div><p>${d.name}</p><small>${id === "flask" ? "V to restore 3 hearts" : "Crafting material"}</small></div><strong>${g.inventory[id]}</strong></div>`).join("")}</div><div class="modal-actions"><button class="secondary" data-craft="flask" ${!crafting ? "disabled" : ""}>CRAFT FLASK \xB7 2 HEARTWOOD</button><button class="secondary" data-use-flask ${!game ? "disabled" : ""}>DRINK FLASK \xB7 V</button></div><h3 class="minor-heading">EXPLORATION TOOLS</h3>${["pickaxe", "lantern"].map((id, i) => `<p class="tool-tip"><em>${ITEMS[id].icon} ${ITEMS[id].name}</em> \xB7 ${ITEMS[id].description} <span>${game?.toolIndex === i ? "[ SELECTED ]" : ""}</span></p>`).join("")}<p class="tool-tip">C cycles tools \xB7 T uses selected tool \xB7 U grapples to golden anchors</p><button class="secondary" data-cycle-tool ${!game ? "disabled" : ""}>CYCLE TOOL</button></div><div><h3 class="minor-heading">CHARMS \xB7 TWO SLOTS</h3>${Object.entries(CHARMS).map(([id, d]) => `<div class="charm-card ${g.equipped.includes(id) ? "equipped" : ""}"><span class="charm-icon">${d.icon}</span><div><h4>${d.name}</h4><p>${d.description}</p><small>${Object.entries(d.cost).map(([k, n]) => `${n} ${ITEMS[k].name}`).join(" + ")}</small></div><button data-${g.charms.has(id) ? "equip" : "craft"}="${id}" ${!game || !g.charms.has(id) && !crafting ? "disabled" : ""}>${g.charms.has(id) ? g.equipped.includes(id) ? "UNEQUIP" : "EQUIP" : "CRAFT"}</button></div>`).join("")}<button class="secondary" data-forge ${!crafting ? "disabled" : ""}>HEARTWOOD FORGE +${g.upgrades} \xB7 ${24 + g.upgrades * 20} LUMENS</button><p class="modal-note">Forge upgrades raise the whole party\u2019s health and damage. A wipe returns you to the last waylight you kindled and costs 10% of your Lumens. Crossing a doorway does not move your checkpoint.</p></div></div><h3 class="minor-heading">AWAKENED ABILITIES \xB7 PROGRESSION OPENS THE WORLD</h3><div class="ability-grid">${Object.entries(ABILITIES).map(([id, d]) => `<div class="ability-card ${g.abilities.has(id) ? "" : "locked"}"><span>${d.icon}</span><h4>${d.name}</h4><p>${d.description}</p><small>${g.abilities.has(id) ? d.key : "SLUMBERING \xB7 DEFEAT A GUARDIAN"}</small></div>`).join("")}</div>`;
+    const crafting = game && !!g.atBench?.();
+    return heading("Everything you <em>carry.</em>", `${g.lumens} Lumens \xB7 Bond level ${g.level} \xB7 ${g.equipped.length}/2 charms equipped`) + `<div class="status-note">${crafting ? "CAMP IN REACH \xB7 Crafting and party changes available." : "CRAFTING \xB7 Visit a camp station or the Mender\u2019s Workbench."}</div>${g.messageTime ? `<p class="status-note" role="status">${escapeHtml(g.message)}</p>` : ""}<div class="reliquary-banner"><span>NEW \xB7 RELIC EQUIPMENT & TALENT BUILDS</span><button class="secondary" data-open-reliquary>OPEN YOUR RELIQUARY \u2197</button></div><div class="inventory-grid"><div><h3 class="minor-heading">SUPPLIES & MATERIALS</h3><div class="item-list">${Object.entries(ITEMS).filter(([id]) => !["pickaxe", "lantern"].includes(id)).map(([id, d]) => `<div class="item-tile"><span>${d.icon}</span><div><p>${d.name}</p><small>${id === "flask" ? "V to restore 3 hearts" : "Crafting material"}</small></div><strong>${g.inventory[id]}</strong></div>`).join("")}</div><div class="modal-actions"><button class="secondary" data-craft="flask" ${!crafting ? "disabled" : ""}>CRAFT FLASK \xB7 2 HEARTWOOD</button><button class="secondary" data-use-flask ${!game ? "disabled" : ""}>DRINK FLASK \xB7 V</button></div><h3 class="minor-heading">EXPLORATION TOOLS</h3>${["pickaxe", "lantern"].map((id, i) => `<p class="tool-tip"><em>${ITEMS[id].icon} ${ITEMS[id].name}</em> \xB7 ${ITEMS[id].description} <span>${game?.toolIndex === i ? "[ SELECTED ]" : ""}</span></p>`).join("")}<p class="tool-tip">C cycles tools \xB7 T uses selected tool \xB7 U grapples to golden anchors</p><button class="secondary" data-cycle-tool ${!game ? "disabled" : ""}>CYCLE TOOL</button></div><div><h3 class="minor-heading">CHARMS \xB7 TWO SLOTS</h3>${Object.entries(CHARMS).map(([id, d]) => `<div class="charm-card ${g.equipped.includes(id) ? "equipped" : ""}"><span class="charm-icon">${d.icon}</span><div><h4>${d.name}</h4><p>${d.description}</p><small>${Object.entries(d.cost).map(([k, n]) => `${n} ${ITEMS[k].name}`).join(" + ")}</small></div><button data-${g.charms.has(id) ? "equip" : "craft"}="${id}" ${!game || !g.charms.has(id) && !crafting ? "disabled" : ""}>${g.charms.has(id) ? g.equipped.includes(id) ? "UNEQUIP" : "EQUIP" : "CRAFT"}</button></div>`).join("")}<button class="secondary" data-forge ${!crafting ? "disabled" : ""}>HEARTWOOD FORGE +${g.upgrades} \xB7 ${24 + g.upgrades * 20} LUMENS</button><p class="modal-note">Forge upgrades raise the whole party\u2019s health and damage. Wellsprings restore the whole party automatically when you pass through them. Each gate has two or three, placed deeper in its tunnels. A wipe costs 10% of Lumens and revives every enemy in that gate. Story rewards stay yours.</p></div></div><h3 class="minor-heading">AWAKENED ABILITIES \xB7 PROGRESSION OPENS THE WORLD</h3><div class="ability-grid">${Object.entries(ABILITIES).map(([id, d]) => `<div class="ability-card ${g.abilities.has(id) ? "" : "locked"}"><span>${d.icon}</span><h4>${d.name}</h4><p>${d.description}</p><small>${g.abilities.has(id) ? d.key : "SLUMBERING \xB7 DEFEAT A GUARDIAN"}</small></div>`).join("")}</div>`;
   }
   function partyHTML(g) {
-    const ids = game ? g.party.map((m) => m.data.id) : party, atBench = !game || g.room.objects.some((o) => ["bench", "workbench"].includes(o.kind) && Math.abs(g.player.x - o.x) < 110);
-    return heading("Three hearts.<br><em>One heartbeat.</em>", "Quick-switch with 1 / 2 / 3 or Q during battle. Each companion keeps its own health, Focus, and elemental skill.") + `<p class="status-note">${atBench ? "Choose three distinct companions. Rescued creatures join your sanctuary." : "Your party is traveling. Rest at a waylight to change companions."}</p><div class="party-builder">${ids.map((id, i) => {
+    const ids = game ? g.party.map((m) => m.data.id) : party, atBench = !game || !!g.atBench?.();
+    return heading("Three hearts.<br><em>One heartbeat.</em>", "Quick-switch with 1 / 2 / 3 or Q during battle. Each companion keeps its own health, Focus, and elemental skill.") + `<p class="status-note">${atBench ? "Choose three distinct companions. Rescued creatures join your sanctuary." : "Your party is traveling. Reach a camp station to change companions."}</p><div class="party-builder">${ids.map((id, i) => {
       const d = findFighter(id);
       return `<div class="build-slot"><small>COMPANION 0${i + 1}</small><canvas data-portrait="${id}" data-hero="true" aria-label="${d.name}"></canvas><select data-party-slot="${i}" aria-label="Companion ${i + 1}" ${!atBench ? "disabled" : ""}>${ROSTER.filter((d2) => g.unlocked.has(d2.id)).map((d2) => `<option value="${d2.id}" ${d2.id === id ? "selected" : ""}>${d2.name}</option>`).join("")}</select><span class="type-label">${d.types.join(" / ").toUpperCase()}</span><p><em>${d.skill}</em><br>${d.signatureDesc || d.description}</p></div>`;
     }).join("")}</div><div class="modal-actions"><p>${game ? "Rescue Mycora, Lumivern, and Chronowl from their guardians to unlock them." : saved ? "Starting a new expedition replaces the saved campaign. Your current save remains until you begin." : "Your journey begins at the Last Lantern. Professor Vell will show you the way."}</p>${game ? '<button class="primary" data-resume>BACK TO THE WORLD \u2192</button>' : '<button class="primary" id="confirm-expedition">ENTER THE LAST LANTERN <span>\u2192</span></button>'}</div>`;
@@ -8050,7 +8481,7 @@
     return heading("What the world <em>remembers.</em>", `${g.memories.size} field notes \xB7 ${g.shrines.size} lost echoes \xB7 ${g.discovered.size}/${Object.keys(MINIONS).length} wild species`) + `<div class="story-panel"><p class="eyebrow">${g.finished ? "EPILOGUE" : "CURRENT CHAPTER"}</p><h3>${g.finished ? "A family for the Worldheart" : chapter.title}</h3><p>${g.finished ? "The guardians were never your enemies. They were carrying something too heavy to put down. The Worldheart remembers what you did for them." : chapter.story}</p></div><h3 class="minor-heading">COMPANIONS \xB7 ${g.unlocked.size} / 11 FOUND</h3><div class="codex-grid">${ROSTER.map((d) => `<article class="codex-card"><canvas data-portrait="${d.id}" aria-label="${d.name}"></canvas><small>${g.unlocked.has(d.id) ? d.types.join(" / ").toUpperCase() : "RESCUE THIS COMPANION"}</small><h3>${d.name}</h3><p>${d.description}</p><p><em>${d.skill}</em> \xB7 ${d.passive}</p></article>`).join("")}</div><h3 class="minor-heading">GUARDIANS & THEIR MEMORIES</h3><div class="codex-grid">${Object.entries(BOSSES).map(([id, b]) => `<article class="codex-card"><small>${g.bossDefeated(id) ? "MEMORY RESTORED" : "A VOICE STILL LOST"}</small><h3>${b.name}</h3><p>${g.bossDefeated(id) ? b.lore : b.epithet.toLowerCase()}</p></article>`).join("")}</div><h3 class="minor-heading">FIELD BESTIARY</h3><div class="codex-grid">${Object.entries(MINIONS).map(([id, d]) => `<article class="codex-card"><small>${g.discovered.has(id) ? "DISCOVERED \xB7 " + d.types : "UNOBSERVED \xB7 " + d.types}</small><h3>${d.name}</h3><p>${d.hint}</p></article>`).join("")}</div>`;
   }
   function guideHTML() {
-    const rows = [["Shield / timed parry", "HOLD G \xB7 7-frame deflect"], ["Power / cycle / arsenal", "X / Z / H"], ["Uppercut launcher", "W + K \xB7 J J K branches"], ["Aerial plunge", "AIR S + K \xB7 unlock Claw"], ["Run / aim", "A D / W S"], ["Variable-height jump", "SPACE \xB7 release for short hop"], ["Dash / recovery cancel", "SHIFT"], ["Fast three-hit chain", "J \xB7 buffer your next strike"], ["Armor breaker", "K"], ["Directional elemental skill", "W A S D + L / neutral L"], ["Pogo bounce", "Air S + J"], ["Focus heal \xB7 hold still", "HOLD F \xB7 costs 40 FOCUS \xB7 1.2s channel"], ["Drink a flask", "V \xB7 restores 3 hearts"], ["Switch companions", "1 / 2 / 3 \xB7 Q cycles"], ["Interact / rest / enter", "E"], ["Use / cycle tools", "T / C"], ["Grapple to golden anchor", "U \xB7 requires Ember Thread"], ["Map / inventory / journal", "M / I / N"], ["Threefold Resonance Surge", "R \xB7 full gauge required"], ["Chronicle / talents / equipment", "N"], ["Pause", "ESCAPE"]];
+    const rows = [["Shield / timed parry", "HOLD G \xB7 7-frame deflect"], ["Power / cycle / arsenal", "X / Z / H"], ["Uppercut launcher", "W + K \xB7 J J K branches"], ["Aerial plunge", "AIR S + K \xB7 unlock Claw"], ["Run / aim", "A D / W S"], ["Variable-height jump", "SPACE \xB7 release for short hop"], ["Dash / recovery cancel", "SHIFT"], ["Fast three-hit chain", "J \xB7 buffer your next strike"], ["Armor breaker", "K"], ["Directional elemental skill", "W A S D + L / neutral L"], ["Pogo bounce", "Air S + J"], ["Focus heal \xB7 hold still", "HOLD F \xB7 costs 40 FOCUS \xB7 1.2s channel"], ["Drink a flask", "V \xB7 restores 3 hearts"], ["Switch companions", "1 / 2 / 3 \xB7 Q cycles"], ["Interact / craft / enter", "E"], ["Automatic full recovery", "WALK THROUGH A WELLSPRING"], ["Use / cycle tools", "T / C"], ["Grapple to golden anchor", "U \xB7 requires Ember Thread"], ["Map / inventory / journal", "M / I / N"], ["Threefold Resonance Surge", "R \xB7 full gauge required"], ["Chronicle / talents / equipment", "N"], ["Pause", "ESCAPE"]];
     return heading("Learn the <em>rhythm.</em>", "J: 0.2s \xB7 K: 0.6s \xB7 L: 1.5s. Time your follow-ups; each power has its own cooldown. Every hit refills Focus; every quiet moment can restore a heart.") + `<div class="controls-grid">${rows.map(([a, b]) => `<div class="control-row"><span>${a}</span><kbd>${b}</kbd></div>`).join("")}</div><p class="modal-note">Defeat the Briar Matron for wall jumps, Saint Bellows for grappling, the Leviathan for the Tideglass Seal, the Conductor for a double jump, and the Hourglass Stag for Rift Step. Return with new abilities to reach high chambers, buried vaults, and looping shortcuts. The map records explored passages; navigation is yours.</p><button class="secondary" data-overlay="arsenal">KINETIC ARSENAL \xB7 ALL POWERS & COMBAT ROUTES \u2197</button>`;
   }
   function dialogueHTML() {
@@ -8083,9 +8514,23 @@
   function creditsHTML(g) {
     return `<div class="reward-panel"><span class="reward-icon">\u2727</span><p class="eyebrow">${g.ending === "release" ? "ENDING \xB7 A SKY FULL OF HEARTBEATS" : "ENDING \xB7 THE LAST LANTERN BECOMES A DAWN"}</p><h2 id="overlay-title">The world remembers you.</h2><p>${g.ending === "release" ? "The heart unfurls into a thousand constellations. For the first time, the creatures look up and hear their own names in the stars." : "The sanctuary fills with travelers. New roads wind through the forest. The Worldheart rests beneath the lantern, surrounded by creatures who chose to stay."}<br><br>Professor Vell smiles. \u201CI think we can stop running now.\u201D</p><div class="inline-stats"><span><b>${g.fragments.size}/6</b>HEARTS RESTORED</span><span><b>${g.visited.size}/${Object.keys(ROOMS).length}</b>PLACES FOUND</span><span><b>${g.unlocked.size}/11</b>COMPANIONS</span><span><b>${Math.floor(g.playtime / 3600)}</b>MINUTES TRAVELED</span></div><div class="modal-actions"><button class="secondary" data-return-home>SAVE & RETURN HOME</button><button class="primary" data-resume>KEEP EXPLORING \u2192</button></div></div>`;
   }
+  function gameOverHTML(g) {
+    const death = g.death || {}, gate = BIOMES[death.gate] || BIOMES[g.room.biome], room = ROOMS[death.room] || g.room, refuge = ROOMS[death.returnTo?.room], lost = Math.max(0, Math.floor(death.lostLumens || 0)), count = Math.max(0, Math.floor(death.restoredEnemies || 0));
+    return `<section class="game-over-panel" style="--death-color:${gate.color}"><div class="fallen-sigil" aria-hidden="true"><span>\u25C8</span><i></i><i></i><i></i></div><p class="eyebrow">GAME OVER \xB7 ${escapeHtml(gate.name)}<br>${escapeHtml(room.name)}</p><h2 id="overlay-title">The light<br><em>fell silent.</em></h2><p id="gameover-description">Your three companions have fallen.<br>The gate draws breath. Its creatures rise again.</p><div class="death-costs"><div><b>${count}</b><span>ENEMIES REAWAKENED</span></div><div><b>\u2212${lost} <small>\u25C8</small></b><span>LUMENS LOST</span></div><div><b>\u2726</b><span>STORY & ABILITIES KEPT</span></div></div><p class="death-return">RETURN POINT <strong>${escapeHtml(refuge?.name || "The Last Lantern")}</strong><span>Wellsprings in the fallen gate awaken for your next attempt.</span></p><div class="death-actions"><button class="primary" data-retry-death>RISE AGAIN <span>\u2197</span></button><button class="secondary" data-return-home>SAVE & RETURN TO TITLE</button></div><p class="death-key">R TO RETRY \xB7 YOUR JOURNEY IS STILL HERE</p></section>`;
+  }
+  function retryDeath() {
+    if (!game || game.phase !== "gameover" || !game.retryAfterDeath?.()) return;
+    rewardQueue = [];
+    accumulator = 0;
+    noticeFrames = 0;
+    closeOverlay(true);
+    renderHud();
+    syncMobileLayout();
+  }
   function renderHud() {
     if (!game) return;
     const g = game, p = g.player;
+    document.body.classList.toggle("game-over", g.phase === "gameover");
     const fingerprint = g.party.map((m) => m.data.id).join() + ":" + g.activeSlot;
     if ($("party-hud").dataset.party !== fingerprint) {
       $("party-hud").dataset.party = fingerprint;
@@ -8184,6 +8629,13 @@
       return;
     }
     if (modal.open) {
+      if (overlayType === "gameover") {
+        if (e.code === "KeyR" && !e.repeat) {
+          e.preventDefault();
+          retryDeath();
+        }
+        return;
+      }
       if (overlayType === "dialogue" && ["Space", "Enter", "KeyE"].includes(e.code)) {
         e.preventDefault();
         if (!e.repeat) nextDialogue();
@@ -8227,6 +8679,10 @@
     const b = e.target.closest("button");
     if (!b) return;
     if (orientationBlocked) return;
+    if (b.hasAttribute("data-retry-death")) {
+      retryDeath();
+      return;
+    }
     if (b.hasAttribute("data-toggle-sound")) {
       $("sound-button").click();
       renderOverlay();
@@ -8438,7 +8894,8 @@
         lastHud = clock;
       }
       if (game.tick && game.tick % 600 === 0 && !game.paused) game.save();
-      if (rewardQueue.length && !modal.open && game.enemies.every((e) => !e.boss || e.hp <= 0)) openOverlay("reward");
+      if (game.phase === "gameover" && overlayType !== "gameover") openOverlay("gameover");
+      if (game.phase === "playing" && rewardQueue.length && !modal.open && game.enemies.every((e) => !e.boss || e.hp <= 0)) openOverlay("reward");
     } else heroRenderer.renderHome(clock, party);
     requestAnimationFrame(frame);
   }

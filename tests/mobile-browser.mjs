@@ -11,7 +11,7 @@ try{
   const context=await browser.newContext({viewport:{width:390,height:844},isMobile:true,hasTouch:true});const page=await context.newPage();
   page.on('pageerror',e=>errors.push(e.message));page.on('requestfailed',r=>errors.push(r.url()+' '+r.failure()?.errorText));page.on('response',r=>{if(r.status()>=400)errors.push(r.url()+' '+r.status());});
   await page.addInitScript(()=>{HTMLElement.prototype.requestFullscreen=async()=>{throw Error('Fullscreen unavailable in this fixture');};if(screen.orientation)screen.orientation.lock=async()=>{throw Error('Orientation lock unavailable in this fixture');};});
-  await page.goto(base);await page.evaluate(()=>document.fonts.ready);await page.clock.install();
+  await page.goto(base);await page.evaluate(()=>document.fonts.ready);await page.clock.install({time:new Date('2026-01-01T00:00:00Z')});await page.clock.pauseAt(new Date('2026-01-01T00:00:01Z'));
   const clock=ms=>page.clock.runFor(ms),snapshot=()=>page.evaluate(()=>window.kinetic.snapshot());mkdirSync('test-results',{recursive:true});
   assert(await page.locator('#rotate-prompt').isVisible(),'portrait home is gated before any expedition starts');
   assert.equal(await page.evaluate(()=>document.activeElement.closest('dialog')?.id),'rotate-prompt');

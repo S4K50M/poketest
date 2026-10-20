@@ -33,9 +33,9 @@ export function fightGuardian(g,max=7000){
 export function playCampaign(g,{chapters=6,switchParty=true,onGuardian=()=>{}}={}){
   for(let i=0;i<chapters;i++){
     const ch=CHAPTERS[i];
-    // A gate is an expedition. Return to the one reliable waylight between
-    // dimensions rather than relying on a boss reward to heal the party.
-    if(!walkTo(g,200))throw Error('Cannot return to the sanctuary waylight');g.input('interact');
+    // The sanctuary spring restores companions by contact; camp interaction
+    // is reserved for services and never supplies a repeatable heal.
+    if(!walkTo(g,200))throw Error('Cannot return to the sanctuary spring');g.step();
     if(switchParty)g.input('slot'+(i%3+1));
     if(!walkTo(g,1050+i*180))throw Error('Cannot reach sanctuary portal '+i);g.input('interact');
     if(g.roomId!==ch.id+'-path')throw Error('Portal did not open '+i);

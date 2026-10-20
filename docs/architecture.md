@@ -33,7 +33,7 @@ main.js advances gameplay at a fixed 60 Hz using a requestAnimationFrame accumul
 
 Positions are world pixels with positive Y downward. Player and enemy positions refer to their feet; common ground is Y = 520. The actor has one world transform across party swaps, while health, Focus, and signature cooldowns belong to the selected party member. Shared Guard, movement expenditure, and art cooldowns prevent swap-refresh exploits.
 
-WorldRenderer follows the player with a camera, then draws biome layers, geometry, room objects, entities, actor, projectiles, hazards, and effects. CombatFX uses bounded pools and seconds-based visual lifetimes. Its camera zoom is an **absolute multiplier**: 1 is neutral. Reduced motion disables camera impulses and softens flashes. Creature rigs use simulation attack progress for anticipation/contact/recovery. Entity wrappers preserve Canvas context state around existing art.
+WorldRenderer follows the player with a camera, then draws biome layers, enclosed cave backwalls/ceilings, geometry, recovery basins, room objects, entities, actor, projectiles, hazards, and effects. CombatFX uses bounded pools and seconds-based visual lifetimes. Its camera zoom is an **absolute multiplier**: 1 is neutral. Reduced motion disables camera impulses and softens flashes. Creature rigs use simulation attack progress for anticipation/contact/recovery. Entity wrappers preserve Canvas context state around existing art.
 
 The UI uses one dialog for menus, dialogue, rewards, and endings. Opening it pauses gameplay and clears held inputs. Blur and tab hiding also pause through the UI. window.kinetic exposes a defensive snapshot and version for inspection, not a mutable game object or a cheat API.
 
@@ -59,7 +59,9 @@ The UI uses one dialog for menus, dialogue, rewards, and endings. Opening it pau
 | [src/adventure.js](../src/adventure.js) | Independent party resources, healing, original skills, statuses, minion AI |
 | [src/designs.js](../src/designs.js) | Supplied creature identities, new companions, wild species |
 | [src/creatures.js](../src/creatures.js) | Original vector rigs and procedural animation |
-| [src/world-render.js](../src/world-render.js) | Parallax biome scenery, structures, unique guardian rigs, effects, camera |
+| [src/world-render.js](../src/world-render.js) | Scene composition, structures, guardian rigs, effects, camera |
+| [src/tunnel-render.js](../src/tunnel-render.js) | Enclosed cave layers, geological shelves, lighting, camps and recovery basins |
+| [src/recovery.js](../src/recovery.js) | Seeded spring layout, world-seed validation, safe respawn-point validation |
 | [src/main.js](../src/main.js) | Campaign UI, dialogs, atlas, inventory, keyboard/touch controls, fixed-step loop |
 | [src/render.js](../src/render.js) | Shared canvas sizing and portraits |
 | [src/style.css](../src/style.css) | Responsive interface and locally bundled fonts |
@@ -87,4 +89,10 @@ Persistent identifiers belong to content definitions and must remain stable acro
 
 [dimensions.js](../src/dimensions.js) defines 24 branching dungeon rooms and six buried stories. world.js registers these alongside existing rooms and preserves their saved IDs. [dungeon-enemies.js](../src/dungeon-enemies.js) defines twelve minibosses; [difficulty.js](../src/difficulty.js) implements three-phase encounters, telegraphed rush/volley/sigil/slam patterns, four new minion AIs, and the campaign healing contract.
 
-Door objects may specify destination `spawn: {x, y}` and a `requiresBoss` seal. Enemy spawns may specify `y`, `left`, `right`, and `introX` for elevated patrols. Room `map: {x,y}`, `depth`, and `dungeon` metadata drive the atlas. Feet coordinates remain positive downward, with upper floors using negative Y. The renderer follows vertical climbs. safeRest is distinct from the local room checkpoint and is validated against a real bench when loading.
+Door objects may specify destination `spawn: {x, y}` and a `requiresBoss` seal. Enemy spawns may specify `y`, `left`, `right`, and `introX` for elevated patrols. Room `map: {x,y}`, `depth`, and `dungeon` metadata drive the atlas. Feet coordinates remain positive downward, with upper floors using negative Y. The renderer follows vertical climbs. safeRest is distinct from the local fall checkpoint and is validated against a real spring in the saved worldSeed’s layout when loading.
+
+## Recovery and Game Over state
+
+CampaignEngine owns the expedition seed, automatic spring-entry detection, current spring usage, gate-wide enemy resurrection, and pending death. The layout stays outside shared room objects: recoveryForRoom derives its used flags from each journey’s spentRecovery set. Entering a spring restores the party and binds safeRest; camps and fast travel do not heal. Camps, workbenches, and nearby springs share the atBench service predicate for crafting, upgrades, and companion changes. The sanctuary hearth can activate again after the player leaves and returns.
+
+On a full wipe, beginGameOver finalizes the Lumen penalty and gate enemy reset before saving and emitting gameover. Current defeated state is separate from lifetime claimedEnemyRewards, preserving unique progression while allowing enemies to live again. The engine remains in phase gameover until retryAfterDeath restores the party and loads the last validated spring. main.js presents a non-dismissible Game Over modal with Retry and Save & Title; rotation overlays preserve that pending decision. Returning to the title or reloading cannot dismiss death or apply its penalty twice.

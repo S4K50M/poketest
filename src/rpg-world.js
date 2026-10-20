@@ -7,3 +7,5 @@ for(const [id,links] of Object.entries(CHRONICLE_LINKS))for(const object of link
 for(const room of Object.values(CHRONICLE_ROOMS)){room.chronicle=true;room.thorns??=[];for(const o of room.objects)if(o.defeatedBoss)o.boss=o.defeatedBoss;}
 ROOMS.sanctuary.objects.push({id:'ora',kind:'merchant',talk:'ora',x:610,name:'Ora, the Relic Peddler'},
   {id:'covenant-stone',kind:'covenant',x:825,name:'The Covenant Stone'});
+
+for(const room of Object.values(ROOMS))for(const object of room.objects)if(object.kind==='bench'){object.kind='camp';object.name='Wayfarer’s Camp';}
