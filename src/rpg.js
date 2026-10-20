@@ -1,5 +1,6 @@
 import './rpg-world.js';
 import { CampaignEngine } from './campaign.js';
+import { updateBossEncounter } from './difficulty.js';
 import { AdventureSystems } from './adventure.js';
 import { ROSTER } from './roster.js';
 import { ROOMS, BOSSES, BIOMES, DIALOGUES } from './world.js';
@@ -40,7 +41,7 @@ export class RPGCampaign extends CampaignEngine{
       this.lootSerial=Math.floor(number(s.lootSerial,0,99999));for(const id of Object.keys(this.companionXP))this.companionXP[id]=number(s.companionXP?.[id],0,1000);
       this.surge=number(s.surge,0,100);this.defeatedBosses=new Set(array(s.defeatedBosses).filter(id=>own(CHRONICLE_BOSSES,id)));this.historyKnown=new Set(array(s.historyKnown).filter(id=>HISTORY.some(h=>h.id===id)));this.questFlags=new Set(array(s.questFlags).filter(id=>typeof id==='string'));this.trueEnding=own(FACTIONS,s.trueEnding)?s.trueEnding:null;
       this.keepsakes=new Set((Array.isArray(s.keepsakes)?s.keepsakes:[]).filter(id=>own(CHRONICLE_ITEMS,id)));
-      this.eventCleared=new Set(array(s.eventCleared).filter(id=>own(ROOMS,id)));this.dropArchive={};for(const [room,drops] of Object.entries(s.dropArchive||{}))if(own(ROOMS,room)&&Array.isArray(drops))this.dropArchive[room]=drops.filter(d=>d&&own(EQUIPMENT,d.template)&&typeof d.id==='string').map(d=>({id:d.id,template:d.template,x:number(d.x,30,ROOMS[room].width-30),y:number(d.y,0,650)}));
+      this.eventCleared=new Set(array(s.eventCleared).filter(id=>own(ROOMS,id)));this.dropArchive={};for(const [room,drops] of Object.entries(s.dropArchive||{}))if(own(ROOMS,room)&&Array.isArray(drops))this.dropArchive[room]=drops.filter(d=>d&&own(EQUIPMENT,d.template)&&typeof d.id==='string').map(d=>({id:d.id,template:d.template,x:number(d.x,30,ROOMS[room].width-30),y:number(d.y,-2400,650)}));
       for(const id of Object.keys(SHOP))this.shopStock[id]=Math.floor(number(s.shopStock?.[id]??SHOP[id].stock,0,SHOP[id].stock));
     }else{this.talentPoints=2+this.level-1;}
     this.worldDrops=(this.dropArchive[this.roomId]||[]).map(d=>({...d}));this.message='';this.messageTime=0;this.applyFactionBoon();if(s.party.some(m=>m.hp>0))this.party.forEach((m,i)=>{if(Number.isFinite(s.party[i].hp))m.hp=clamp(s.party[i].hp,0,m.maxHp);});if(!this.player.hp)this.activeSlot=this.party.findIndex(m=>m.hp>0);this.acceptAutostartQuests();this.refreshKnowledge();this.combat.load(s.combat);return true;
@@ -51,7 +52,7 @@ export class RPGCampaign extends CampaignEngine{
     if(this.rpgReady){for(const e of this.enemies)if(e.boss&&own(CHRONICLE_BOSSES,e.boss)){e.left=Math.max(800,e.home-420);e.right=Math.min(this.worldWidth-130,e.home+380);e.introX=e.home-550;}this.worldDrops=(this.dropArchive[id]||[]).map(d=>({...d}));this.revivalUsed=false;if(!this.loading){this.recordObjective('visit',id);this.refreshKnowledge();if(persist)this.save();}}
     return result;
   }
-  atBench(){const p=this.player;return !!(p.grounded&&this.room.objects.some(o=>['bench','workbench'].includes(o.kind)&&Math.abs(p.x-o.x)<110&&Math.abs(p.y-(o.y||520))<55));}
+  atBench(){const p=this.player;return !!(p.grounded&&this.room.objects.some(o=>['bench','workbench'].includes(o.kind)&&Math.abs(p.x-o.x)<110&&Math.abs(p.y-(o.y??520))<55));}
   fastTravel(id){if(!this.atBench()){this.say('REACH A WAYLIGHT ON THE SAME GROUND TO TRAVEL');return false;}if(!ROOMS[id]?.objects.some(o=>o.kind==='bench')){this.say('THIS PLACE HAS NO WAYLIGHT · USE ITS DOOR');return false;}return super.fastTravel(id);}
   replaceParty(slot,id){if(!this.atBench()){this.say('REST AT A WAYLIGHT TO CHANGE COMPANIONS');return false;}const ok=super.replaceParty(slot,id);if(ok)this.applyFactionBoon();return ok;}
   runMultiplier(){return (this.talents?.has('fleet')?1.1:1)*(1+this.equipmentMods().speed);}
@@ -65,9 +66,10 @@ export class RPGCampaign extends CampaignEngine{
   switchTo(slot,forced=false){const ok=super.switchTo(slot,forced);if(ok)this.combat.releaseShield();if(ok&&this.rpgReady&&!forced&&this.talents.has('overdrive')&&!this.combat.remaining('assist')){this.combat.commit('assist');for(const e of this.enemies)if(e.hp>0&&Math.abs(e.x-this.player.x)<135)this.strike(e,10,this.player.face,{dot:true});this.worldEffects.push({type:'aurora',x:this.player.x,y:this.player.y-35,life:35,maxLife:35});}return ok;}
   strike(e,damage,direction,options={}){
     if(e.boss==='nullheart'&&!this.nullheartReady()){this.say('THE NULLHEART WAITS · AWAKEN THE HOLLOW SOVEREIGN FIRST');return;}
-    const hp=e.hp,owner=this.party[options.source??this.activeSlot]?.data.id;
+    const hp=e.hp,owner=this.party[options.source??this.activeSlot]?.data.id,frameEnemies=this.enemies;
     let mult=1+(this.rpgReady?BOND_RANKS[this.bondRank(owner)].damage:0);if(this.talents?.has('execution')&&e.hp<e.maxHp*.35)mult*=1.25;
     const previousSource=this.rewardSource;this.rewardSource=owner;try{super.strike(e,damage*mult,direction,options);}finally{this.rewardSource=previousSource;}
+    if(this.enemies!==frameEnemies||this.player.respawning)return;
     if(this.rpgReady&&e.hp<hp&&!options.dot){
       const before=this.bondRank(owner);this.companionXP[owner]=Math.min(1000,(this.companionXP[owner]||0)+2);this.surge=Math.min(100,this.surge+3*(this.talents.has('overdrive')?1.4:1)*(1+this.equipmentMods().surge));this.directHits++;if(this.faction==='chorus'){const member=this.party.find(m=>m.data.id===owner);member.spirit=Math.min(100,member.spirit+1.8);}
       if(this.talents.has('siphon')&&this.directHits%5===0)this.player.hp=Math.min(this.player.maxHp,this.player.hp+.5);
@@ -85,7 +87,7 @@ export class RPGCampaign extends CampaignEngine{
   gainXP(amount){const before=this.level;super.gainXP(amount);if(this.rpgReady&&this.level>before){this.talentPoints+=this.level-before;this.emit('talentpoint');}}
   step(){
     if(this.paused||this.phase!=='playing')return;
-    const heals=this.stats.heals;super.step();if(!this.rpgReady)return;
+    const heals=this.stats.heals,frameEnemies=this.enemies;super.step();if(!this.rpgReady||this.enemies!==frameEnemies||this.player.respawning)return;
     const mods=this.equipmentMods();this.player.spirit=Math.min(100,this.player.spirit+mods.focus*.4);
     if(this.talents.has('reservoir'))this.party.forEach((m,i)=>{if(i!==this.activeSlot)m.spirit=Math.min(100,m.spirit+.12);});
     if(this.stats.heals>heals&&this.talents.has('stillwater'))this.player.hp=Math.min(this.player.maxHp,this.player.hp+.5);
@@ -100,7 +102,7 @@ export class RPGCampaign extends CampaignEngine{
     if(e.rewarded)return;
     const beforeCoins=this.lumens;
     if(own(CHRONICLE_BOSSES,e.boss)){
-      AdventureSystems.prototype.awardEnemy.call(this,e);this.defeated.add(e.key);this.defeatedBosses.add(e.boss);this.gainXP(100);this.lumens+=55;this.inventory.flask+=2;this.restoreParty();this.talentPoints++;this.grantEquipment({palimpsest:'palimpsestKey',belltwin:'bellOath',nullheart:'nullCrown'}[e.boss]);
+      AdventureSystems.prototype.awardEnemy.call(this,e);this.defeated.add(e.key);this.defeatedBosses.add(e.boss);this.gainXP(100);this.lumens+=55;this.inventory.flask++;this.talentPoints++;this.grantEquipment({palimpsest:'palimpsestKey',belltwin:'bellOath',nullheart:'nullCrown'}[e.boss]);
       this.say('FORBIDDEN MEMORY RESTORED · '+BOSSES[e.boss].name.toUpperCase());this.emit('bossdefeated',{boss:e.boss});
       if(e.boss==='nullheart'){this.trueEnding=this.faction||'unwritten';this.emit('trueending',{faction:this.trueEnding});}
     }else super.awardEnemy(e);
@@ -123,7 +125,7 @@ export class RPGCampaign extends CampaignEngine{
   salvageItem(id){if(Object.values(this.loadout).includes(id)){this.say('UNEQUIP THIS RELIC BEFORE SALVAGING');return false;}const d=this.gear.find(d=>d.id===id);if(!d)return false;this.lumens+=EQUIPMENT[d.template].value;this.gear=this.gear.filter(n=>n.id!==id);this.save();return true;}
   buyTalent(id){const d=TALENTS[id];if(!d||this.talents.has(id)||this.talentPoints<d.cost||d.requires&&!this.talents.has(d.requires)){this.say('TALENT LOCKED · CHECK POINTS AND THE PREVIOUS NODE');return false;}this.talentPoints-=d.cost;this.talents.add(id);this.say('TALENT AWAKENED · '+d.name.toUpperCase());this.emit('upgrade');this.save();return true;}
   buyItem(id){
-    const d=SHOP[id],near=this.room.objects.some(o=>o.kind==='merchant'&&Math.abs(o.x-this.player.x)<115&&Math.abs((o.y||520)-this.player.y)<60&&this.player.grounded);
+    const d=SHOP[id],near=this.room.objects.some(o=>o.kind==='merchant'&&Math.abs(o.x-this.player.x)<115&&Math.abs((o.y??520)-this.player.y)<60&&this.player.grounded);
     if(!near||!d||this.shopStock[id]<=0||this.lumens<d.cost){this.say(!near?'FIND A MERCHANT TO TRADE':'NOT ENOUGH LUMENS OR NO STOCK LEFT');return false;}
     this.lumens-=d.cost;this.shopStock[id]--;if(id==='flask')this.inventory.flask++;else if(id==='insight')this.talentPoints++;else this.grantEquipment(id);this.say('TRADE COMPLETE · '+d.name.toUpperCase());this.emit('upgrade');this.save();return true;
   }
@@ -148,7 +150,7 @@ export class RPGCampaign extends CampaignEngine{
   applyFactionBoon(){for(const m of this.party){const target=m.data.maxHp+this.level-1+this.upgrades+(this.faction==='wardens'?1:0),delta=target-m.maxHp;m.maxHp=target;m.hp=m.hp>0?Math.min(target,m.hp+Math.max(0,delta)):0;}}
   refreshKnowledge(){if(!this.rpgReady)return;for(const h of HISTORY){const unlock=h.unlock||{};if(!h.requires||this.questFlags.has(h.requires)||this.quests[h.requires]?.state==='complete')if((!unlock.fragments||this.fragments.size>=unlock.fragments)&&(!unlock.boss||this.defeatedBosses.has(unlock.boss)))this.historyKnown.add(h.id);}for(const id of Object.keys(this.quests))this.refreshQuest(id);}
   interact(){
-    const p=this.player,near=this.room.objects.filter(o=>Math.abs(p.x-o.x)<100&&Math.abs(p.y-(o.y||520))<100).sort((a,b)=>Math.hypot(p.x-a.x,p.y-(a.y||520))-Math.hypot(p.x-b.x,p.y-(b.y||520)))[0];
+    const p=this.player,near=this.room.objects.filter(o=>Math.abs(p.x-o.x)<100&&Math.abs(p.y-(o.y??520))<100).sort((a,b)=>Math.hypot(p.x-a.x,p.y-(a.y??520))-Math.hypot(p.x-b.x,p.y-(b.y??520)))[0];
     if(!near)return super.interact();
     if(near.kind==='merchant'){this.questFlags.add('talk:'+near.talk);this.recordObjective('talk',near.talk);this.emit('merchant');return true;}
     if(near.kind==='covenant'){this.emit('factionchoice');return true;}
@@ -187,7 +189,7 @@ export class RPGCampaign extends CampaignEngine{
   updateWild(e){
     if(!['candlewraith','clockscarab','oathbound','hushling'].includes(e.kind))return super.updateWild(e);
     const p=this.player,d=MINIONS[e.kind];if(Math.abs(e.x-p.x)>1100)return;this.discovered.add(e.kind);if(e.flash)e.flash--;if(e.slow>0)e.slow--;if(e.stun>0){e.stun--;return;}e.timer--;e.face=p.x>e.x?1:-1;
-    if(e.kind==='candlewraith')e.y=465+Math.sin(this.tick*.05+e.id)*25;
+    if(e.kind==='candlewraith')e.y=(e.baseY??520)-55+Math.sin(this.tick*.05+e.id)*25;
     if(e.state==='patrol'){e.x=clamp(e.x+e.face*d.speed*(e.slow>0?.55:1),e.left,e.right);if(e.timer<=0){e.state='windup';e.timer=e.kind==='oathbound'?35:24;}}
     else if(e.state==='windup'&&e.timer<=0){
       if(e.kind==='oathbound'||e.kind==='clockscarab'){e.state='charge';e.timer=20;}
@@ -201,20 +203,7 @@ export class RPGCampaign extends CampaignEngine{
   nullheartReady(){return this.fragments.has('crown')&&this.defeatedBosses.has('palimpsest')&&this.defeatedBosses.has('belltwin')&&!!this.faction;}
   updateBoss(e){
     if(e.boss==='nullheart'&&!this.nullheartReady()){e.state='sealed';return;}
-    if(!own(CHRONICLE_BOSSES,e.boss))return super.updateBoss(e);
-    if(!e.introduced)return;const p=this.player,b=this.bossInfo(e.boss);if(e.slow>0)e.slow--;if(e.flash)e.flash--;if(e.stun>0){e.stun--;return;}e.timer--;const dx=p.x-e.x;
-    if(e.hp<e.maxHp*.5&&e.phase===1){e.phase=2;e.state='enrage';e.timer=50;this.say(b.name.toUpperCase()+' · THE MEMORY FIGHTS BACK');this.emit('enrage');}
-    if(e.state==='enrage'&&e.timer<=0){e.state='patrol';e.timer=8;}
-    if(e.state==='patrol'){e.face=dx>0?1:-1;e.x=clamp(e.x+e.face*(e.phase===2?2.7:1.6)*(e.slow>0?.55:1),e.left,e.right);if(e.timer<=0){e.state='windup';e.timer=e.phase===2?26:38;e.pattern++;}}
-    else if(e.state==='windup'&&e.timer<=0){
-      const pattern=e.pattern%3;
-      if(pattern===0){e.state='charge';e.timer=22;}
-      else if(e.boss==='palimpsest'){for(let i=0;i<(e.phase===2?7:5);i++){const a=Math.atan2(p.y-40-(e.y-90),p.x-e.x)+(i-(e.phase===2?3:2))*.18;this.enemyShots.push({x:e.x,y:e.y-90,vx:Math.cos(a)*7,vy:Math.sin(a)*7,life:140,color:'#f1d7ae',status:{slow:70}});}e.state='recover';e.timer=40;}
-      else if(e.boss==='belltwin'){for(const dir of [-1,1])this.waves.push({x:e.x,y:520,vx:dir*(e.phase===2?11:8),life:100,color:'#f4ae81'});this.hazards.push({type:'lightning',x:p.x,y:520,timer:35,life:75});e.state='recover';e.timer=42;}
-      else{const type=this.faction==='wardens'?'stasis':this.faction==='chorus'?'lightning':'root';for(let i=-1;i<=1;i++)this.hazards.push({type,x:clamp(p.x+i*140,650,1740),y:520,timer:32,life:75});this.worldEffects.push({type:'eclipse',x:e.x,y:300,life:70,maxLife:70});e.state='recover';e.timer=44;}
-    }else if(e.state==='charge'){e.x=clamp(e.x+e.face*(e.phase===2?15:11),e.left,e.right);if(e.timer<=0){e.state='recover';e.timer=40;}}
-    else if(e.state==='recover'&&e.timer<=0){e.state='patrol';e.timer=22;}
-    if(Math.abs(p.x-e.x)<65&&Math.abs(p.y-e.y)<115&&e.state!=='recover')this.hurt(Math.sign(p.x-e.x),1.5);
+    updateBossEncounter(this,e,this.bossInfo(e.boss));
   }
   snapshot(){const s=super.snapshot();if(!this.rpgReady)return s;return {...s,expansion:'the-ninth-memory',quests:structuredClone(this.quests),trackedQuest:this.trackedQuest,faction:this.faction,reputation:{...this.reputation},talents:[...this.talents],talentPoints:this.talentPoints,gear:this.gear.map(d=>({...d})),loadout:{...this.loadout},companionXP:{...this.companionXP},surge:this.surge,combat:this.combat.snapshot(),defeatedBosses:[...this.defeatedBosses],trueEnding:this.trueEnding,keepsakes:[...this.keepsakes],worldEvent:this.worldEvent?{...this.worldEvent}:null,eventCleared:[...this.eventCleared],worldDrops:this.worldDrops.map(d=>({...d})),historyKnown:[...this.historyKnown]};}
 }

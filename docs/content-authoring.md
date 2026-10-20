@@ -79,3 +79,9 @@ CombatFX events are presentation-only. Respect bounded particle pools, avoid obs
 ## Acceptance checklist
 
 A content addition should be reachable through real inputs, have a safe way back, preserve reload/revisit rewards, appear correctly in its menus, and remain legible on desktop/mobile. Add focused behavior coverage plus the relevant input-driven route and browser checks from [testing](testing.md). Update the appropriate docs and rebuild the committed bundle when JavaScript changes.
+
+## Vertical dungeons and miniboss seals
+
+Use `map: {x, y}`, `depth`, and `dungeon` on a room to place it in the dimensional atlas. Upper rooms may use negative Y; retain a safe arrival shelf at every door’s destination `spawn: {x,y}`. Use `??` rather than `||` for Y defaults: zero is a valid platform height. Spawns accept `y`, `left`, `right`, and `introX`.
+
+A `requiresBoss` field seals a door or hoard until `bossDefeated(id)` succeeds. Dimensional miniboss definitions use `miniboss: true`; their rewards persist in defeated spawn keys and must never add a main fragment. New deep rooms have no benches. Verify both directions of each connection with real movement and the abilities actually available on first arrival.

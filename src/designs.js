@@ -31,4 +31,8 @@ Object.assign(MINIONS,{
   stormkite:{name:'Stormkite',types:'ELECTRIC / FLYING',hp:32,xp:24,coins:10,color:'#d7bcff',hint:'A storm bird tracks your position before releasing a lightning spear. Keep moving.',speed:2.6,height:36},
   frostmite:{name:'Frostmite',types:'ICE / BUG',hp:42,xp:25,coins:10,color:'#bceaff',hint:'A crystalline crawler fires slowing frost. Heavy strikes shatter its shell.',speed:1.5,height:26},
   riftling:{name:'Riftling',types:'VOID / GHOST',hp:48,xp:30,coins:12,color:'#ffa9ce',hint:'A torn echo teleports before lunging. Punish its reappearance.',speed:2.4,height:42},
+  glassmarauder:{name:'Glass Marauder',types:'STEEL / CRYSTAL',hp:78,xp:32,coins:13,color:'#e7c2ab',hint:'Its mirrored guard shrugs off jabs while it prepares a straight-line rush. Break the guard with K or jump the charge, then punish its recovery.',speed:2,height:55},
+  veilwasp:{name:'Veilwasp',types:'VOID / FLYING',hp:46,xp:30,coins:12,color:'#d7a3f4',hint:'A hovering dimensional wasp locks your position before a three-bolt fan. Move after the warning, then meet it in the air.',speed:2.5,height:40},
+  graveburrower:{name:'Grave Burrower',types:'EARTH / MEMORY',hp:84,xp:36,coins:14,color:'#a8c793',hint:'The earth marks its next eruption for forty frames. Dash out of the root mark and punish the exposed body.',speed:1.4,height:38},
+  chaincaster:{name:'Chaincaster',types:'SHADOW / STEEL',hp:60,xp:34,coins:14,color:'#b6c8ef',hint:'A chained scribe retreats while aiming three binding bolts. The aim locks during its windup. Dash through the volley to close the gap.',speed:1.9,height:52},
 });

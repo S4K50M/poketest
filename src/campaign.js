@@ -3,6 +3,7 @@ import { ROSTER, findFighter } from './roster.js';
 import { MINIONS } from './designs.js';
 import { CombatDirector } from './combat.js';
 import { COMBAT } from './combat-data.js';
+import { DUNGEON_HEAL, bossHealth, updateBossEncounter, updateDungeonMinion } from './difficulty.js';
 import { ROOMS, BOSSES, CHAPTERS, ABILITIES, CHARMS, DIALOGUES, DEFAULT_PARTY } from './world.js';
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const finite=(v,a,b,fallback=0)=>Number.isFinite(v)?clamp(v,a,b):fallback;
@@ -11,15 +12,15 @@ const starterIds=ROSTER.slice(0,8).map(d=>d.id);
 
 export class CampaignEngine extends TrainingEngine{
   constructor(party=DEFAULT_PARTY,options={}){
-    super(party,options);this.campaign=true;this.motor={...CAMPAIGN_MOTOR};this.onSave=options.onSave||(()=>{});
+    super(party,options);this.campaign=true;this.healConfig=DUNGEON_HEAL;this.motor={...CAMPAIGN_MOTOR};this.onSave=options.onSave||(()=>{});
     this.abilities=new Set(['dash']);this.unlocked=new Set(starterIds);this.fragments=new Set();this.visited=new Set();this.opened=new Set();this.defeated=new Set();this.memories=new Set();this.shrines=new Set();
     this.inventory={heartwood:0,ember:0,pearl:0,stormglass:0,frostcore:0,riftglass:0,flask:3,pickaxe:1,lantern:1};
     this.charms=new Set();this.equipped=[];this.tools=['pickaxe','lantern'];this.toolIndex=0;this.roomId='sanctuary';this.storyStage=0;this.finished=false;this.ending=null;this.playtime=0;this.combo=0;this.comboTimer=0;this.attackBuffer=null;this.swingIndex=0;this.transition=0;this.grapple=null;this.landing=0;this.tutorial=0;
-    this.combat=new CombatDirector(this);this.loadRoom('sanctuary',150,false);
+    this.safeRest={room:'sanctuary',x:200,y:520};this.combat=new CombatDirector(this);this.loadRoom('sanctuary',150,false);
     if(options.save)this.loadSave(options.save);
   }
   save(){
-    const state={version:2,room:this.roomId,checkpoint:{...this.checkpoint},party:this.party.map(m=>({id:m.data.id,hp:m.hp,maxHp:m.maxHp,spirit:m.spirit})),activeSlot:this.activeSlot,level:this.level,xp:this.xp,lumens:this.lumens,upgrades:this.upgrades,
+    const state={version:2,room:this.roomId,checkpoint:{...this.checkpoint},safeRest:{...this.safeRest},party:this.party.map(m=>({id:m.data.id,hp:m.hp,maxHp:m.maxHp,spirit:m.spirit})),activeSlot:this.activeSlot,level:this.level,xp:this.xp,lumens:this.lumens,upgrades:this.upgrades,
       abilities:[...this.abilities],unlocked:[...this.unlocked],fragments:[...this.fragments],visited:[...this.visited],opened:[...this.opened],defeated:[...this.defeated],memories:[...this.memories],shrines:[...this.shrines],inventory:{...this.inventory},charms:[...this.charms],equipped:[...this.equipped],discovered:[...this.discovered],stats:{...this.stats},playtime:this.playtime,storyStage:this.storyStage,finished:this.finished,ending:this.ending};
     this.onSave(state);return state;
   }
@@ -28,7 +29,7 @@ export class CampaignEngine extends TrainingEngine{
     if(!s||s.version!==2||!Array.isArray(s.party)||s.party.length!==3||s.party.some(m=>!m||typeof m.id!=='string')||new Set(s.party.map(m=>m.id)).size!==3||s.party.some(m=>!ROSTER.some(d=>d.id===m.id))||!Object.hasOwn(ROOMS,s.room))return false;
     const requestedUnlocks=new Set([...starterIds,...(Array.isArray(s.unlocked)?s.unlocked:[])]);if(s.party.some(m=>!requestedUnlocks.has(m.id)))return false;
     const list=(key,valid)=>new Set(Array.isArray(s[key])?s[key].filter(x=>typeof x==='string'&&(!valid||valid(x))):[]);
-    this.fragments=list('fragments',x=>!!BOSSES[x]);this.abilities=new Set(['dash',...list('abilities',x=>!!ABILITIES[x])]);
+    this.fragments=list('fragments',x=>CHAPTERS.some(ch=>ch.boss===x));this.abilities=new Set(['dash',...list('abilities',x=>!!ABILITIES[x])]);
     this.unlocked=new Set([...starterIds,...list('unlocked',x=>ROSTER.some(d=>d.id===x))]);
     if(s.party.some(m=>!this.unlocked.has(m.id)))return false;
     this.level=finite(s.level,1,5,1);this.xp=finite(s.xp,0,300);this.lumens=finite(s.lumens,0,99999);this.upgrades=finite(s.upgrades,0,3);
@@ -39,20 +40,23 @@ export class CampaignEngine extends TrainingEngine{
     this.charms=list('charms',x=>!!CHARMS[x]);this.equipped=Array.isArray(s.equipped)?[...new Set(s.equipped)].filter(x=>this.charms.has(x)).slice(0,2):[];
     this.playtime=finite(s.playtime,0,99999999);this.storyStage=finite(s.storyStage,0,20);this.finished=!!s.finished;this.ending=['restore','release'].includes(s.ending)?s.ending:null;
     for(const key of Object.keys(this.stats))this.stats[key]=finite(s.stats?.[key],0,99999999);
-    this.loadRoom(s.room,finite(s.checkpoint?.x,80,ROOMS[s.room].width-80,150),false);return true;
+    const rest=s.safeRest,restRoom=rest&&Object.hasOwn(ROOMS,rest.room)?ROOMS[rest.room]:null,bench=restRoom?.objects.find(o=>o.kind==='bench'&&Math.abs(o.x-rest.x)<2&&Math.abs((o.y??520)-rest.y)<2);this.safeRest=bench?{room:rest.room,x:bench.x,y:bench.y??520}:{room:'sanctuary',x:200,y:520};
+    this.loadRoom(s.room,{x:finite(s.checkpoint?.x,60,ROOMS[s.room].width-60,150),y:finite(s.checkpoint?.y,-2400,520,520)},false);return true;
   }
   loadRoom(id,spawn=150,persist=true){
     if(!Object.hasOwn(ROOMS,id))return false;
+    const arrival=typeof spawn==='object'&&spawn?{x:finite(spawn.x,24,ROOMS[id].width-40,150),y:finite(spawn.y,-2400,520,520)}:{x:finite(spawn,24,ROOMS[id].width-40,150),y:520};
     this.roomId=id;this.room=ROOMS[id];this.worldWidth=this.room.width;this.platforms=this.room.platforms.map(p=>({...p}));this.thorns=this.room.thorns||[];this.visited.add(id);
     this.enemies=this.room.enemies.map((spec,n)=>{
       const boss=spec.boss&&BOSSES[spec.boss],d=MINIONS[spec.kind],key=id+':'+n;
-      return {id:n,key,kind:spec.kind,boss:spec.boss,x:spec.x,y:520,baseY:520,home:spec.x,hp:this.defeated.has(key)||spec.boss&&this.fragments.has(spec.boss)?0:boss?.hp||d.hp,maxHp:boss?.hp||d.hp,face:-1,state:'patrol',timer:70,flash:0,stun:0,vx:0,slow:0,flipped:0,left:spec.boss?660:Math.max(350,spec.x-190),right:spec.boss?1740:Math.min(this.worldWidth-220,spec.x+190),pattern:0,phase:1,rewarded:this.defeated.has(key)};
+      const health=boss?bossHealth(boss):Math.round(d.hp*(1.25+(spec.elite?.35:0))),cleared=this.defeated.has(key)||spec.boss&&this.fragments.has(spec.boss),floor=spec.y??520;
+      return {id:n,key,kind:spec.kind,boss:spec.boss,x:spec.x,y:floor,baseY:floor,homeY:floor,home:spec.x,hp:cleared?0:health,maxHp:health,face:-1,state:'patrol',timer:70,flash:0,stun:0,vx:0,slow:0,flipped:0,left:spec.left??Math.max(60,spec.x-(boss?500:240)),right:spec.right??Math.min(this.worldWidth-60,spec.x+(boss?500:240)),introX:spec.introX??spec.x-640,pattern:0,phase:1,rewarded:!!cleared};
     });
     this.relics=this.room.relics.map(r=>({...r,collected:this.opened.has(r.id)}));this.bell={x:-5000,y:430,r:24,flash:0};
     this.projectiles=[];this.enemyShots=[];this.waves=[];this.hazards=[];this.zones=[];this.effects=[];this.decoy=null;this.skillStrike=null;this.attackBuffer=null;this.grapple=null;
-    const p=this.player;this.cancelHeal();Object.assign(p,{x:spawn,y:520,vx:0,vy:0,grounded:true,jumpCount:0,jumpBuffer:0,dash:0,dashCooldown:0,wall:0,wallLock:0,attack:null,airDashes:0,respawning:0,slow:0,root:0,slick:0,burn:0,guard:0,armor:0,fortress:false,specialHeld:false,skillVector:null,invul:30});
+    const p=this.player;this.cancelHeal();Object.assign(p,{x:arrival.x,y:arrival.y,vx:0,vy:0,grounded:true,jumpCount:0,jumpBuffer:0,dash:0,dashCooldown:0,wall:0,wallLock:0,attack:null,airDashes:0,respawning:0,slow:0,root:0,slick:0,burn:0,guard:0,armor:0,fortress:false,specialHeld:false,skillVector:null,invul:30});
     for(const o of this.room.objects)if(o.kind==='lever'&&this.opened.has(id+':'+o.id))this.platforms.push({...o.bridge});
-    this.combat?.reset();this.checkpoint={x:spawn,y:520};this.transition=100;this.roomTime=0;this.emit('room',{room:id});if(persist)this.save();return true;
+    this.combat?.reset();this.checkpoint={...arrival};this.transition=100;this.roomTime=0;this.emit('room',{room:id});if(persist)this.save();return true;
   }
   input(action){
     if(this.paused||this.phase!=='playing'||this.player.respawning)return false;
@@ -81,19 +85,21 @@ export class CampaignEngine extends TrainingEngine{
   step(){
     if(this.paused||this.phase!=='playing')return;
     this.playtime++;this.roomTime++;this.motor.run=CAMPAIGN_MOTOR.run*(this.equipped.includes('feather')?1.12:1)*(this.runMultiplier?.()||1);this.motor.dashCooldown=this.abilities.has('blink')?12:17;
-    if(!this.hitstop)this.combat.step();
+    const combatEnemies=this.enemies;if(!this.hitstop)this.combat.step();if(this.enemies!==combatEnemies)return;
     if(this.transition>0)this.transition--;if(this.comboTimer>0)this.comboTimer--;else this.combo=0;if(this.landing>0)this.landing--;
     const wasGrounded=this.player.grounded,vy=this.player.vy;
     // Moving platforms carry grounded actors. Violet veils only yield during an awakened dash.
     for(const block of this.platforms)if(block.moving){const before=block.x;block.x=block.origin+Math.sin(this.tick*block.rate)*block.amplitude;if(this.player.grounded&&Math.abs(this.player.y-block.y)<2&&this.player.x>before-10&&this.player.x<before+block.w+10)this.player.x+=block.x-before;}
-    const allPlatforms=this.platforms;
+    const allPlatforms=this.platforms,frameEnemies=this.enemies;
     if(this.abilities.has('blink')&&this.player.dash>0)this.platforms=this.platforms.filter(b=>!b.veil);
-    super.step();this.platforms=allPlatforms;
+    super.step();if(this.enemies!==frameEnemies)return;this.platforms=allPlatforms;if(this.player.respawning)return;
     for(const h of this.hazards)if(['root','lightning','stasis'].includes(h.type)){
       h.timer--;if(h.timer===0)this.emit('slam');
-      if(h.timer<=0&&h.timer>-18&&Math.abs(this.player.x-h.x)<(h.type==='stasis'?100:38)&&(h.type==='lightning'||this.player.y>460))this.hurt(Math.sign(this.player.x-h.x),1,h.type==='stasis'?{slow:150}:h.type==='root'?{root:18}:{});
+      const floor=h.y??520,range=h.radius||(h.type==='stasis'?100:38),dy=this.player.y-floor;
+      if(h.timer<=0&&h.timer>-18&&Math.abs(this.player.x-h.x)<range&&dy<45&&dy>-(h.type==='lightning'?360:60))this.hurt(Math.sign(this.player.x-h.x),h.damage??1,h.type==='stasis'?{slow:150}:h.type==='root'?{root:18}:{});
+      if(this.enemies!==frameEnemies||this.player.respawning)return;
     }
-    if(this.equipped.includes('pulse'))this.player.spirit=Math.min(100,this.player.spirit+.06);
+    if(this.equipped.includes('pulse'))this.player.spirit=Math.min(100,this.player.spirit+.012);
     if(!wasGrounded&&this.player.grounded&&vy>4){this.landing=10;this.effects.push({type:'land',x:this.player.x,y:this.player.y,life:20});this.emit('land');}
     if(this.grapple){const p=this.player,g=this.grapple,dx=g.x-p.x,dy=g.y-p.y,len=Math.hypot(dx,dy);p.x+=dx*.18;p.y+=dy*.18;p.vx=dx*.12;p.vy=dy*.12;p.grounded=false;p.airDashes=0;p.dashCooldown=0;p.jumpCount=1;if(len<42||--g.life<=0){this.grapple=null;p.vy=-12;p.vx=p.face*10;this.emit('grapple');}}
   }
@@ -111,18 +117,27 @@ export class CampaignEngine extends TrainingEngine{
   }
   strike(e,damage,direction,options={}){
     if(e.hp<=0)return;
+    if(e.kind==='glassmarauder'&&['patrol','windup'].includes(e.state)){
+      if(options.heavy){e.state='recover';e.timer=52;this.emit('slam');}
+      else damage*=.22;
+    }
     const before=e.hp,brokenStun=e.stun>20&&e.boss&&e.state==='recover'?e.stun:0;const power=(this.equipped.includes('fang')?1.22:1)*(1+this.combat.flow*.0015);
+    const owner=this.party[options.source??this.activeSlot],focus=owner.spirit,frameEnemies=this.enemies;
     super.strike(e,damage*power,direction,options);
+    if(this.enemies!==frameEnemies||this.player.respawning)return;
+    owner.spirit=Math.min(owner.spirit,focus+(options.dot?.15:4));
     if(e.hp<before){if(e.boss)e.stun=brokenStun||Math.min(e.stun,3);this.hitstop=options.dot?0:this.player.attack?.hitstop||(options.heavy?3:1);
       if(!options.dot){this.combo++;this.comboTimer=100;this.effects.push({type:'number',x:e.x,y:e.y-80,text:String(Math.round(before-e.hp)),life:35,color:this.data.accent});}
     }
     this.combat.onStrike(e,before,direction,options);
   }
   hurt(direction=0,amount=1,status={}){
+    const frameEnemies=this.enemies;
     if(this.player.dash&&this.player.invul)this.combat.evade(direction);
     const defended=this.combat.defend(direction,amount);if(defended!==null)return defended;
     if(this.preventLethal?.(amount,direction))return true;
     const ok=super.hurt(direction,amount,status);
+    if(this.enemies!==frameEnemies||this.player.respawning)return ok;
     if(ok)this.combat.onHurt();
     if(ok&&this.equipped.includes('thorn'))for(const e of this.enemies)if(e.hp>0&&Math.abs(e.x-this.player.x)<180)this.strike(e,18,direction,{heavy:true});
     return ok;
@@ -130,25 +145,33 @@ export class CampaignEngine extends TrainingEngine{
   awardEnemy(e){
     if(e.rewarded)return;super.awardEnemy(e);this.defeated.add(e.key);const ch=CHAPTERS.find(c=>c.id===this.room.biome);
     if(ch)this.inventory[BOSSES[ch.boss].material]++;
-    if(e.boss){const b=BOSSES[e.boss];this.fragments.add(e.boss);if(b.reward)this.abilities.add(b.reward);if(b.creature)this.unlocked.add(b.creature);this.inventory[b.material]+=5;this.inventory.flask+=2;this.lumens+=45;this.gainXP(80);this.restoreParty();
+    if(e.boss&&BOSSES[e.boss].miniboss){const b=BOSSES[e.boss];this.inventory[b.material]+=3;this.lumens+=35;this.gainXP(50);this.say('GATEKEEPER DEFEATED · '+b.name.toUpperCase());this.emit('bossdefeated',{boss:e.boss,miniboss:true});this.save();return;}
+    if(e.boss){const b=BOSSES[e.boss];this.fragments.add(e.boss);if(b.reward)this.abilities.add(b.reward);if(b.creature)this.unlocked.add(b.creature);this.inventory[b.material]+=5;this.inventory.flask++;this.lumens+=45;this.gainXP(80);
       this.say('HEART FRAGMENT RESTORED · '+(b.reward?ABILITIES[b.reward].name.toUpperCase():'THE WORLDHEART IS AWAKE'));this.emit('bossdefeated',{boss:e.boss});
       if(e.boss==='crown'){this.finished=true;this.emit('ending');}
     }
     this.save();
   }
-  respawn(wipe=false){super.respawn(wipe);this.combat?.reset();this.grapple=null;for(const e of this.enemies)if(e.hp>0&&e.boss){e.hp=e.maxHp;e.phase=1;e.pattern=0;}this.save();}
+  respawn(wipe=false){
+    const before=this.stats.wipes;super.respawn(wipe);this.combat?.reset();this.grapple=null;
+    if(this.stats.wipes>before){const rest=this.safeRest||{room:'sanctuary',x:200,y:520};this.loadRoom(rest.room,{x:rest.x,y:rest.y},false);this.player.respawning=30;this.player.invul=60;this.say('PARTY FALLEN · RETURNED TO THE LAST KINDLED WAYLIGHT · 10% LUMENS LOST');}
+    for(const e of this.enemies)if(e.hp>0&&e.boss){e.hp=e.maxHp;e.phase=1;e.pattern=0;}this.save();
+  }
+  bossDefeated(id){return this.fragments.has(id)||this.defeatedBosses?.has(id)||Object.values(ROOMS).some(r=>r.enemies.some((e,n)=>e.boss===id&&this.defeated.has(r.id+':'+n)));}
   interact(){
-    const p=this.player,near=this.room.objects.filter(o=>Math.abs(p.x-o.x)<100&&Math.abs(p.y-(o.y||520))<100).sort((a,b)=>Math.hypot(p.x-a.x,p.y-(a.y||520))-Math.hypot(p.x-b.x,p.y-(b.y||520)))[0];
+    const p=this.player,near=this.room.objects.filter(o=>Math.abs(p.x-o.x)<100&&Math.abs(p.y-(o.y??520))<100).sort((a,b)=>Math.hypot(p.x-a.x,p.y-(a.y??520))-Math.hypot(p.x-b.x,p.y-(b.y??520)))[0];
     if(!near){this.say('FIND A BENCH, DOOR, OR TRAVELER · E TO INTERACT');return false;}
     const key=this.roomId+':'+near.id;
+    if(near.requiresBoss&&!this.bossDefeated(near.requiresBoss)){this.say('THE DEPTH WARDEN HOLDS THIS SEAL · DEFEAT '+BOSSES[near.requiresBoss].name.toUpperCase());return false;}
     if(near.kind==='lever'){if(this.opened.has(key)){this.say('THE ROOTBRIDGE IS ALREADY RAISED');return false;}this.opened.add(key);this.platforms.push({...near.bridge});this.say('ROOTBRIDGE RAISED · THE WAY REMEMBERS');this.emit('slam');this.save();return true;}
     if(near.kind==='npc'&&near.talk!=='vell'){this.showDialogue(DIALOGUES[near.talk]);return true;}
     if(near.kind==='npc'){const chapter=CHAPTERS[Math.min(this.fragments.size,5)];this.storyStage=Math.max(1,this.storyStage);this.showDialogue(this.fragments.size?[['Professor Vell',chapter.story],['Professor Vell','The sanctuary remembers every companion you rescue. Change your party at a bench, craft at the workbench, and follow the new portal.']]:DIALOGUES.vell);return true;}
     if(near.kind==='bench'){
-      this.checkpoint={x:near.x,y:near.y||520};this.restoreParty();this.say('WAYLIGHT KINDLED · PARTY RESTORED · PROGRESS SAVED');this.emit('bench');this.save();return true;
+      if(this.enemies.some(e=>e.hp>0&&Math.abs(e.x-p.x)<220&&Math.abs(e.y-p.y)<160)){this.say('WAYLIGHT UNSAFE · CLEAR NEARBY CREATURES FIRST');return false;}
+      this.safeRest={room:this.roomId,x:near.x,y:near.y??520};this.checkpoint={x:near.x,y:near.y??520};this.restoreParty();this.say('WAYLIGHT KINDLED · PARTY RESTORED · PROGRESS SAVED');this.emit('bench');this.save();return true;
     }
     if(near.kind==='workbench'){this.emit('workbench');return true;}
-    if(near.kind==='memory'){if(!this.memories.has(key)){this.memories.add(key);this.gainXP(30);}const [name,text]=near.text.split('|');this.showDialogue([[name,text]]);this.save();return true;}
+    if(near.kind==='memory'){const [title,text]=near.text.split('|');if(!this.memories.has(key)){this.memories.add(key);this.gainXP(30);this.emit('memory',{title,text});}this.say('ECHO RECOVERED · '+title+' · N: WORLD HISTORY');this.save();return true;}
     if(near.kind==='cache'){if(this.opened.has(key)){this.say('THIS CACHE HAS ALREADY BEEN CLAIMED');return false;}this.opened.add(key);this.inventory[near.material]+=near.rare?7:3;this.inventory.flask++;this.lumens+=near.rare?35:15;this.say('CACHE FOUND · MATERIALS + FLASK + LUMENS');this.emit('relic');this.save();return true;}
     if(near.kind==='ore'){this.say('CRACKED ORE · T TO USE YOUR RESONANCE PICK');return this.useTool('pickaxe');}
     if(near.kind==='shrine'){this.say('AN ECHO HIDES HERE · USE THE ECHO LANTERN WITH T');return this.useTool('lantern');}
@@ -156,7 +179,7 @@ export class CampaignEngine extends TrainingEngine{
       if(near.need>this.fragments.size){this.say('THE PORTAL NEEDS '+near.need+' HEART FRAGMENTS');return false;}
       if(near.ability&&!this.abilities.has(near.ability)){this.say('SEALED PATH · REQUIRES '+ABILITIES[near.ability].name.toUpperCase());return false;}
       if(near.boss&&!this.fragments.has(near.boss)){this.say('THE GUARDIAN STILL HOLDS THIS DOOR');return false;}
-      return this.loadRoom(near.to);
+      return this.loadRoom(near.to,near.spawn??150);
     }
     return false;
   }
@@ -170,7 +193,7 @@ export class CampaignEngine extends TrainingEngine{
       if(!ore){this.say('RESONANCE PICK · FIND A CRACKED ORE VEIN');return false;}
       this.opened.add(this.roomId+':'+ore.id);this.inventory[ore.material]+=4;this.lumens+=12;this.effects.push({type:'burst',x:ore.x,y:480,life:40});this.emit('slam');this.say('ORE SHATTERED · +4 MATERIALS / +12 LUMENS');this.save();return true;
     }
-    const shrine=this.room.objects.find(o=>o.kind==='shrine'&&Math.hypot(p.x-o.x,p.y-(o.y||520))<130);
+    const shrine=this.room.objects.find(o=>o.kind==='shrine'&&Math.hypot(p.x-o.x,p.y-(o.y??520))<130);
     if(!shrine){this.effects.push({type:'heal',x:p.x,y:p.y-40,life:50});this.say('ECHO LANTERN · NO HIDDEN ECHO NEARBY');return false;}
     const key=this.roomId+':'+shrine.id;if(this.shrines.has(key)){this.say('THIS ECHO IS ALREADY SAFE');return false;}
     this.shrines.add(key);this.lumens+=50;this.gainXP(70);this.inventory.flask+=2;this.effects.push({type:'heal',x:shrine.x,y:shrine.y-30,life:70});this.say('LOST ECHO FOUND · +50 LUMENS / +2 FLASKS');this.emit('relic');this.save();return true;
@@ -185,14 +208,14 @@ export class CampaignEngine extends TrainingEngine{
     this.grapple={...anchor,life:22};p.attack=null;p.dash=0;this.cancelHeal();this.emit('grapple');return true;
   }
   buyUpgrade(){
-    if(!this.player.grounded||!this.room.objects.some(o=>['bench','workbench'].includes(o.kind)&&Math.abs(this.player.x-o.x)<110&&Math.abs(this.player.y-(o.y||520))<60)){this.say('RETURN TO A WAYLIGHT OR THE MENDER’S WORKBENCH');return false;}
+    if(!this.player.grounded||!this.room.objects.some(o=>['bench','workbench'].includes(o.kind)&&Math.abs(this.player.x-o.x)<110&&Math.abs(this.player.y-(o.y??520))<60)){this.say('RETURN TO A WAYLIGHT OR THE MENDER’S WORKBENCH');return false;}
     if(this.upgrades>=3){this.say('HEARTWOOD CHARM AT MAXIMUM');return false;}
     const cost=24+this.upgrades*20;if(this.lumens<cost){this.say(`HEARTWOOD CHARM NEEDS ${cost} LUMENS`);return false;}
     this.lumens-=cost;this.upgrades++;for(const m of this.party){m.maxHp++;if(m.hp>0)m.hp=Math.min(m.maxHp,m.hp+1);}
     this.say('HEARTWOOD CHARM +'+this.upgrades+' · HEALTH & DAMAGE UP');this.emit('upgrade');this.save();return true;
   }
   craft(id){
-    const atBench=this.room.objects.some(o=>['workbench','bench'].includes(o.kind)&&Math.abs(this.player.x-o.x)<110&&Math.abs(this.player.y-(o.y||520))<50);
+    const atBench=this.room.objects.some(o=>['workbench','bench'].includes(o.kind)&&Math.abs(this.player.x-o.x)<110&&Math.abs(this.player.y-(o.y??520))<50);
     if(!atBench){this.say('CRAFT AT A WORKBENCH OR WAYLIGHT BENCH');return false;}
     const cost=id==='flask'?{heartwood:2}:CHARMS[id]?.cost;if(!cost||id!=='flask'&&this.charms.has(id))return false;
     if(Object.entries(cost).some(([key,n])=>this.inventory[key]<n)){this.say('MISSING MATERIALS · EXPLORE CACHES AND ORE VEINS');return false;}
@@ -210,7 +233,7 @@ export class CampaignEngine extends TrainingEngine{
     if(id!=='sanctuary'&&!this.visited.has(id)){this.say('DISCOVER THIS WAYLIGHT BEFORE TRAVELING');return false;}
     if(this.enemies.some(e=>e.hp>0&&Math.abs(e.x-this.player.x)<600)){this.say('CLEAR NEARBY ENEMIES BEFORE TRAVELING');return false;}
     if(!this.room.objects.some(o=>o.kind==='bench'&&Math.abs(o.x-this.player.x)<110)){this.say('REST AT A WAYLIGHT BENCH TO FAST TRAVEL');return false;}
-    this.restoreParty();return this.loadRoom(id,ROOMS[id].objects.find(o=>o.kind==='bench')?.x||150);
+    const bench=ROOMS[id]?.objects.find(o=>o.kind==='bench');if(!bench){this.say('NO WAYLIGHT IN THIS CHAMBER');return false;}this.restoreParty();const arrival={x:bench.x,y:bench.y??520};this.safeRest={room:id,...arrival};return this.loadRoom(id,arrival);
   }
   finishEnding(choice){if(!this.finished||!['restore','release'].includes(choice))return false;this.ending=choice;this.save();this.emit('credits',{choice});return true;}
   castSkill(){
@@ -239,13 +262,22 @@ export class CampaignEngine extends TrainingEngine{
     this.effects.push({type:'swap',x:p.x,y:p.y-40,life:35});this.say(this.data.skill.toUpperCase());this.emit('cast');return true;
   }
   updateEnemies(){
-    for(const e of this.enemies){if(e.hp<=0){if(e.deathTimer>0)e.deathTimer--;continue;}if(this.combat.updateEnemy(e))continue;if(e.boss){this.updateBoss(e);continue;}if(['sinder','voltlet','pebbleback','dewdrop','sproutlet'].includes(e.kind)){this.updateMinion(e);continue;}this.updateWild(e);}
+    const frameEnemies=this.enemies;
+    for(const e of frameEnemies){
+      if(this.enemies!==frameEnemies||this.player.respawning)return;
+      if(e.hp<=0){if(e.deathTimer>0)e.deathTimer--;continue;}
+      if(this.combat.updateEnemy(e))continue;
+      if(e.boss)this.updateBoss(e);
+      else if(['sinder','voltlet','pebbleback','dewdrop','sproutlet'].includes(e.kind))this.updateMinion(e);
+      else this.updateWild(e);
+    }
   }
   updateWild(e){
-    const p=this.player,d=MINIONS[e.kind];if(Math.abs(e.x-p.x)>1000)return;this.discovered.add(e.kind);if(e.flash)e.flash--;if(e.slow)e.slow--;
+    if(updateDungeonMinion(this,e))return;
+    const p=this.player,d=MINIONS[e.kind];if(!d||Math.abs(e.x-p.x)>1000||Math.abs((e.baseY??520)-p.y)>600)return;this.discovered.add(e.kind);if(e.flash)e.flash--;if(e.slow)e.slow--;
     if(e.stun>0){e.stun--;e.x=clamp(e.x+e.vx,e.left,e.right);e.vx*=.75;return;}
     const dx=p.x-e.x,dist=Math.abs(dx);e.face=dx>0?1:-1;e.timer--;
-    const flying=['ashwing','inkfin','stormkite'].includes(e.kind);if(flying)e.y=440+Math.sin(this.tick*.04+e.id)*40;
+    const flying=['ashwing','inkfin','stormkite'].includes(e.kind);if(flying)e.y=(e.baseY??520)-80+Math.sin(this.tick*.04+e.id)*40;
     if(e.state==='patrol'){e.x=clamp(e.x+e.face*d.speed*(e.slow?.5:1),e.left,e.right);if(e.timer<=0&&dist<550){e.state='windup';e.timer=26;}}
     else if(e.state==='windup'&&e.timer<=0){
       if(e.kind==='riftling'){e.x=clamp(p.x-p.face*75,e.left,e.right);e.state='charge';e.timer=18;this.effects.push({type:'mist',x:e.x,y:e.y-40,life:30});}
@@ -254,28 +286,6 @@ export class CampaignEngine extends TrainingEngine{
     else if(e.state==='recover'&&e.timer<=0){e.state='patrol';e.timer=55;}
     if(dist<35&&Math.abs(p.y-e.y)<65)this.hurt(Math.sign(p.x-e.x),1,e.kind==='frostmite'?{slow:100}:{});
   }
-  updateBoss(e){
-    const p=this.player;if(!e.introduced)return;if(e.flash)e.flash--;if(e.slow)e.slow--;
-    if(e.stun>0){e.stun--;e.x=clamp(e.x+e.vx,e.left,e.right);e.vx*=.7;return;}
-    if(e.hp<e.maxHp*.5&&e.phase===1){e.phase=2;e.state='enrage';e.timer=65;this.emit('enrage');this.say(BOSSES[e.boss].name.toUpperCase()+' · PHASE II');}
-    const dx=p.x-e.x,dist=Math.abs(dx);e.timer--;
-    if(e.state==='enrage'&&e.timer<=0){e.state='patrol';e.timer=10;}
-    if(e.state==='patrol'){
-      e.face=dx>0?1:-1;e.x=clamp(e.x+e.face*(e.phase===2?2.8:1.8)*(e.slow?.6:1),e.left,e.right);
-      if(e.timer<=0){e.pattern++;e.state='windup';e.timer=e.phase===2?24:36;e.move=e.pattern%3;this.emit('warning');}
-    }else if(e.state==='windup'&&e.timer<=0){
-      if(e.move===0){e.state='charge';e.timer=24;}
-      else if(e.move===1){
-        if(e.boss==='briar')for(const n of [-1,0,1])this.hazards.push({type:'root',x:clamp(p.x+n*100,680,1750),y:520,timer:30,life:65});
-        else if(e.boss==='conductor')for(const n of [-1,0,1])this.hazards.push({type:'lightning',x:clamp(p.x+n*150,680,1750),y:520,timer:32,life:66});
-        else if(e.boss==='hourglass')for(const n of [-1,1])this.hazards.push({type:'stasis',x:clamp(e.x+n*140,680,1750),y:520,timer:34,life:75});
-        else if(e.boss==='leviathan'){for(const spread of [-.22,0,.22]){const ang=Math.atan2(p.y-35-(e.y-80),p.x-e.x)+spread;this.enemyShots.push({x:e.x,y:e.y-80,vx:Math.cos(ang)*7,vy:Math.sin(ang)*7,life:130,color:BOSSES[e.boss].color,status:{slick:120}});}}
-        else for(const side of [-1,1])this.waves.push({x:e.x,y:520,vx:side*(e.phase===2?10:7),life:100,color:BOSSES[e.boss].color});
-        e.state='recover';e.timer=38;this.emit('slam');} 
-      else{const count=e.boss==='crown'?9:e.phase===2?7:5;for(let i=0;i<count;i++){const angle=-Math.PI+(i/(count-1))*Math.PI;this.enemyShots.push({x:e.x,y:e.y-85,vx:Math.cos(angle)*6,vy:Math.sin(angle)*6+1.6,life:150,color:BOSSES[e.boss].color,status:e.boss==='hourglass'?{slow:120}:e.boss==='leviathan'?{slick:100}:{burn:65}});}e.state='recover';e.timer=44;this.emit('cast');}
-    }else if(e.state==='charge'){e.x=clamp(e.x+e.face*(e.phase===2?15:11),e.left,e.right);if(this.tick%3===0)this.effects.push({type:'bossTrail',x:e.x,y:e.y,color:BOSSES[e.boss].color,life:20});if(e.timer<=0){e.state='recover';e.timer=42;}}
-    else if(e.state==='recover'&&e.timer<=0){e.state='patrol';e.timer=e.phase===2?18:32;}
-    if(dist<62&&Math.abs(p.y-e.y)<110&&e.state!=='recover')this.hurt(Math.sign(p.x-e.x),e.boss==='crown'?1.5:1);
-  }
+  updateBoss(e){updateBossEncounter(this,e);}
   snapshot(){const s=super.snapshot();return {...s,mode:'campaign',combat:this.combat.snapshot(),room:this.roomId,roomName:this.room.name,biome:this.room.biome,chapter:CHAPTERS[Math.min(this.fragments.size,5)].title,abilities:[...this.abilities],fragments:[...this.fragments],unlocked:[...this.unlocked],visited:[...this.visited],inventory:{...this.inventory},charms:[...this.charms],equipped:[...this.equipped],memories:[...this.memories],shrines:[...this.shrines],combo:this.combo,finished:this.finished,ending:this.ending,playtime:this.playtime,enemies:this.enemies.map(e=>({id:e.id,boss:e.boss,kind:e.kind,hp:e.hp,maxHp:e.maxHp,state:e.state,x:e.x,y:e.y,phase:e.phase})),nearby:this.room.objects.filter(o=>Math.abs(o.x-this.player.x)<100).map(o=>o.id)};}
 }

@@ -12,7 +12,7 @@ Progress belongs to a browser origin and profile. Changing protocol, domain, por
 
 | Group | Saved fields / meaning |
 | --- | --- |
-| Identity and checkpoint | version, room, checkpoint, playtime, storyStage, finished, ending |
+| Identity and checkpoint | version, room, checkpoint, safeRest, playtime, storyStage, finished, ending |
 | Party and shared progression | party IDs/hearts/maximum hearts/Focus, activeSlot, level, xp, lumens, upgrades |
 | World progress | abilities, unlocked companions, main fragments, visited/opened/defeated IDs, memories, shrines, discovered species, stats |
 | Inventory | Materials, flasks, tools, crafted charms and equipped charms |
@@ -26,9 +26,9 @@ Combat statistics include parries, guard breaks, perfect evades, launches, and p
 
 ## What a reload does
 
-Saving records the room and its checkpoint, not an exact mid-combo simulation snapshot. Reloading returns to the room checkpoint, reconstructs its geometry/enemies, and preserves completed progression and claimed rewards. A surviving guardian’s partial health, velocity, attack phase, projectiles, temporary fields, animation pose, Guard expenditure, and Flow are not restored. Shared J/K/L, art, Surge, and assist cooldowns plus offensive recovery are restored; rejected, unknown, or out-of-range timer values are filtered or clamped. The shared L timer still applies when per-companion signature state is rebuilt. An enemy saved as defeated remains defeated.
+Saving records the room and its checkpoint, not an exact mid-combo simulation snapshot. Reloading returns to the room checkpoint, reconstructs its geometry/enemies, and preserves completed progression and claimed rewards. A surviving guardian’s partial health, velocity, attack phase, projectiles, temporary fields, animation pose, Guard expenditure, and Flow are not restored. Shared J/K/L, art, Surge, and assist cooldowns plus offensive recovery are restored; rejected, unknown, or out-of-range timer values are filtered or clamped. The shared L timer still applies when per-companion signature state is rebuilt. An enemy saved as defeated remains defeated. Dimensional miniboss victories use the existing defeated spawn keys, so they never inflate the six-fragment count.
 
-Room changes clear local projectiles, hazards, attacks, grapple state, and combat fields. Party health/Focus and progression remain governed by their normal room/rest rules. A party wipe revives the party, returns to the checkpoint, resets living guardians, and removes 10% of Lumens. Injured saves must not heal merely because faction maximum-health bonuses are reapplied.
+Room changes clear local projectiles, hazards, attacks, grapple state, and combat fields. Party health/Focus and progression remain governed by their normal room/rest rules. The room checkpoint is the arrival position (or a bench rested at in that room), including its vertical coordinate. The optional `safeRest: {room, x, y}` stores the last kindled waylight. A party wipe revives the party there, resets surviving guardians, and removes 10% of Lumens. Older saves without safeRest use the sanctuary waylight. Ordinary falls cost a heart and return to the local room checkpoint. Injured saves must not heal merely because faction maximum-health bonuses are reapplied.
 
 The UI saves during progression transactions, at room/rest/reward actions, when leaving, and periodically during play. Browser close events are best-effort; do not treat the exact last action before a crash as guaranteed durable.
 

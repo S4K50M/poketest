@@ -34,7 +34,7 @@ export class AdventureSystems{
   partyInput(action){
     if(/^slot[123]$/.test(action))return this.switchTo(Number(action.slice(4))-1);
     if(action==='switch'){for(let i=1;i<4;i++){const n=(this.activeSlot+i)%3;if(this.party[n].hp>0&&n!==this.activeSlot)return this.switchTo(n);}return false;}
-    if(action==='heal'){Object.assign(this.player,{healHeld:true,guard:0,specialHeld:false,fortress:false});return this.player.hp<this.player.maxHp&&this.player.spirit>=HEAL.cost;}
+    if(action==='heal'){Object.assign(this.player,{healHeld:true,guard:0,specialHeld:false,fortress:false});return this.player.hp<this.player.maxHp&&this.player.spirit>=(this.healConfig||HEAL).cost;}
     if(action==='upgrade')return this.buyUpgrade();
     return null;
   }
@@ -60,33 +60,35 @@ export class AdventureSystems{
       return false;
     }
     const armored=p.armor>0;if(armored)p.armor--;
-    p.hp=Math.max(0,p.hp-amount*(armored?.5:1));p.invul=amount<1?42:72;p.flash=10;this.cancelHeal();
-    if(!armored){p.vx=direction*6;p.vy=-5;p.attack=null;}
+    p.hp=Math.max(0,p.hp-amount*(armored?.5:1));p.invul=this.campaign?(amount<1?28:45):(amount<1?42:72);p.flash=10;this.cancelHeal();
+    if(!armored){p.vx=direction*(this.campaign?10:6)*(status.knockback||1);p.vy=this.campaign?-7:-5;p.attack=null;if(this.campaign){p.grounded=false;p.wallLock=Math.max(p.wallLock,10);}}
     for(const key of ['slow','root','slick','burn'])if(status[key])p[key]=Math.max(p[key],status[key]);
     this.emit('hurt');
     if(p.hp<=0){const alive=this.party.findIndex(m=>m.hp>0);if(alive>=0){this.switchTo(alive,true);this.say('PARTNER DOWN · '+this.data.name.toUpperCase()+' TAKES OVER');}else this.respawn(true);}
     return true;
   }
   updateAdventure(){
-    const p=this.player;
+    const p=this.player,heal=this.healConfig||HEAL,frameEnemies=this.enemies;
+    const interrupted=()=>p.respawning||this.enemies!==frameEnemies;
     if(this.switchCooldown>0)this.switchCooldown--;
     for(const m of this.party)if(m.skillCooldown>0)m.skillCooldown--;
     for(const key of ['slow','root','slick','burn','guard'])if(p[key]>0)p[key]--;
     if(p.burn===1)this.hurt(0,.5);
+    if(interrupted())return;
     const stopped=!this.inputs.left&&!this.inputs.right&&Math.abs(p.vx)<.5;
-    p.healing=!!(p.healHeld&&stopped&&p.grounded&&!p.attack&&!p.dash&&!p.respawning&&!p.shielding&&!p.stagger&&!p.guardBroken&&p.hp<p.maxHp&&p.spirit>=HEAL.cost);
+    p.healing=!!(p.healHeld&&stopped&&p.grounded&&!p.attack&&!p.dash&&!p.respawning&&!p.shielding&&!p.stagger&&!p.guardBroken&&p.hp<p.maxHp&&p.spirit>=heal.cost);
     if(p.healing){
       // Recovery is a commitment, even immediately after taking a hit.
       p.invul=0;
       p.healProgress++;
-      if(p.healProgress>=HEAL.frames){p.spirit-=HEAL.cost;p.hp=Math.min(p.maxHp,p.hp+HEAL.amount);p.healProgress=0;this.stats.heals++;this.emit('heal');this.effects.push({type:'heal',x:p.x,y:p.y-25,life:30});}
+      if(p.healProgress>=heal.frames){p.spirit-=heal.cost;p.hp=Math.min(p.maxHp,p.hp+heal.amount);p.healProgress=0;this.stats.heals++;this.emit('heal');this.effects.push({type:'heal',x:p.x,y:p.y-25,life:30});}
     }else p.healProgress=0;
     if(p.specialHeld&&this.data.id==='terrakhan'){p.specialCharge++;p.fortress=p.specialCharge>=15;}
     else p.fortress=false;
     if(this.decoy&&--this.decoy.life<=0)this.decoy=null;
     if(this.skillStrike){
       const s=this.skillStrike;s.life--;
-      for(const e of this.enemies)if(e.hp>0&&!s.hit.has(e.id)&&Math.abs(e.x-p.x)<(s.radius||95)&&Math.abs(e.y-p.y)<100){s.hit.add(e.id);this.strike(e,s.damage,p.face,{heavy:true,element:s.element,source:s.owner,launch:s.launch,stun:s.stun});if(s.element==='Ice'){e.slow=180;this.effects.push({type:'ice',x:e.x,y:e.y,life:35});}}
+      for(const e of this.enemies)if(e.hp>0&&!s.hit.has(e.id)&&Math.abs(e.x-p.x)<(s.radius||95)&&Math.abs(e.y-p.y)<100){s.hit.add(e.id);this.strike(e,s.damage,p.face,{heavy:true,element:s.element,source:s.owner,launch:s.launch,stun:s.stun});if(interrupted())return;if(s.element==='Ice'){e.slow=180;this.effects.push({type:'ice',x:e.x,y:e.y,life:35});}}
       if(s.life<=0){this.skillStrike=null;p.armor=0;}
     }
     for(const zone of this.zones){
@@ -94,6 +96,7 @@ export class AdventureSystems{
       for(const e of this.enemies)if(e.hp>0&&Math.abs(e.x-zone.x)<zone.radius&&Math.abs(e.y-zone.y)<100){
         if(zone.type==='wind'&&e.kind!=='warden'){e.x+=(zone.x-e.x)*.04;e.stun=Math.max(e.stun,2);}
         if(this.tick%24===0)this.strike(e,zone.type==='fire'?4:3,Math.sign(e.x-zone.x),{source:zone.owner,dot:true,element:zone.type});
+        if(interrupted())return;
       }
     }
     this.zones=this.zones.filter(z=>z.life>0);
@@ -102,7 +105,8 @@ export class AdventureSystems{
     for(const shot of this.enemyShots){
       shot.x+=shot.vx;shot.y+=shot.vy;shot.life--;
       if(this.decoy&&Math.hypot(shot.x-this.decoy.x,shot.y-(this.decoy.y-20))<40){shot.life=0;this.burstDecoy();}
-      else if(Math.abs(shot.x-p.x)<20&&Math.abs(shot.y-(p.y-this.data.bodyHeight*.5))<25){shot.life=0;this.hurt(Math.sign(shot.vx),.5,shot.status||{burn:65});}
+      else if(Math.abs(shot.x-p.x)<20&&Math.abs(shot.y-(p.y-this.data.bodyHeight*.5))<25){shot.life=0;this.hurt(Math.sign(shot.vx),shot.damage??.5,shot.status||{burn:65});}
+      if(interrupted())return;
     }
     this.enemyShots=this.enemyShots.filter(b=>b.life>0);
   }

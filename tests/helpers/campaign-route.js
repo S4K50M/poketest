@@ -32,11 +32,25 @@ export function fightGuardian(g,max=7000){
 }
 export function playCampaign(g,{chapters=6,switchParty=true,onGuardian=()=>{}}={}){
   for(let i=0;i<chapters;i++){
-    const ch=CHAPTERS[i];if(switchParty)g.input('slot'+(i%3+1));
+    const ch=CHAPTERS[i];
+    // A gate is an expedition. Return to the one reliable waylight between
+    // dimensions rather than relying on a boss reward to heal the party.
+    if(!walkTo(g,200))throw Error('Cannot return to the sanctuary waylight');g.input('interact');
+    if(switchParty)g.input('slot'+(i%3+1));
     if(!walkTo(g,1050+i*180))throw Error('Cannot reach sanctuary portal '+i);g.input('interact');
     if(g.roomId!==ch.id+'-path')throw Error('Portal did not open '+i);
     if(!walkTo(g,2370))throw Error('Cannot cross '+ch.id+' at '+g.player.x);g.input('interact');
-    if(g.roomId!==ch.id+'-heart')throw Error('Guardian door did not open '+i);
+    if(g.roomId===ch.id+'-descent'){
+      const stairs=g.room.platforms.filter(b=>!b.solid&&b.y<520).sort((a,b)=>b.y-a.y);
+      for(const b of stairs)if(!climbTo(g,b.x+b.w*.55,b.y))throw Error(`Cannot climb ${g.roomId} ledge ${b.x},${b.y} at ${g.player.x},${g.player.y}`);
+      const door=g.room.objects.find(o=>o.to===ch.id+'-nexus');
+      if(!climbTo(g,door.x,door.y))throw Error('Cannot reach the dungeon nexus '+i);g.input('interact');
+      if(g.roomId!==ch.id+'-nexus')throw Error('Dungeon nexus did not open '+i);
+      if(!walkTo(g,1700)||!fightGuardian(g))throw Error('Gate sentinel fight failed '+i);
+      const heartDoor=g.room.objects.find(o=>o.to===ch.id+'-heart');
+      if(!walkTo(g,heartDoor.x))throw Error('Cannot cross dungeon nexus '+i);g.input('interact');
+    }
+    if(g.roomId!==ch.id+'-heart')throw Error('Guardian door did not open '+i+' in '+g.roomId);
     onGuardian(g);
     if(!walkTo(g,850)||!fightGuardian(g))throw Error('Guardian fight failed '+ch.boss);
     if(!walkTo(g,1780))throw Error('Guardian exit not reachable '+i);g.input('interact');
@@ -57,11 +71,22 @@ export function climbTo(g,x,y,max=2500){
   for(let i=0;i<max;i++){
     const p=g.player;if(Math.abs(x-p.x)<13&&Math.abs(y-p.y)<5&&p.grounded){g.setInputs({});return true;}
     g.setInputs({right:p.x<x-12,left:p.x>x+12});
-    if(p.grounded&&(p.y>y+5||g.platforms.some(b=>b.y===p.y&&b.x+b.w-p.x<80&&p.x<b.x+b.w)))g.input('jump');
+    const source=g.platforms.find(b=>Math.abs(b.y-p.y)<2&&p.x>=b.x-12&&p.x<=b.x+b.w+12);
+    const target=g.platforms.find(b=>Math.abs(b.y-y)<2&&x>=b.x&&x<=b.x+b.w);
+    const gap=target?(p.x<x?target.x-p.x:p.x-target.x-target.w):Math.abs(x-p.x);
+    const edge=source&&(p.x<x?source.x+source.w-p.x:p.x-source.x);
+    if(p.grounded&&(p.y>y+5&&(gap<120||edge<35)||edge<60&&Math.abs(x-p.x)>45))g.input('jump');
     if(!p.grounded&&p.vy>-3&&p.y>y-40&&p.jumpCount<2)g.input('jump');
     if(p.wall&&i%12===0)g.input('jump');
     if(g.roomId==='storm-path'&&i%24===0&&p.x>850&&p.x<1550)g.input('grapple');
-    if(i%15===0&&g.enemies.some(e=>e.hp>0&&Math.abs(e.x-p.x)<120))g.input('heavy');
+    const projectile=g.enemyShots.find(s=>Math.abs(s.x-p.x)<100&&Math.abs(s.y-(p.y-g.data.bodyHeight*.5))<65&&((s.x-p.x)*s.vx<0||Math.abs(s.x-p.x)<35));
+    if(projectile){g.setInputs({left:projectile.vx>0,right:projectile.vx<0});g.input('shield');}
+    else{
+      g.releaseShield();
+      const foe=g.enemies.find(e=>e.hp>0&&Math.abs(e.x-p.x)<140&&Math.abs(e.y-p.y)<125);
+      if(foe&&!p.attack)g.input(foe.kind==='pebbleback'?'heavy':'light');
+      if(foe&&g.combat?.remaining('light')>6&&!p.attack)g.input('heavy');
+    }
     g.step();
   }
   return false;

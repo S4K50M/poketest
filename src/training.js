@@ -94,13 +94,15 @@ export class TrainingEngine extends AdventureSystems{
   step(){
     if(this.paused||this.phase!=='playing')return;
     this.tick++;if(this.hitstop>0){this.hitstop--;return;}
-    const p=this.player;
+    const p=this.player,frameEnemies=this.enemies;
+    const interrupted=()=>p.respawning||this.enemies!==frameEnemies;
     for(const key of ['dashCooldown','invul','flash','respawning','wallLock'])if(p[key]>0)p[key]--;
     if(this.messageTime>0)this.messageTime--;if(this.bell.flash>0)this.bell.flash--;
     this.effects=this.effects.filter(e=>--e.life>0);
     if(p.respawning)return;
     this.updateAdventure();
-    p.spirit=Math.min(100,p.spirit+.06);
+    if(interrupted())return;
+    p.spirit=Math.min(100,p.spirit+(this.campaign?.012:.06));
     if(p.grounded){p.coyote=(this.motor||MOTOR).coyote;p.dashUsed=false;p.airDashes=0;}else p.coyote=Math.max(0,p.coyote-1);
     this.jump();if(p.jumpBuffer>0)p.jumpBuffer--;
     const direction=p.root>0||p.healing||p.fortress||p.stagger>0?0:Number(this.inputs.right)-Number(this.inputs.left),oldX=p.x,oldY=p.y,slow=(p.slow>0?.55:1)*(p.shielding?.4:1);
@@ -128,8 +130,10 @@ export class TrainingEngine extends AdventureSystems{
     }
     this.stats.distance+=Math.abs(p.x-oldX);if(Math.abs(p.vx)>.5)p.walkPhase+=Math.abs(p.vx)*.055;
     if(p.y>720||(this.thorns||THORNS).some(t=>p.x>t.x&&p.x<t.x+t.w&&p.y>t.y)){this.respawn();return;}
-    this.updateAttack();this.updateEnemies();this.updateProjectiles();
-    for(const wave of this.waves){wave.x+=wave.vx;wave.life--;if(Math.abs(p.x-wave.x)<28&&p.y>485)this.hurt(Math.sign(p.x-wave.x));}
+    this.updateAttack();if(interrupted())return;
+    this.updateEnemies();if(interrupted())return;
+    this.updateProjectiles();if(interrupted())return;
+    for(const wave of this.waves){wave.x+=wave.vx;wave.life--;if(Math.abs(p.x-wave.x)<28&&Math.abs(p.y-(wave.y??520))<38)this.hurt(Math.sign(wave.vx),wave.damage??1);if(interrupted())return;}
     this.waves=this.waves.filter(w=>w.life>0);
     for(const r of this.relics)if(!r.collected&&Math.hypot(p.x-r.x,p.y-35-r.y)<42){r.collected=true;this.gainXP(25);this.lumens+=10;this.say('ECHO SHARD · +25 BOND XP / +10 LUMENS');this.emit('relic');}
     this.updateLesson();
@@ -168,6 +172,7 @@ export class TrainingEngine extends AdventureSystems{
     if(!e.hp){this.awardEnemy(e);this.effects.push({type:'burst',x:e.x,y:e.y-40,life:40});}
   }
   updateProjectiles(){
+    const frameEnemies=this.enemies;
     for(const b of this.projectiles){
       if(b.homing){const target=this.enemies.filter(e=>e.hp>0).sort((a,c)=>Math.hypot(a.x-b.x,a.y-25-b.y)-Math.hypot(c.x-b.x,c.y-25-b.y))[0];if(target&&Math.abs(target.x-b.x)<600){const dx=target.x-b.x,dy=target.y-20-b.y,r=Math.hypot(dx,dy)||1;b.vx+=(dx/r*10-b.vx)*.12;b.vy+=(dy/r*10-b.vy)*.12;}}
       b.vy=(b.vy||0)+(b.gravity||0);b.x+=b.vx;b.y+=b.vy;b.life--;
@@ -175,6 +180,7 @@ export class TrainingEngine extends AdventureSystems{
         if(b.life<=0)break;
         if(e.hp>0&&!b.hit.has(e.id)&&Math.abs(b.x-e.x)<(e.kind==='warden'?50:30)&&Math.abs(b.y-(e.y-(MINIONS[e.kind]?.height||40)))<55&&(b.kind!=='rockwave'||e.y>500)){
           b.hit.add(e.id);this.strike(e,b.damage||20,Math.sign(b.vx),{source:b.owner,heavy:b.heavy,element:b.element});
+          if(this.enemies!==frameEnemies||this.player.respawning)return;
           if(b.kind==='water')e.x+=Math.sign(b.vx)*35;
           if(b.kind==='magma')this.zones.push({type:'fire',x:e.x,y:e.y,radius:85,life:210,owner:b.owner});
           if(!b.piercing)b.life=0;

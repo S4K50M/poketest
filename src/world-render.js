@@ -7,6 +7,7 @@ import { drawCreature, drawMinion } from './creatures.js';
 import { findFighter } from './roster.js';
 import { BIOMES, BOSSES } from './world.js';
 import { MINIONS } from './designs.js';
+import {drawDungeonMinion,drawDungeonChampion,drawDungeonTelegraph} from './dungeon-art.js';
 const TAU=Math.PI*2;
 const poly=(c,pts,fill,stroke)=>{c.beginPath();pts.forEach(([x,y],i)=>i?c.lineTo(x,y):c.moveTo(x,y));c.closePath();if(fill){c.fillStyle=fill;c.fill();}if(stroke){c.strokeStyle=stroke;c.lineWidth=2;c.stroke();}};
 const oval=(c,x,y,rx,ry,color)=>{c.beginPath();c.ellipse(x,y,Math.max(.1,rx),Math.max(.1,ry),0,0,TAU);c.fillStyle=color;c.fill();};
@@ -21,7 +22,7 @@ export class WorldRenderer{
   render(g,clock){
     const {c,w,h}=fitCanvas(this.canvas);if(!w||!h)return;const scale=h/660,view=w/scale,t=clock/1000,b=BIOMES[g.room.biome];this.time=t;this.fx.reducedMotion=!!g.combat?.settings.reducedMotion;this.fx.update(Math.min(.05,Math.max(0,(clock-(this.lastClock||clock))/1000)));this.lastClock=clock;
     const target=Math.max(0,Math.min(g.worldWidth-view,g.player.x-view*.38+g.player.vx*7));
-    if(this.lastRoom!==g.roomId){this.camera=target;this.lastRoom=g.roomId;}this.camera+=(target-this.camera)*.12;this.cameraY+=(Math.min(0,g.player.y-245)-this.cameraY)*.09;
+    if(this.lastRoom!==g.roomId){this.camera=target;this.cameraY=Math.min(0,g.player.y-245);this.lastRoom=g.roomId;}this.camera+=(target-this.camera)*.12;this.cameraY+=(Math.min(0,g.player.y-245)-this.cameraY)*.09;
     c.save();c.scale(scale,scale);const impulse=this.fx.camera();c.translate(impulse.x,impulse.y);if(impulse.zoom!==1){c.translate(view/2,330);c.scale(impulse.zoom,impulse.zoom);c.translate(-view/2,-330);}
     this.backdrop(c,b,view,660,this.camera,t);this.fx.drawAmbient(c,g,this.camera,this.cameraY,view,660,t);
     c.save();c.translate(-this.camera,-this.cameraY);
@@ -38,6 +39,7 @@ export class WorldRenderer{
     for(const a of g.room.anchors){line(c,[[a.x,a.y-36],[a.x,a.y]],'#d6b87866',1);glow(c,a.x,a.y,25,'#ffdd932a');poly(c,[[a.x,a.y-9],[a.x+8,a.y],[a.x,a.y+9],[a.x-8,a.y]],'#f8d895');}
     for(const r of g.relics)if(!r.collected){const yy=r.y+Math.sin(t*3+r.x)*6;glow(c,r.x,yy,35,b.color+'30');poly(c,[[r.x,yy-13],[r.x+8,yy],[r.x,yy+13],[r.x-8,yy]],b.color,'#efffe6');}
     for(const z of g.zones){glow(c,z.x,z.y-25,z.radius,z.type==='fire'?'#ff9b3833':z.type==='wind'?'#bfffe128':'#e2d6ff33');for(let i=0;i<9;i++){const xx=z.x+Math.sin(t*4+i)*z.radius*.8;line(c,[[xx,z.y],[xx+10,z.y-18-Math.sin(i+t*6)*10]],z.type==='fire'?'#ffb96d88':'#d0f7ed77',2);}}
+    for(const e of g.enemies)drawDungeonTelegraph(c,e,t);
     for(const e of g.enemies){
       if(e.hp<=0&&!e.deathTimer)continue;e.reducedMotion=!!g.combat?.settings.reducedMotion;
       if(e.boss&&e.hp>0)drawBossAura(c,e,t,BOSSES[e.boss].color);
@@ -69,7 +71,7 @@ export class WorldRenderer{
     this.fx.drawWorld(c,g,t);
     for(const f of g.combat?.fields||[]){if(!Number.isFinite(f.x))continue;const radius=f.radius||100;c.save();c.globalAlpha=Math.min(.6,f.life/25);c.strokeStyle=f.color||b.color;c.lineWidth=2;c.setLineDash(f.type==='time'?[8,12]:[]);c.beginPath();c.ellipse(f.x,f.y,radius*(.9+Math.sin(t*5)*.04),f.type==='gravity'?radius*.6:35,t*.15,0,TAU);c.stroke();glow(c,f.x,f.y,radius,(f.color||b.color)+'14');c.restore();}
     const near=g.room.objects.filter(o=>Math.abs(o.x-p.x)<90&&Math.abs((o.y||520)-p.y)<95).sort((x,y)=>Math.abs(x.x-p.x)-Math.abs(y.x-p.x))[0];
-    if(near){const locked=near.need>g.fragments.size||near.ability&&!g.abilities.has(near.ability);text(c,'[ E ]  '+(locked?'SEALED · ':'')+near.name,near.x,(near.y||520)-110,locked?'#b6acbf':'#f6e5bb',11);}
+    if(near){const defeated=id=>g.fragments.has(id)||g.defeatedBosses?.has(id),locked=near.need>g.fragments.size||near.ability&&!g.abilities.has(near.ability)||near.boss&&!defeated(near.boss)||near.requiresBoss&&!defeated(near.requiresBoss);text(c,'[ E ]  '+(locked?'SEALED · ':'')+near.name,near.x,(near.y||520)-110,locked?'#b6acbf':'#f6e5bb',11);}
     c.restore();
     // Soft foreground silhouette and cinematic light rays.
     const vign=c.createLinearGradient(0,0,0,660);vign.addColorStop(0,'#07101d77');vign.addColorStop(.3,'transparent');vign.addColorStop(.85,'transparent');vign.addColorStop(1,'#040a14bb');c.fillStyle=vign;c.fillRect(0,0,view,660);
@@ -140,7 +142,10 @@ export class WorldRenderer{
     }else if(o.kind==='lever'){
       line(c,[[x-15,y],[x+15,y]],'#91a582',5);line(c,[[x,y],[x+(used?24:-24),y-42]],'#cfcea0',4);oval(c,x+(used?24:-24),y-42,6,6,used?'#b4deb0':'#efd8a0');
     }else if(o.kind==='door'){
-      const locked=o.ability&&!g.abilities.has(o.ability)||o.boss&&!g.fragments.has(o.boss);line(c,[[x,y],[x,y-55]],'#7b8a75',4);poly(c,[[x-22,y-72],[x+25,y-72],[x+37,y-63],[x+25,y-54],[x-22,y-54]],locked?'#5d5961':'#b2bea0');text(c,locked?'◇':'→',x+3,y-59,'#14252d',14);glow(c,x,y-64,30,locked?'#bd94e622':'#b9edbb18');
+      const defeated=id=>g.fragments.has(id)||g.defeatedBosses?.has(id),locked=o.ability&&!g.abilities.has(o.ability)||o.boss&&!defeated(o.boss)||o.requiresBoss&&!defeated(o.requiresBoss);
+      line(c,[[x-26,y],[x-26,y-77],[x,y-103],[x+26,y-77],[x+26,y]],locked?'#655b70':'#8caa92',5);line(c,[[x-18,y-4],[x-18,y-72],[x,y-89],[x+18,y-72],[x+18,y-4]],col+'44',1);
+      glow(c,x,y-47,46,locked?'#bd94e622':col+'18');text(c,locked?'◇':'≋',x,y-45,locked?'#b79ac4':col,21);
+      if(!locked)for(let i=0;i<4;i++){const yy=y-10-(t*19+i*21)%80;oval(c,x+Math.sin(i*2+t)*12,yy,1,1,col+'99');}
     }else if(o.kind==='memory'){
       line(c,[[x-15,y],[x-12,y-51],[x+12,y-51],[x+16,y]],'#5d7a71',4);text(c,'≋',x,y-30,'#b4d8bf',24);if(!g.memories.has(key))glow(c,x,y-36,30,'#caecc02a');
     }else if(o.kind==='cache'){
@@ -151,6 +156,7 @@ export class WorldRenderer{
     }
   }
   minion(c,e,t){
+    if(drawDungeonMinion(c,e,t,MINIONS[e.kind]?.color||'#d9bdea'))return;
     if(drawChronicleEntity(c,e,t))return;
     if(['sinder','voltlet','pebbleback','dewdrop','sproutlet'].includes(e.kind)){drawMinion(c,e,t);return;}
     const col=MINIONS[e.kind].color;c.save();c.translate(e.x,e.y);c.scale(e.face,1);if(e.flash)c.globalAlpha=.5;
@@ -162,8 +168,8 @@ export class WorldRenderer{
   }
   boss(c,e,t){
     if(drawChronicleBoss(c,e,t))return;
-    const b=BOSSES[e.boss],col=b.color;c.save();c.translate(e.x,e.y);c.scale(e.face,1);if(e.flash)c.globalAlpha=.55;
-    const breathe=Math.sin(t*2)*3,wind=e.state==='windup',rage=e.phase===2;c.translate(0,breathe+(e.state==='recover'?8:0));c.rotate(e.state==='charge'?.1:wind?-.045:0);glow(c,0,-70,160,col+(rage?'22':'10'));
+    const b=BOSSES[e.boss],col=b.color;if(drawDungeonChampion(c,e,b,t))return;c.save();c.translate(e.x,e.y);c.scale(e.face,1);if(e.flash)c.globalAlpha=.55;
+    const breathe=Math.sin(t*2)*3,wind=e.state==='windup',rage=e.phase>=2;c.translate(0,breathe+(e.state==='recover'?8:0));c.rotate(e.state==='charge'?.1:wind?-.045:0);glow(c,0,-70,160,col+(rage?'22':'10'));
     if(e.boss==='briar'||e.boss==='hourglass'){
       for(const side of [-1,1]){line(c,[[side*35,-85],[side*58,-38],[side*72,0]],e.boss==='briar'?'#607e65':'#8ca9b6',15);line(c,[[side*20,-132],[side*40,-200],[side*73,-242]],col,7);for(let i=0;i<3;i++)line(c,[[side*(42+i*10),-200-i*10],[side*(67+i*13),-215-i*20]],col,4);}
       poly(c,[[-48,-110],[-22,-151],[34,-140],[60,-91],[24,-48],[-34,-56]],e.boss==='briar'?'#54745b':'#536b88',col+'77');

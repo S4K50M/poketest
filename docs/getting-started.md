@@ -50,7 +50,7 @@ The [gameplay guide](gameplay.md) lists all controls and resources. The [combat 
 
 ## Mobile landscape
 
-Start from either orientation; active mobile gameplay requires landscape. In portrait, the rotate prompt pauses the simulation and clears held controls. Physically rotate your device, or use Enter Landscape where fullscreen/orientation APIs are supported. If the browser cannot lock orientation, the prompt stays until you rotate manually. Open menus remain open after rotation; home and party selection can still be browsed in portrait.
+Mobile screens require landscape, including the home screen, party selection, menus, and active gameplay. In portrait, the rotate prompt pauses the simulation and clears held controls. Physically rotate your device, or use Enter Landscape where fullscreen/orientation APIs are supported. If the browser cannot lock orientation, the prompt stays until you rotate manually. Open menus remain open after rotation; the portrait prompt stays in front until the device returns to landscape.
 
 ## Direct-file play
 

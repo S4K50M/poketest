@@ -75,10 +75,16 @@ The UI uses one dialog for menus, dialogue, rewards, and endings. Opening it pau
 
 ## Mobile layout ownership
 
-main.js detects coarse-pointer devices and compact viewports, activates the mobile-game layout, and pauses active gameplay in portrait. The rotate prompt makes the game and any existing modal inert; returning to landscape restores the previous modal pause state. Resize transitions clear held actions. Fullscreen/orientation locking is attempted only from the explicit landscape button; manual rotation remains the fallback. src/mobile.css lays out larger combat/movement targets and the priority menu. The viewport remains unrotated so input coordinates, dialogs, and screen readers share the same coordinate space.
+main.js detects coarse-pointer devices and compact viewports, activates the mobile-game layout, and blocks portrait orientation on home, menus, and gameplay. Active gameplay pauses in portrait. The rotate prompt makes the home screen, game, and any existing modal inert; returning to landscape restores the previous modal pause state. Resize transitions clear held actions. Fullscreen/orientation locking is attempted only from the explicit landscape button; manual rotation remains the fallback. src/mobile.css lays out larger combat/movement targets and the priority menu. The viewport remains unrotated so input coordinates, dialogs, and screen readers share the same coordinate space.
 
 ## Data registration and extension boundaries
 
 world.js defines the main registries. chronicle.js remains pure optional-story data; importing rpg-world.js merges optional rooms, enemies, bosses, links, and dialogue into the main registries. Import the RPG entry when inspecting the complete live world; world.js alone contains only the base campaign.
 
 Persistent identifiers belong to content definitions and must remain stable across releases. Keep render code free of save mutations and collision logic. Use engine events for effects and notifications. Update data, gameplay behavior, art, menu descriptions, and meaningful tests together when adding a mechanic. See [content authoring](content-authoring.md) and [save format](save-format.md).
+
+## Dimensional dungeon expansion
+
+[dimensions.js](../src/dimensions.js) defines 24 branching dungeon rooms and six buried stories. world.js registers these alongside existing rooms and preserves their saved IDs. [dungeon-enemies.js](../src/dungeon-enemies.js) defines twelve minibosses; [difficulty.js](../src/difficulty.js) implements three-phase encounters, telegraphed rush/volley/sigil/slam patterns, four new minion AIs, and the campaign healing contract.
+
+Door objects may specify destination `spawn: {x, y}` and a `requiresBoss` seal. Enemy spawns may specify `y`, `left`, `right`, and `introX` for elevated patrols. Room `map: {x,y}`, `depth`, and `dungeon` metadata drive the atlas. Feet coordinates remain positive downward, with upper floors using negative Y. The renderer follows vertical climbs. safeRest is distinct from the local room checkpoint and is validated against a real bench when loading.

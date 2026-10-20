@@ -23,7 +23,7 @@ Choose three distinct companions and begin at the Last Lantern. Move toward Prof
 | Air S + J | Downstrike / pogo bounce |
 | L | Neutral elemental technique |
 | Direction + L | Companion’s directional technique |
-| F, held while still | Channel one heart for 33 Focus over 48 frames |
+| F, held while still | Channel one heart for 40 Focus over 72 frames |
 | V | Drink a Bramble Flask; restore three hearts |
 | 1 / 2 / 3, or Q | Switch among the three active companions |
 | E | Talk, rest, read, open a cache, pull a lever, enter a door |
@@ -34,11 +34,11 @@ Choose three distinct companions and begin at the Last Lantern. Move toward Prof
 | R | Threefold Resonance Surge, when its gauge reaches 100% |
 | Escape | Pause |
 
-Mobile gameplay is landscape-only. Portrait pauses the adventure and shows a rotate prompt; the home screen still supports portrait. Movement/aim is on the left; strike, jump, dash, Guard, heavy, special, and power are on the right. The left-pad SWAP button or party cards switch companions. Hold-to-heal and nearby interaction buttons sit beside movement; grapple appears after its unlock. The menu prioritizes recovery and loadouts, then exploration and tools. Keyboard controls are also listed in the in-game guide. Sound effects are optional and start muted.
+Mobile screens require landscape. Portrait shows a rotate prompt on the home screen, in menus, and during gameplay; an active adventure pauses until the device rotates. Movement/aim is on the left; strike, jump, dash, Guard, heavy, special, and power are on the right. The left-pad SWAP button or party cards switch companions. Hold-to-heal and nearby interaction buttons sit beside movement; grapple appears after its unlock. The menu prioritizes recovery and loadouts, then exploration and tools. Keyboard controls are also listed in the in-game guide. Sound effects are optional and start muted.
 
 ## Party and survival
 
-Each companion keeps independent hearts, Focus, and cooldowns. Switching preserves location, velocity, debuffs, and spent air resources. It cannot refill jumps or grant free invulnerability. A knocked-out companion yields to a living partner. A full party wipe returns to the checkpoint, resets surviving guardians to full health, and loses 10% of Lumens. Resting revives the party.
+Each companion keeps independent hearts, Focus, and signature state; repeat attack cooldowns apply across the party. Switching preserves location, velocity, debuffs, and spent air resources. It cannot refill jumps or grant free invulnerability. A knocked-out companion yields to a living partner. A full party wipe revives the party at the last kindled waylight, resets surviving guardians to full health, and loses 10% of Lumens.
 
 The eight supplied identities retain their different anatomy and elemental skills: the quadrupedal magma gator, mantis-wasp, glacier yeti, cloud griffin, rock beetle, shadow jackal, natural nose-lance shark, and chrome dragon. The new companions use separate deer, moth, and owl rigs:
 
@@ -46,7 +46,7 @@ The eight supplied identities retain their different anatomy and elemental skill
 - **Lumivern:** four moon-patterned wings, a lantern heart, seeking light needles, and a solar cone.
 - **Chronowl:** six feathered wings, an hourglass crown, a stasis ring, and an ice dash.
 
-Minions include shell enemies that need a heavy hit, static grubs that punish close attacks, burrowing ambushers, slippery water creatures, ranged thorn sprites, furnace bats, ink rays, storm birds, frost crawlers, and teleporting rift echoes. Guardians telegraph attacks and change rhythm below half health. Their attacks combine charges, jumpable waves, root eruptions, aimed ink, lightning markers, slowing ice, and projectile fans.
+Minions include shell enemies that need a heavy hit, static grubs that punish close attacks, burrowing ambushers, slippery water creatures, ranged thorn sprites, furnace bats, ink rays, storm birds, frost crawlers, and teleporting rift echoes. Guardians have 2.2 times their previous health and three phases, changing rhythm at two-thirds and one-third health. Twelve dimensional minibosses guard court seals and optional vaults. Their attacks combine charges, aimed projectile fans, delayed elemental sigils, leaping slams, and jumpable shockwaves. The final phase chains attacks and shortens recovery. Glass Marauders resist light strikes, Veilwasps attack from the air, Graveburrowers mark an eruption under you, and Chaincasters keep their distance while firing rooting bolts.
 
 ## Inventory and crafting
 
@@ -77,3 +77,9 @@ After fifteen seconds of simulation time in a region path, an uncleared world fr
 Use H → Arsenal to toggle reduced motion. It removes camera shake and softens flashes; a new journey initially follows the browser’s motion preference. The sound button toggles optional synthesized effects. Pausing, opening a menu, losing window focus, or hiding the tab stops active gameplay through the UI.
 
 For exact timing and art unlocks, see the [combat reference](combat.md). For checkpoint and storage limitations, see [save format](save-format.md).
+
+## Dimensional expeditions
+
+Each of the six sanctuary gates leads through a road, a vertical descent, and a warden court to the guardian’s chamber. Optional high passages and buried vaults branch off this route. The high passage loops back toward the gate; the vault has a stronger optional reaver and a sealed hoard. Read local inscriptions and use M to inspect discovered connections. There are no directional route arrows. Later descents require precise double jumps; air dashes and grapple anchors help control crossings. Double jump does not bypass the court’s guardian seal.
+
+Ten waylights remain across 42 rooms: one in the sanctuary, one at each of the six gate roads, and one in each forbidden dungeon. Guardian chambers and the 24 new deep rooms have none. Rest with E to bind the checkpoint. A fall costs a heart and returns to the current room entry or local rested bench. A party wipe revives the party at the **last kindled waylight**, removes 10% of Lumens, and resets a surviving guardian’s health. Main and forbidden guardian victories award one flask without fully healing the party; dimensional minibosses award materials instead. Base healing requires 72 uninterrupted frames and 40 Focus.

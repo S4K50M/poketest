@@ -85,7 +85,7 @@ export class CombatDirector{
     if(!p.grounded){p.airDashes++;g.stats.airDashes++;}g.stats.dashes++;g.emit('dash',{x:p.x,y:p.y-25});return true;
   }
   step(){
-    const g=this.g,p=g.player;
+    const g=this.g,p=g.player,frameEnemies=g.enemies;
     for(const key of ['guardBroken','parryFrames','parryLock','riposte','stagger','powerAura','shieldDelay'])if(p[key]>0)p[key]--;
     if(this.recovery>0)this.recovery--;
     for(const id of Object.keys(this.cooldowns))if(this.cooldowns[id]>0)this.cooldowns[id]--;
@@ -103,12 +103,12 @@ export class CombatDirector{
     }
     for(const f of this.fields){
       f.life--;if(f.type==='time')for(const e of g.enemies)if(e.hp>0&&Math.hypot(e.x-f.x,e.y-40-f.y)<f.radius){e.timeSlowUntil=g.tick+2;e.timeScale=f.timeScale;}
-      if(['gravity','cyclone'].includes(f.type))for(const e of g.enemies)if(e.hp>0&&Math.hypot(e.x-f.x,e.y-40-f.y)<f.radius){e.x+=(f.x-e.x)*(e.boss?.008:.055);if(f.life%f.interval===0)g.strike(e,f.damage,p.face,{source:f.owner,dot:true,element:f.type==='gravity'?'Shadow':'Wind'});}
+      if(['gravity','cyclone'].includes(f.type))for(const e of g.enemies)if(e.hp>0&&Math.hypot(e.x-f.x,e.y-40-f.y)<f.radius){e.x+=(f.x-e.x)*(e.boss?.008:.055);if(f.life%f.interval===0)g.strike(e,f.damage,p.face,{source:f.owner,dot:true,element:f.type==='gravity'?'Shadow':'Wind'});if(g.enemies!==frameEnemies||p.respawning)return;}
     }
     this.fields=this.fields.filter(f=>f.life>0);
   }
   updateAttack(){
-    const g=this.g,p=g.player,a=p.attack;if(!a)return;
+    const g=this.g,p=g.player,a=p.attack,frameEnemies=g.enemies;if(!a)return;
     a.frame++;if(a.frame>=a.start+a.active+a.recovery){p.attack=null;p.armor=0;return;}
     if(a.frame===a.start){g.effects.push({type:'slash',x:p.x+p.face*45,y:p.y-35,face:p.face,dir:a.dir,heavy:a.type==='heavy',swing:a.swing,life:12});}
     if(a.frame>=a.start)p.armor=0;
@@ -119,6 +119,7 @@ export class CombatDirector{
       const contact=a.dir==='down'?e.y-p.y>5&&e.y-p.y<(a.move==='plunge'?145:120)&&Math.abs(dx)<75:a.dir==='up'?dy<35&&dy>-(a.reachY||150)&&Math.abs(dx)<85:dx*p.face>-28&&dx*p.face<range+(e.boss?30:15)&&Math.abs(dy)<(a.reachY||90);
       if(!contact)continue;a.hit.add(e.id);
       g.strike(e,a.damage||18,p.face,{heavy:a.type==='heavy',element:a.element||g.data.types[0],move:a.move,launch:a.launch,stun:a.stun});
+      if(g.enemies!==frameEnemies||p.respawning)return;
       if(a.dir==='down')g.pogo();
     }
   }

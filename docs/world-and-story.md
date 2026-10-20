@@ -4,7 +4,7 @@
 
 ## Campaign map
 
-There are **18 rooms, six biomes, nine bosses, 11 companions, and 15 wild species**. The original eight companions are available from the start. Three new companions join after their guardians are freed.
+There are **42 rooms, six dimensions, nine major bosses, twelve minibosses, 11 companions, and 19 wild species**. The original eight companions are available from the start. Three new companions join after their guardians are freed.
 
 | Region | Places | Guardian | Ability / rescue |
 | --- | --- | --- | --- |
@@ -16,11 +16,11 @@ There are **18 rooms, six biomes, nine bosses, 11 companions, and 15 wild specie
 | Pale Meridian | Stillwood, Last Second | Hourglass Stag | Rift Step; Chronowl |
 | Hollow Crown | Unwritten Road, Heart Below | Hollow Sovereign | Final memory and two endings |
 
-The sanctuary connects the chapters. Each restored fragment opens another portal. Region paths and guardian rooms connect in both directions; the hidden branches reward returning after new abilities awaken. The atlas records discoveries and offers fast travel from a safe waylight to a discovered room.
+The sanctuary connects the chapters. Each restored fragment opens another portal. Each gate road leads through a vertical descent and a warden court before its guardian. High passages and vaults branch from these chambers and reconnect through shortcuts; the original hidden branches reward returning after new abilities awaken. The atlas records discoveries and offers fast travel between discovered waylights.
 
 Traversal includes a lever-operated rootbridge, wall climbing, furnace gaps, grapple crossings, moving sky platforms, a high frozen ascent, and a physical violet veil that only an awakened dash can cross. Benches, the workbench, story inscriptions, travelers, material caches, ore veins, and hidden shrines all have interactions.
 
-Room counts include the sanctuary and five optional rooms. The six biome count excludes the sanctuary palette.
+Room counts include the sanctuary, 12 original main-route rooms, 24 new dungeon chambers, and the five original optional rooms. Ten waylights remain: the sanctuary, the six gate roads, and the three forbidden dungeons. The six biome count excludes the sanctuary palette.
 
 ```mermaid
 flowchart TD
@@ -41,7 +41,7 @@ The hub portals unlock in chapter order through the six main fragments. Optional
 
 ## Optional chronicle
 
-The sanctuary has seen ninety-nine expeditions. Iona’s living map knows every traveler. It does not know you. Investigate a century of unfinished promises through **eight quest lines**, four new story characters, ten gradually revealed history records, and three optional dungeons. Read inscriptions with E, speak to the quest giver to accept and turn in objectives, and pin a story in **N → Chronicles**. Completed field notes can be reread in World History. The original six-fragment campaign remains intact; optional bosses do not open main portals early.
+The sanctuary has seen ninety-nine expeditions. Iona’s living map knows every traveler. It does not know you. Investigate a century of unfinished promises through **eight quest lines**, four new story characters, ten gradually revealed history records, and three optional dungeons. Read inscriptions with E, speak to the quest giver to accept and turn in objectives, and pin a story in **N → Chronicles**. Completed field notes can be reread in World History. The six-fragment progression remains intact; optional bosses and dimensional minibosses do not open main portals early.
 
 - **The Clockwork Ossuary** branches from Pilgrim’s Furnace. Captain Cairn’s garden-filled armor shelters a borrowed dawn. Face **the Saint of Two Dawns**, a bronze saint with two masks and chained bells.
 - **The Paper Moon** branches from the Sunken Stacks. Morrow Nine listens to voices trapped in living correspondence. Face **the Palimpsest**, a many-handed living book that eats the end of every goodbye.
@@ -79,3 +79,27 @@ Completing Pip’s story awards the blank egg keepsake. After the true ending, i
 ## Narrative conventions for new content
 
 Keep major revelations behind earned quest or history gates. Reward guardians with memories and consequences rather than generic victory text. Preserve the distinction between main fragments, optional guardians, and personal quest rewards. See [content authoring](content-authoring.md) before changing progression identifiers.
+
+## The six buried histories
+
+Each dimension now has four deeper chambers: a vertical descent, a warden court, an abandoned high road, and a forbidden vault. The court warden must fall before the guardian seal opens. Vault reavers are optional; their hoards and return passages stay sealed until victory. See [dimensions.js](../src/dimensions.js) for all 24 chambers and their inscriptions, and [dungeon-enemies.js](../src/dungeon-enemies.js) for the twelve wardens and reavers.
+
+| Region | Dungeon | Deeper chambers |
+| --- | --- | --- |
+| Mourningwild | The Root Beneath the Root | Rootfall Cistern; The Grafted Court; Canopy of Unborn Seeds; The Sap Widow’s Reliquary |
+| Cinder Cathedral | The Furnace Below the Bells | The Ashen Switchworks; Court of the Last Censer; The Unrung Belfry; The Furnace of Small Suns |
+| Drowned Archive | The Archive Beneath the Sea | The Flooded Index; The Unreturned Court; The Inverted Reading Room; The Cabinet of Stolen Names |
+| Thundersong Spires | The Choir Above the Storm | The Broken Bellwind; Court of the Thunder Choir; The Breathless Spire; The Vault of the Ninth Voice |
+| Pale Meridian | The Winter Inside a Second | The Fractured Second; Court of the Rimekeeper; The Stair of Unspent Hours; The Vault of Borrowed Tomorrows |
+| Hollow Crown | The Cage Beneath the Crown | The Wound Between Worlds; Court of the Empty Throne; The Stair That Remembers You; The Vault of the First Cage |
+
+| Dimension | Buried story | Traversal |
+| --- | --- | --- |
+| Mourningwild | The forest’s protectors were chained to the roots they saved | Narrow rooted shelves and a switchback climb |
+| Cinder Cathedral | The council burned memories as fuel and called it salvation | Furnace gaps, wall routes, and high ledges |
+| Drowned Archive | Missing names belong to people removed from history | Layered stacks and chained grapple anchors |
+| Thundersong | The sky broke trying to contain the voices the choir silenced | Moving shelves and exposed aerial crossings |
+| Pale Meridian | A stolen tomorrow waits inside the second that never ended | 185-pixel climbs demanding earned double jumps |
+| Hollow Crown | The first cage held the creature that would become your family | Long broken ascents, vault loops, and awakened traversal |
+
+The atlas shows room connections as you discover them, with depth labels and current position. A waylight icon marks actual rest locations; discovering an ordinary room does not enable fast travel there. The prototype expands exploration substantially; its scale remains smaller than a full commercial metroidvania.

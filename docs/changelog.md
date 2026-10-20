@@ -1,5 +1,13 @@
 # Changelog
 
+## Six dimensions and the descent
+
+- Expanded from 18 to 42 rooms with vertical dungeons, branching high passages, deep vaults, loops, and 24 new story inscriptions. Replaced route arrows with a discovered-room atlas.
+- Added twelve dimensional minibosses and four wild archetypes: Glass Marauder, Veilwasp, Graveburrower, and Chaincaster. Major bosses have 2.2× health, three phases, aimed volleys, sigils, rushes, and leaping shockwave slams.
+- Removed guardian benches and free full-party victory healing; Focus healing now costs 40 and takes 72 frames. Wipes return to the last kindled waylight.
+- Made E echo collection nonblocking; full field notes remain readable in World History, with repeat/reload reward protection.
+- Enforced the mobile portrait rotation guard on home, menus, and gameplay.
+
 [Documentation index](README.md) · [Project README](../README.md)
 
 This records major implemented milestones. It is not a list of planned features.

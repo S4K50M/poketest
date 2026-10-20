@@ -1,4 +1,7 @@
-// All campaign geography is data. Feet and ground use Y = 520 throughout a room.
+import { DUNGEON_ROOMS, DIMENSIONS } from './dimensions.js';
+import { MINIBOSSES } from './dungeon-enemies.js';
+// All campaign geography is data. The deepest floor uses Y = 520;
+// dungeon galleries and towers extend upward through a scrolling camera.
 export const BIOMES={
   sanctuary:{name:'The Last Lantern',subtitle:'A small light at the end of the world',color:'#e5d6a4',sky:['#101c23','#30433d'],ground:'#273f3a',accent:'#c9b87f',icon:'✦',kind:'sanctuary'},
   moss:{name:'Mourningwild',subtitle:'Where the roots remember',color:'#a9e6aa',sky:['#0b1c26','#23473f'],ground:'#23443a',accent:'#a9e6aa',icon:'❧',kind:'forest'},
@@ -24,6 +27,7 @@ export const BOSSES={
   hourglass:{name:'The Hourglass Stag',epithet:'WARDEN OF A FROZEN MOMENT',biome:'frost',hp:420,color:'#c6eaff',reward:'blink',creature:'chronowl',material:'frostcore',lore:'It froze the moment before the fracture. For a century, it has tried to choose differently.'},
   crown:{name:'The Hollow Sovereign',epithet:'THE HEART THAT REFUSED TO BREAK',biome:'rift',hp:600,color:'#ffa0bd',reward:null,material:'riftglass',lore:'The Worldheart was never a machine. It was a creature. And it has been waiting for its family.'},
 };
+Object.assign(BOSSES,MINIBOSSES);
 export const CHAPTERS=[
   {id:'moss',title:'I. A seed of memory',need:0,boss:'briar',x:26,y:66,story:'Professor Vell found a pulse beneath the Mourningwild. Find the Matron and bring the first memory home.'},
   {id:'forge',title:'II. The city that burned',need:1,boss:'bell',x:15,y:39,story:'The second pulse tolls inside Cinder Cathedral. An old saint mistakes the fire for salvation.'},
@@ -109,6 +113,26 @@ ROOMS['frost-path'].objects.find(o=>o.id==='cache').x=1450;ROOMS['frost-path'].o
 ROOMS['frost-path'].relics=[{id:'frost-path-a',x:1180,y:215},{id:'frost-path-b',x:1440,y:90}];
 ROOMS['rift-path'].platforms.push({x:1080,y:20,w:30,h:500,solid:true,veil:true});
 ROOMS['rift-path'].objects.push({id:'veil',kind:'veil',x:1095,name:'Rift Veil'});
+// Keep the original room IDs and save keys. Their former guardian doors now
+// enter a dungeon; an upper route, a deep vault, and a court form a proper loop.
+Object.assign(ROOMS,DUNGEON_ROOMS);
+ROOMS.sanctuary.map={x:0,y:0};
+for(const [i,ch]of CHAPTERS.entries()){
+  const path=ROOMS[ch.id+'-path'],heart=ROOMS[ch.id+'-heart'],dimension=DIMENSIONS[i];
+  path.map={x:0,y:0};path.depth=0;path.dungeon=dimension.title;
+  const entrance=path.objects.find(o=>o.id==='exit');entrance.to=ch.id+'-descent';entrance.name=dimension.rooms[0];
+  // Each gate has one field Waylight. Neither its courts nor guardian chambers
+  // can refill the party for free between attempts.
+  heart.objects=heart.objects.filter(o=>o.kind!=='bench');
+  heart.objects.find(o=>o.id==='return').to=ch.id+'-nexus';
+  heart.objects.find(o=>o.id==='return').name='Return to '+dimension.rooms[1];
+  heart.objects.find(o=>o.id==='return').spawn={x:3010,y:520};
+  heart.map={x:6,y:1};heart.depth=2;heart.dungeon=dimension.title;
+  path.enemies.push({kind:i%2?'glassmarauder':'graveburrower',x:2030,y:520},
+    {kind:i%2?'chaincaster':'veilwasp',x:2220,y:i%2?520:435});
+}
+ROOMS['hidden-grove'].map={x:0,y:-2};
+ROOMS['star-observatory'].map={x:1,y:-3};
 export const DIALOGUES={
   mender:[['Ash, the Mender','I used to mend cages. Vell taught me to mend bridges instead. Strange how the same hands can do both.'],['Ash, the Mender','Take the high path over the furnace. Jump toward a wall, then Space again to climb. Every bench can shape your materials into charms.']],
   archivist:[['The Paper Archivist','I have been looking for the last page for a hundred years. It says: “A living heart cannot belong to a kingdom.”'],['The Paper Archivist','Golden anchors remember the old roads. Press U when one is above you. Chain your grapples across the drowned stacks.']],

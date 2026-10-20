@@ -13,7 +13,12 @@ try{
   await page.addInitScript(()=>{HTMLElement.prototype.requestFullscreen=async()=>{throw Error('Fullscreen unavailable in this fixture');};if(screen.orientation)screen.orientation.lock=async()=>{throw Error('Orientation lock unavailable in this fixture');};});
   await page.goto(base);await page.evaluate(()=>document.fonts.ready);await page.clock.install();
   const clock=ms=>page.clock.runFor(ms),snapshot=()=>page.evaluate(()=>window.kinetic.snapshot());mkdirSync('test-results',{recursive:true});
+  assert(await page.locator('#rotate-prompt').isVisible(),'portrait home is gated before any expedition starts');
+  assert.equal(await page.evaluate(()=>document.activeElement.closest('dialog')?.id),'rotate-prompt');
+  await page.click('#landscape-button');assert.match(await page.locator('#rotate-help').textContent(),/manually/);
+  await page.setViewportSize({width:844,height:390});await clock(100);assert(!(await page.locator('#rotate-prompt').isVisible()));
   await page.click('#start-button');await page.click('#confirm-expedition');await clock(100);
+  await page.setViewportSize({width:390,height:844});await clock(100);
   assert(await page.locator('#rotate-prompt').isVisible());assert((await snapshot()).paused);const portrait=await snapshot();
   await page.keyboard.down('KeyD');await page.keyboard.press('Space');await clock(500);await page.keyboard.up('KeyD');
   assert.equal((await snapshot()).tick,portrait.tick);assert.equal((await snapshot()).player.x,portrait.player.x);
@@ -43,6 +48,6 @@ try{
   assert((await snapshot()).player.x>before.player.x);assert((await snapshot()).combat.move);await client.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await clock(150);
   await page.screenshot({path:'test-results/mobile-landscape-controls.png'});
   for(const size of [{width:568,height:320},{width:667,height:375},{width:1024,height:600}]){await page.setViewportSize(size);await clock(100);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth),size.width);assert(await page.locator('.touch-controls').isVisible());assert(!(await page.locator('#rotate-prompt').isVisible()));}
-  await page.click('#mobile-menu-button');await page.click('[data-return-home]');await page.setViewportSize({width:390,height:844});await clock(100);assert(await page.locator('#home-screen').isVisible());assert(!(await page.locator('#rotate-prompt').isVisible()));
-  assert.deepEqual(errors,[]);console.log('PASS: portrait gameplay gate, rotation pause and input release, modal preservation, prioritized menu, fullscreen landscape layout, 44px touch targets, multitouch combat, phone/tablet widths, and portrait home. No browser/asset errors.');
+  await page.click('#mobile-menu-button');await page.click('[data-return-home]');await page.setViewportSize({width:390,height:844});await clock(100);assert(await page.locator('#home-screen').isVisible());assert(await page.locator('#rotate-prompt').isVisible(),'portrait home remains gated after leaving play');assert.equal(await page.evaluate(()=>document.activeElement.closest('dialog')?.id),'rotate-prompt');
+  assert.deepEqual(errors,[]);console.log('PASS: permanent portrait gate, rotation pause and input release, modal preservation, prioritized menu, fullscreen landscape layout, 44px touch targets, multitouch combat, phone/tablet widths, and blocked portrait home. No browser/asset errors.');
 }finally{if(browser)await browser.close();server.kill();}

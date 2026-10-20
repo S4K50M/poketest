@@ -14,6 +14,7 @@ npm run test:browser
 npm run test:rpg
 npm run test:combat
 npm run test:mobile
+npm run test:echo
 ```
 
 | Command | What it verifies |
@@ -24,7 +25,8 @@ npm run test:mobile
 | `npm run test:browser` | Real campaign controls, first guardian, rewards, recruitment, saves, menus, all biomes, mobile, nested hosting |
 | `npm run test:rpg` | Quest turn-ins, talents, gear, oath effects, merchant trades, optional bosses, history, endings, mobile RPG UI |
 | `npm run test:combat` | Buffered keyboard chains, shields, arts, unlocks, Focus/cooldowns, v4 reload, motion setting, mobile controls, camera visibility |
-| `npm run test:mobile` | Portrait gate, rotation pause/input release, preserved menus, thumb targets, priority menu, multitouch combat, phone/tablet landscape |
+| `npm run test:mobile` | Portrait gate on home, menus and gameplay; rotation pause/input release, preserved menus, thumb targets, priority menu, multitouch combat, phone/tablet landscape |
+| `npm run test:echo` | Nonblocking echo pickup, journal records, repeated interaction and reload safety, elevated shrine collection |
 
 The Momentum release passed 145 Node tests and all three browser suites. This is a release baseline, not a permanently fixed test-count requirement. Documentation-only edits need link/path checks and command review; they do not require rebuilding or rerunning combat routes.
 
@@ -42,6 +44,7 @@ npx playwright install chromium
 | RPG | 3130 | `RPG_TEST_PORT` |
 | Combat | 3140 | `COMBAT_TEST_PORT` |
 | Mobile landscape | 3150 | `MOBILE_TEST_PORT` |
+| Echo pickups | 3160 | `ECHO_TEST_PORT` |
 
 Each suite starts and stops its own server. Choose a free override port if another task uses the default. Screenshots are written to ignored test-results/. Inspect screenshots after rendering or layout changes; a passing input test cannot prove visual quality by itself.
 
@@ -72,3 +75,7 @@ Also inspect readable attack telegraphs, foreground occlusion, particle density,
 | Asset paths / bundle / hosting | Asset tests, check, campaign nested-hosting suite |
 
 Add tests for meaningful behavior or a concrete regression. Keep generated screenshots and temporary verification scripts out of the commit. See [contributing](contributing.md) for the change workflow.
+
+## Dungeon difficulty regressions
+
+The dimension suite checks all six main routes, twelve miniboss seals, scarce waylights, three-phase encounters and the four new minion AIs. Separate traversal fixtures isolate geometry from combat and drive all six descents and six switchback towers with actual movement inputs and chapter-appropriate abilities. Full campaign controllers retain enemies and earned progression. Echo pickups must keep simulation running immediately; their complete text remains in World History.

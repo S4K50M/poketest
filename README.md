@@ -4,7 +4,9 @@ An original browser action RPG about three creature companions, a fractured Worl
 
 The playable prototype includes:
 
-- **18 rooms across six biomes**, nine bosses, eleven companions, and fifteen wild species.
+- **42 rooms across six dimensions**, nine major bosses, twelve minibosses, eleven companions, and nineteen wild species.
+- Branching dungeons, vertical climbs, optional vaults, looping shortcuts, and a discovered-room atlas without route arrows.
+- Three-phase guardians, stronger knockback, scarcer waylights, and committed healing make expeditions dangerous.
 - Three active companions that switch mid-fight, healing, crafting, equipment, and exploration tools.
 - Launchers, aerial combos, dash cancels, directional shields, timed parries, boss posture breaks, and visible attack cooldowns.
 - **Twelve combat arts**, with ten unlocked through progression, optional bosses, and companion mastery.
@@ -41,7 +43,7 @@ Choose three companions, begin the expedition, and walk right to Professor Vell.
 | E · M · I · N | Interact · atlas · inventory · RPG chronicle |
 | Escape / ? | Pause / full guide |
 
-Mobile gameplay runs in landscape with a portrait rotate prompt. Thumb controls prioritize movement, jump, strike, and dash; the menu groups recovery, loadouts, exploration, and tools. Sound starts muted. Existing v2/v3 saves migrate to v4; progress is stored locally in the browser.
+Mobile screens require landscape, with a portrait rotate prompt on the home screen, in menus, and during gameplay. Thumb controls prioritize movement, jump, strike, and dash; the menu groups recovery, loadouts, exploration, and tools. Sound starts muted. Existing v2/v3 saves migrate to v4; progress is stored locally in the browser.
 
 ## Documentation
 
