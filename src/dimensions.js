@@ -1,6 +1,6 @@
 // Six pocket dimensions grown around the original roads. Coordinates describe
-// feet, not sprite centres; every mandatory jump is within the awakened motor.
-// The lowest floor stays at 520 while towers extend above the camera origin.
+// feet, not sprite centres. Main passages stay grounded at Y = 520.
+// The old upper routes remain optional and have catch shelves below their gaps.
 export const DIMENSIONS = [
   {id:'moss',title:'The Root Beneath the Root',depth:'The buried first garden',material:'heartwood',rooms:['Rootfall Cistern','The Grafted Court','Canopy of Unborn Seeds','The Sap Widow’s Reliquary'],minions:['thornling','sproutlet'],story:[
     'THE GARDENER’S TESTIMONY|Before the sanctuary, there were six gardens. The council called them dimensions because it was easier to own a place than to admit it was alive. The first garden grew around an abandoned child.',
@@ -45,31 +45,38 @@ const floor=(x,w)=>({x,y:520,w,h:260});
 const door=(id,x,y,to,name,extra={})=>({id,kind:'door',x,y,to,name,...extra});
 const memory=(id,x,y,text)=>({id,kind:'memory',x,y,name:text.split('|')[0],text});
 const enemy=(kind,x,y=520,w=140)=>({kind,x,y,left:x-w/2,right:x+w/2});
+// Missing an optional jump should lose a little height rather than a heart.
+// Broad one-way terraces sit 145px below each route gap and catch a running
+// player before they can fall far. Their width covers both neighbouring ledges.
+const catchShelves=route=>route.slice(0,-1).flatMap((source,n)=>{
+  const target=route[n+1],left=Math.min(source.x,target.x)-45,right=Math.max(source.x+source.w,target.x+target.w)+45,y=Math.max(source.y,target.y)+145;
+  return y<520?[ledge(left,y,right-left,{catch:true})]:[];
+});
 
 function descent(d,tier){
   const late=tier>=4,rise=late?185:130,start=late?335:400,stride=late?340:270;
-  const steps=Array.from({length:7},(_,n)=>ledge(490+n*stride,start-n*rise,late?135:150,
-    tier===3&&[2,4].includes(n)?{moving:true,origin:490+n*stride,amplitude:35,rate:.018+n*.001}:{}));
-  const top=steps.at(-1),exitX=top.x+105;
-  return {id:d.id+'-descent',name:d.rooms[0],biome:d.id,width:late?3400:3100,height:1600,depth:1,dungeon:d.title,map:{x:2,y:1},story:d.story[0],
-    subtitle:d.depth,platforms:[floor(0,430),...steps,ledge(top.x+125,top.y,260),floor(late?2980:2680,420)],
+  const steps=Array.from({length:7},(_,n)=>ledge(490+n*stride,start-n*rise,late?230:220,
+    {route:'upper',...(tier===3&&[2,4].includes(n)?{moving:true,origin:490+n*stride,amplitude:35,rate:.018+n*.001}:{})}));
+  const top=steps.at(-1),width=late?3400:3100,exitX=width-220;
+  return {id:d.id+'-descent',name:d.rooms[0],biome:d.id,width,height:1600,traversal:'tunnel',tunnelCeiling:200,depth:1,dungeon:d.title,map:{x:2,y:1},story:d.story[0],
+    subtitle:d.depth,platforms:[floor(0,width),...steps,ledge(top.x+125,top.y,260,{route:'upper'}),...catchShelves(steps)],
     anchors:tier>=2?steps.filter((_,n)=>n%2===1).map(p=>({x:p.x+80,y:p.y-130})):[],
-    thorns:[{x:430,w:(late?2980:2680)-430,y:655}],
-    enemies:[enemy(d.minions[0],steps[1].x+75,steps[1].y,100),enemy('veilwasp',steps[3].x+65,steps[3].y-70,160),enemy('chaincaster',steps[5].x+65,steps[5].y,90)],
+    thorns:[],
+    enemies:[enemy(d.minions[0],steps[1].x+75,520,100),enemy('veilwasp',steps[3].x+65,450,160),enemy('chaincaster',steps[5].x+65,520,90)],
     relics:[{id:d.id+'-descent-shard',x:steps[4].x+65,y:steps[4].y-60}],
     objects:[door('return',100,520,d.id+'-path','Return to the Gate Road',{spawn:{x:2260,y:520}}),
       memory('witness',310,520,d.story[0]),
-      door('exit',exitX,top.y,d.id+'-nexus',d.rooms[1]),
+      door('exit',exitX,520,d.id+'-nexus',d.rooms[1]),
       door('high-loop',top.x+290,top.y,d.id+'-ascent','The High Passage',{spawn:{x:150,y:520}})],
   };
 }
 
 function nexus(d,tier){
-  return {id:d.id+'-nexus',name:d.rooms[1],biome:d.id,width:3300,height:1350,depth:2,dungeon:d.title,map:{x:4,y:1},story:d.story[1],
+  return {id:d.id+'-nexus',name:d.rooms[1],biome:d.id,width:3300,height:1350,traversal:'tunnel',tunnelCeiling:200,depth:2,dungeon:d.title,map:{x:4,y:1},story:d.story[1],
     subtitle:'A guardian below; an older road above',
-    platforms:[floor(0,940),floor(1160,2140),ledge(380,400,145),ledge(660,275,145),ledge(940,150,140),ledge(1220,25,145),ledge(1490,-100,240),ledge(1770,-225,145),ledge(2040,-350,220)],
+    platforms:[floor(0,3300),ledge(380,400,145),ledge(660,275,145),ledge(940,150,140),ledge(1220,25,145),ledge(1490,-100,240),ledge(1770,-225,145),ledge(2040,-350,220)],
     anchors:tier>=2?[{x:1090,y:-10},{x:1740,y:-250},{x:2160,y:-470}]:[],
-    thorns:[{x:940,w:220,y:650}],
+    thorns:[],
     enemies:[enemy('graveburrower',760),enemy('glassmarauder',1300),{kind:'warden',boss:d.id+'-warden',x:2150,y:520,left:1740,right:2900,introX:1660},enemy(d.minions[1],3020),enemy('veilwasp',1610,-155,150)],
     relics:[{id:d.id+'-court-shard',x:2110,y:-410}],
     objects:[door('return',100,520,d.id+'-descent','Return to '+d.rooms[0],{spawn:{x:descent(d,tier).objects.find(o=>o.id==='exit').x,y:descent(d,tier).objects.find(o=>o.id==='exit').y}}),
@@ -82,18 +89,20 @@ function nexus(d,tier){
 }
 
 function ascent(d,tier){
-  // Two switchbacks put the final balcony above the entrance. The return side
-  // has wider shelves; falling a jump loses height instead of opening a shortcut.
-  const platforms=[floor(0,460),floor(2320,580),
+  // The optional switchback rises above a connected lower tunnel. Extra catch
+  // shelves protect the gaps; a missed jump never drops into a lethal void.
+  const platforms=[floor(0,2900),
     ledge(430,395,135),ledge(690,270,130),ledge(950,145,125),ledge(1210,20,130),ledge(1470,-105,135),
     ledge(1720,-230,175),ledge(1460,-360,135),ledge(1200,-490,130),ledge(940,-620,130),ledge(430,-750,480),
     ledge(1930,-100,160),ledge(2160,25,160),ledge(2390,150,160),ledge(2620,275,170),
   ];
-  if(tier>=3){const p=platforms[5];Object.assign(p,{moving:true,origin:p.x,amplitude:38,rate:.021});}
-  return {id:d.id+'-ascent',name:d.rooms[2],biome:d.id,width:2900,height:1700,depth:0,dungeon:d.title,map:{x:3,y:-1},story:d.story[2],optional:true,
+  for(const p of platforms.filter(p=>p.y<520).slice(0,10)){p.route='upper';if(p.w<175)p.w+=45;}
+  if(tier>=3){const p=platforms.find(p=>p.x===1210);Object.assign(p,{moving:true,origin:p.x,amplitude:38,rate:.021});}
+  platforms.push(...catchShelves(platforms.filter(p=>p.route==='upper')));
+  return {id:d.id+'-ascent',name:d.rooms[2],biome:d.id,width:2900,height:1700,traversal:'shaft',tunnelCeiling:200,depth:0,dungeon:d.title,map:{x:3,y:-1},story:d.story[2],optional:true,
     subtitle:'The abandoned high road and its hidden history',platforms,
     anchors:tier>=2?[{x:900,y:80},{x:1650,y:-290},{x:1000,y:-700}]:[],
-    thorns:[{x:460,w:1860,y:655}],
+    thorns:[],
     enemies:[enemy('veilwasp',1000,75,180),enemy('chaincaster',1770,-230,100),enemy(d.minions[0],1260,-490,90),enemy('glassmarauder',800,-750,130)],
     relics:[{id:d.id+'-ascent-shard',x:790,y:-810}],
     objects:[door('return',120,520,d.id+'-nexus','Return to '+d.rooms[1],{spawn:{x:1605,y:-100}}),
@@ -105,7 +114,7 @@ function ascent(d,tier){
 }
 
 function vault(d,tier){
-  return {id:d.id+'-vault',name:d.rooms[3],biome:d.id,width:3000,height:1350,depth:3,dungeon:d.title,map:{x:3,y:3},story:d.story[3],optional:true,
+  return {id:d.id+'-vault',name:d.rooms[3],biome:d.id,width:3000,height:1350,traversal:'tunnel',tunnelCeiling:200,depth:3,dungeon:d.title,map:{x:3,y:3},story:d.story[3],optional:true,
     subtitle:'An optional executioner guards a history worth stealing',
     platforms:[floor(0,3000),ledge(440,395,135),ledge(710,270,135),ledge(980,145,130),ledge(1250,20,130),ledge(1520,-105,150),ledge(1790,-230,170),ledge(2060,-355,170),ledge(2330,-480,250)],
     anchors:tier>=2?[{x:1120,y:-15},{x:1950,y:-365},{x:2470,y:-615}]:[],
@@ -122,3 +131,10 @@ function vault(d,tier){
 
 export const DUNGEON_ROOMS={};
 for(const [tier,d]of DIMENSIONS.entries())for(const room of[descent(d,tier),nexus(d,tier),ascent(d,tier),vault(d,tier)])DUNGEON_ROOMS[room.id]=room;
+
+// Courts and vault balconies get the same rescue terraces as optional shafts.
+for(const room of Object.values(DUNGEON_ROOMS))if(!room.id.endsWith('-descent')&&!room.id.endsWith('-ascent')){
+  const upper=room.platforms.filter(p=>p.y<520&&!p.solid);
+  for(const p of upper){p.route='upper';p.w=Math.max(p.w,180);}
+  room.platforms.push(...catchShelves(upper));
+}

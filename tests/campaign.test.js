@@ -10,7 +10,7 @@ test('39 rooms form six reachable dungeons with six guardians, twelve minibosses
   assert.equal(Object.keys(ROOMS).length,39);assert.equal(CHAPTERS.length,6);assert.equal(Object.keys(BOSSES).length,18);assert.equal(Object.values(BOSSES).filter(b=>b.miniboss).length,12);
   const seen=new Set(),visit=id=>{if(seen.has(id))return;assert(ROOMS[id]);seen.add(id);ROOMS[id].objects.filter(o=>o.to).forEach(o=>visit(o.to));};visit('sanctuary');assert.equal(seen.size,39);
   assert.equal(new Set(CHAPTERS.map(c=>BIOMES[c.id].kind)).size,6);
-  assert(ROOMS['reef-path'].thorns[0].w>600);assert(ROOMS['storm-path'].platforms.some(p=>p.moving));assert(ROOMS['rift-path'].platforms.some(p=>p.veil));
+  assert.equal(ROOMS['reef-path'].thorns.length,0);assert(ROOMS['storm-path'].platforms.some(p=>p.moving));assert(ROOMS['rift-path'].platforms.some(p=>p.veil));
 });
 test('campaign starts with three companions, real tools, flasks, and locked story abilities',()=>{
   const g=new CampaignEngine();assert.equal(g.roomId,'sanctuary');assert.equal(g.party.length,3);assert.deepEqual([...g.abilities],['dash']);assert.equal(g.inventory.flask,3);assert(g.inventory.pickaxe);assert(g.inventory.lantern);assert.equal(g.unlocked.size,8);

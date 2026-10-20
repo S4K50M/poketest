@@ -84,15 +84,14 @@ test('all six main dungeon routes can be completed through real player inputs an
   const g=new CampaignEngine();const s=playCampaign(g);
   assert.equal(s.fragments.length,6);assert(s.finished);assert.equal(s.stats.wipes,0);
   for(const c of CHAPTERS)for(const suffix of ['path','descent','nexus','heart'])assert(g.visited.has(c.id+'-'+suffix));
-  assert(s.stats.jumps>60);assert(s.stats.dashes>0);assert(s.stats.wallJumps>0);
+  assert.equal(s.stats.falls,0);assert(s.stats.dashes>0);assert(s.stats.wallJumps>0);
 });
 
 test('earned movement abilities open a challenging optional upper dungeon and its vault loop',()=>{
   const g=new CampaignEngine();playCampaign(g);
   assert(walkTo(g,200));g.input('interact');
   assert(walkTo(g,1050));g.input('interact');assert(walkTo(g,2370));g.input('interact');
-  for(const ledge of g.room.platforms.filter(p=>!p.solid&&p.y<520).sort((a,b)=>b.y-a.y))assert(climbTo(g,ledge.x+ledge.w*.55,ledge.y));
-  let door=g.room.objects.find(o=>o.to==='moss-nexus');assert(climbTo(g,door.x,door.y));g.input('interact');
+  let door=g.room.objects.find(o=>o.to==='moss-nexus');assert(walkTo(g,door.x));g.input('interact');
   for(const [x,y] of [[450,400],[730,275],[1010,150],[1290,25],[1605,-100]])assert(climbTo(g,x,y),'nexus balcony '+x+','+y);
   door=g.room.objects.find(o=>o.to==='moss-ascent');assert(climbTo(g,door.x,door.y));assert(g.input('interact'));assert.equal(g.roomId,'moss-ascent');
   for(const [x,y] of [[490,395],[750,270],[1010,145],[1270,20],[1530,-105],[1800,-230],[1520,-360],[1260,-490],[1005,-620],[780,-750]])assert(climbTo(g,x,y),'upper switchback '+x+','+y);
@@ -104,5 +103,5 @@ test('earned movement abilities open a challenging optional upper dungeon and it
   door=g.room.objects.find(o=>o.to==='moss-vault');assert(climbTo(g,door.x,door.y));assert(g.input('interact'));assert.equal(g.roomId,'moss-vault');
   assert(walkTo(g,1800));assert(fightGuardian(g));assert(g.bossDefeated('moss-reaver'));
   door=g.room.objects.find(o=>o.to==='moss-nexus');assert(climbTo(g,door.x,door.y??520));assert(g.input('interact'));assert.equal(g.roomId,'moss-nexus');
-  assert(g.stats.doubleJumps>0);assert.equal(g.stats.wipes,0);
+  assert(g.stats.jumps>20,'the optional climb still uses a genuine multi-ledge route');assert.equal(g.stats.wipes,0);
 });

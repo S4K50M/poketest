@@ -11,9 +11,9 @@ export function recoveryLayout(seed){
   const points=[{...HUB_RECOVERY}];
   for(const [index,ch] of CHAPTERS.entries()){
     const pick=random((seed^Math.imul(index+1,2654435761))>>>0),id=ch.id;
-    const shelves=ROOMS[id+'-descent'].platforms.filter(p=>p.y<520&&!p.moving);
-    const shelf=shelves[1+Math.floor(pick()*Math.min(3,shelves.length-1))];
-    points.push(point(id+':climb',id+'-descent',shelf.x+shelf.w*.5,shelf.y));
+    // The first recovery belongs to the lower tunnel; upper shelves are optional.
+    const floorSites=[1120,1650,2180],x=floorSites[Math.floor(pick()*floorSites.length)];
+    points.push(point(id+':climb',id+'-descent',x));
     points.push(point(id+':court',id+'-nexus',pick()<.5?1460:1550));
     if(pick()<.5){
       const upper=pick()<.5;

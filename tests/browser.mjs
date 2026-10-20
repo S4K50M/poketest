@@ -22,18 +22,18 @@ try{
   const clock=ms=>page.clock.runFor(ms);
   const downKeys=new Set();
   async function keys(wanted=[]){for(const k of [...downKeys])if(!wanted.includes(k)){await page.keyboard.up(k);downKeys.delete(k);}for(const k of wanted)if(!downKeys.has(k)){await page.keyboard.down(k);downKeys.add(k);}}
-  async function driveTo(x,max=500){
+  async function driveTo(x,max=500,{jump=true}={}){
     let jumpingUntil=0;
     for(let i=0;i<max;i++){
       const s=await snapshot(),p=s.player;if(await page.locator('#overlay').isVisible())throw Error('Unexpected overlay while walking: '+await page.locator('#overlay-title').textContent());
       if(Math.abs(p.x-x)<25&&p.grounded){await keys();await clock(120);return s;}
       const moves=Math.abs(p.x-x)<20?[]:[p.x<x?'KeyD':'KeyA'];
       const room=ROOMS[s.room],edge=room.platforms.find(b=>Math.abs(b.y-p.y)<2&&p.x>=b.x&&p.x<=b.x+b.w);
-      if(p.grounded&&edge&&x>p.x&&edge.x+edge.w-p.x<90||p.wall)jumpingUntil=s.tick+32;
-      if(s.tick<jumpingUntil)moves.push('Space');
+      if(jump&&(p.grounded&&edge&&x>p.x&&edge.x+edge.w-p.x<90||p.wall))jumpingUntil=s.tick+32;
+      if(jump&&s.tick<jumpingUntil)moves.push('Space');
       await keys(moves);
       const nearby=s.enemies.find(e=>e.hp>0&&Math.abs(e.x-p.x)<160);
-      if(nearby){await page.keyboard.press('KeyK');if(nearby.state==='windup'&&p.grounded)jumpingUntil=s.tick+30;}
+      if(nearby){await page.keyboard.press('KeyK');if(jump&&nearby.state==='windup'&&p.grounded)jumpingUntil=s.tick+30;}
       if(p.hp<2&&s.inventory.flask)await page.keyboard.press('KeyV');
       if(room.thorns?.some(h=>p.x>h.x&&p.x<h.x+h.w)&&!p.grounded&&p.vy>0)await page.keyboard.press('ShiftLeft');
       await clock(85);
@@ -49,12 +49,14 @@ try{
   await driveTo(300);await page.keyboard.press('KeyE');assert(await page.locator('#overlay').isVisible(),'camp E opens equipment and crafting without healing');assert.equal(await page.locator('.item-tile').count(),7);assert.equal(await page.locator('.ability-card').count(),6);await page.click('[data-craft="fang"]');assert.match(await page.locator('#overlay-content').textContent(),/MISSING MATERIALS/);await page.keyboard.press('KeyI');
   assert.equal(await page.evaluate(()=>document.activeElement.id),'world-canvas');await page.keyboard.press('Digit2');await clock(350);assert.equal((await snapshot()).player.id,'voltantis');await page.click('[data-switch="2"]');await clock(350);assert.equal((await snapshot()).player.id,'zephyrix');await page.keyboard.press('KeyQ');await clock(350);assert.equal((await snapshot()).player.id,'pyrojaw');
   await page.keyboard.press('KeyM');const paused=await snapshot();await clock(500);assert.equal((await snapshot()).tick,paused.tick);assert.equal(paused.visited.length,2);await page.keyboard.press('KeyM');
-  // The first road now opens into a vertical dungeon rather than directly
-  // into a boss room. Reach its first elevated ledge with real held inputs.
+  // The main dungeon route is a connected tunnel floor. Cross it using
+  // actual keyboard movement without issuing a jump or falling into a void.
   await driveTo(2370);await page.keyboard.press('KeyE');await clock(100);assert.equal((await snapshot()).room,'moss-descent');
-  await driveTo(365);await keys(['KeyD','Space']);await clock(300);await keys(['Space']);await clock(500);await keys();
-  const elevated=(await snapshot()).player;assert(elevated.grounded);assert.equal(elevated.y,400);assert(elevated.x>=490&&elevated.x<=640);
-  await page.screenshot({path:'test-results/campaign-dungeon-climb.png'});await page.keyboard.press('KeyM');assert.equal(await page.locator('.atlas-room.current').getAttribute('data-inspect-room'),'moss-descent');assert(await page.locator('.dungeon-atlas svg path').count()>0);await page.keyboard.press('KeyM');
+  const tunnelStart=await snapshot(),tunnelDoor=ROOMS['moss-descent'].objects.find(o=>o.id==='exit');assert.equal(tunnelDoor.y,520);
+  await driveTo(1700,500,{jump:false});await page.screenshot({path:'test-results/campaign-grounded-tunnel.png'});
+  await driveTo(tunnelDoor.x,500,{jump:false});const tunnelEnd=await snapshot();
+  assert(tunnelEnd.player.grounded);assert.equal(tunnelEnd.player.y,520);assert.equal(tunnelEnd.stats.jumps,tunnelStart.stats.jumps);assert.equal(tunnelEnd.stats.falls,tunnelStart.stats.falls);
+  await page.keyboard.press('KeyM');assert.equal(await page.locator('.atlas-room.current').getAttribute('data-inspect-room'),'moss-descent');assert(await page.locator('.dungeon-atlas svg path').count()>0);await page.keyboard.press('KeyM');
   // The complete mandatory route is also earned through the shared input
   // controller. Load that normal checkpoint to inspect the guardian live.
   let firstGuardian;const firstRun=new CampaignEngine();playCampaign(firstRun,{chapters:1,onGuardian:g=>firstGuardian=structuredClone(g.save())});

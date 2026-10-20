@@ -218,7 +218,7 @@ const floor = width => ({ x: 0, y: 520, w: width, h: 260 });
 export const CHRONICLE_ROOMS = {
   'clockwork-ossuary': {
     id: 'clockwork-ossuary', name: 'The Clockwork Ossuary', biome: 'forge', width: 2800,
-    subtitle: 'The dead city was planting something', optional: true, mapX: 7, mapY: 23,
+    subtitle: 'The dead city was planting something', traversal:'tunnel', tunnelCeiling:200, optional: true, mapX: 7, mapY: 23,
     platforms: [floor(2800), { x: 665, y: 405, w: 170, h: 25 }, { x: 940, y: 295, w: 175, h: 25 }, { x: 1270, y: 390, w: 180, h: 25 }, { x: 1620, y: 280, w: 180, h: 25 }, { x: 2250, y: 390, w: 160, h: 25 }],
     anchors: [{ x: 1025, y: 165 }, { x: 1720, y: 150 }, { x: 2260, y: 180 }],
     enemies: [{ kind: 'oathbound', x: 760 }, { kind: 'oathbound', x: 1260 }, { kind: 'hushling', x: 1510 }, { kind: 'warden', boss: 'belltwin', x: 2170 }],
@@ -237,7 +237,7 @@ export const CHRONICLE_ROOMS = {
   },
   'paper-moon': {
     id: 'paper-moon', name: 'The Paper Moon', biome: 'reef', width: 2850,
-    subtitle: 'Every goodbye has somewhere to go', optional: true, mapX: 33, mapY: 92,
+    subtitle: 'Every goodbye has somewhere to go', traversal:'tunnel', tunnelCeiling:200, optional: true, mapX: 33, mapY: 92,
     platforms: [floor(2850), { x: 680, y: 405, w: 180, h: 25 }, { x: 1010, y: 300, w: 175, h: 25 }, { x: 1350, y: 385, w: 170, h: 25 }, { x: 1710, y: 280, w: 170, h: 25 }, { x: 2260, y: 385, w: 170, h: 25 }],
     anchors: [{ x: 1070, y: 150 }, { x: 1770, y: 145 }, { x: 2320, y: 180 }],
     enemies: [{ kind: 'candlewraith', x: 745 }, { kind: 'candlewraith', x: 1115 }, { kind: 'candlewraith', x: 1480 }, { kind: 'hushling', x: 1765 }, { kind: 'warden', boss: 'palimpsest', x: 2250 }],
@@ -256,7 +256,7 @@ export const CHRONICLE_ROOMS = {
   },
   'cradle-zero': {
     id: 'cradle-zero', name: 'Cradle Zero', biome: 'frost', width: 2900,
-    subtitle: 'A future without a memory', optional: true, mapX: 93, mapY: 65,
+    subtitle: 'A future without a memory', traversal:'tunnel', tunnelCeiling:200, optional: true, mapX: 93, mapY: 65,
     platforms: [floor(2900), { x: 640, y: 405, w: 170, h: 25 }, { x: 945, y: 295, w: 170, h: 25 }, { x: 1260, y: 390, w: 175, h: 25 }, { x: 1600, y: 270, w: 180, h: 25 }, { x: 2310, y: 385, w: 170, h: 25 }],
     anchors: [{ x: 1030, y: 145 }, { x: 1705, y: 130 }, { x: 2350, y: 165 }],
     enemies: [{ kind: 'clockscarab', x: 750 }, { kind: 'clockscarab', x: 1170 }, { kind: 'clockscarab', x: 1580 }, { kind: 'hushling', x: 1830 }, { kind: 'warden', boss: 'nullheart', x: 2280 }],

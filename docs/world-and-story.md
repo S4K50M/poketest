@@ -16,9 +16,9 @@ There are **42 rooms, six dimensions, nine major bosses, twelve minibosses, 11 c
 | Pale Meridian | Stillwood, Last Second | Hourglass Stag | Rift Step; Chronowl |
 | Hollow Crown | Unwritten Road, Heart Below | Hollow Sovereign | Final memory and two endings |
 
-The sanctuary connects the chapters. Each restored fragment opens another portal. Each gate road leads through a vertical descent and a warden court before its guardian. High passages and vaults branch from these chambers and reconnect through shortcuts; the original hidden branches reward returning after new abilities awaken. The atlas records discovered passages, recovery springs, and utility camps. Activated springs and camps support fast travel without a health refill.
+The sanctuary connects the chapters. Each restored fragment opens another portal. Each gate road leads through a grounded lower dungeon passage and a warden court before its guardian. High passages and vaults branch from these chambers and reconnect through shortcuts; the original hidden branches reward returning after new abilities awaken. The atlas records discovered passages, recovery springs, and utility camps. Activated springs and camps support fast travel without a health refill.
 
-Traversal includes a lever-operated rootbridge, wall climbing, furnace gaps, grapple crossings, moving sky platforms, a high frozen ascent, and a physical violet veil that only an awakened dash can cross. Camps, the workbench, story inscriptions, travelers, material caches, ore veins, and hidden shrines all have interactions. Wellsprings activate automatically when entered.
+The main roads and dungeon passages have continuous lower floors. The rootbridge lever, upper wall routes, grapple anchors, moving shelves, and high frozen balconies remain exploration features, while the physical violet veil still requires an awakened dash. Optional climbs have wider ledges and catch shelves rather than long lethal drop spans. Camps, the workbench, story inscriptions, travelers, material caches, ore veins, and hidden shrines all have interactions. Wellsprings activate automatically when entered.
 
 Room counts include the sanctuary, 12 original main-route rooms, 24 new dungeon chambers, and the five original optional rooms. Each gate contains two or three seeded Wellsprings in its interior chambers; the sanctuary also has a reusable hearth. Former benches are utility camps rather than healing points. The six biome count excludes the sanctuary palette.
 
@@ -82,7 +82,7 @@ Keep major revelations behind earned quest or history gates. Reward guardians wi
 
 ## The six buried histories
 
-Each dimension now has four deeper chambers: a vertical descent, a warden court, an abandoned high road, and a forbidden vault. The court warden must fall before the guardian seal opens. Vault reavers are optional; their hoards and return passages stay sealed until victory. See [dimensions.js](../src/dimensions.js) for all 24 chambers and their inscriptions, and [dungeon-enemies.js](../src/dungeon-enemies.js) for the twelve wardens and reavers.
+Each dimension has four deeper chambers: a lower tunnel passage, a warden court, an abandoned high road, and a forbidden vault. The lower passage reaches its court through a ground-level exit; its preserved upper shelves lead to optional discoveries and loops. The court warden must fall before the guardian seal opens. Vault reavers are optional; their hoards and return passages stay sealed until victory. See [dimensions.js](../src/dimensions.js) for all 24 chambers and their inscriptions, and [dungeon-enemies.js](../src/dungeon-enemies.js) for the twelve wardens and reavers.
 
 | Region | Dungeon | Deeper chambers |
 | --- | --- | --- |
@@ -95,17 +95,17 @@ Each dimension now has four deeper chambers: a vertical descent, a warden court,
 
 | Dimension | Buried story | Traversal |
 | --- | --- | --- |
-| Mourningwild | The forest’s protectors were chained to the roots they saved | Narrow rooted shelves and a switchback climb |
-| Cinder Cathedral | The council burned memories as fuel and called it salvation | Furnace gaps, wall routes, and high ledges |
-| Drowned Archive | Missing names belong to people removed from history | Layered stacks and chained grapple anchors |
-| Thundersong | The sky broke trying to contain the voices the choir silenced | Moving shelves and exposed aerial crossings |
-| Pale Meridian | A stolen tomorrow waits inside the second that never ended | 185-pixel climbs demanding earned double jumps |
-| Hollow Crown | The first cage held the creature that would become your family | Long broken ascents, vault loops, and awakened traversal |
+| Mourningwild | The forest’s protectors were chained to the roots they saved | Grounded root tunnels with optional upper switchbacks |
+| Cinder Cathedral | The council burned memories as fuel and called it salvation | Solid furnace corridors, wall routes, and optional high ledges |
+| Drowned Archive | Missing names belong to people removed from history | Lower archive tunnels and upper grapple-linked stacks |
+| Thundersong | The sky broke trying to contain the voices the choir silenced | Grounded storm passages with optional moving shelves |
+| Pale Meridian | A stolen tomorrow waits inside the second that never ended | Continuous frozen floor with optional double-jump climbs |
+| Hollow Crown | The first cage held the creature that would become your family | Lower basalt tunnels, optional high routes, and vault loops |
 
 The atlas shows room connections as you discover them, with depth labels and current position. Wellspring markers distinguish unused and spent recovery points, and camp markers identify utility services. Discovering an ordinary room does not enable fast travel there. The prototype expands exploration substantially; its scale remains smaller than a full commercial metroidvania.
 
 ## Tunnel presentation and gate death
 
-Outside the sanctuary, chambers are enclosed by layered rock walls, irregular ceilings, arches, and textured shelves attached to receding stone strata. Roots, volcanic masonry, flooded limestone, storm ruins, ice, and rift basalt give the six dimensions distinct geology. Foreground detail and local light preserve readable collision edges; the platforming physics are unchanged.
+Outside the sanctuary, chambers are enclosed by layered rock walls, irregular ceilings, arches, and textured shelves attached to receding stone strata. Roots, volcanic masonry, flooded limestone, storm ruins, ice, and rift basalt give the six dimensions distinct geology. Foreground detail and local light preserve readable collision edges. Continuous lower floors and catch shelves now support the tunnel routes; the shared jump, dash, and combat physics are unchanged.
 
 A party wipe reawakens the enemies throughout the current dimension, including the gate’s minibosses and guardians. Your recovered story fragments and abilities remain unlocked, and repeated victories do not duplicate unique loot or first-victory rewards. The Game Over screen shows the penalty before you retry from the last activated spring.

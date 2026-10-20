@@ -81,10 +81,10 @@ Add tests for meaningful behavior or a concrete regression. Keep generated scree
 
 ## Dungeon difficulty regressions
 
-The dimension suite checks all six main routes, twelve miniboss seals, scarce seeded recovery springs, three-phase encounters and the four new minion AIs. Separate traversal fixtures isolate geometry from combat and drive all six descents and six switchback towers with actual movement inputs and chapter-appropriate abilities. Full campaign controllers retain enemies and earned progression. Echo pickups must keep simulation running immediately; their complete text remains in World History.
+The dimension suite checks all six main routes, twelve miniboss seals, scarce seeded recovery springs, three-phase encounters and the four new minion AIs. Separate traversal fixtures isolate geometry from combat, walk all six lower dungeon routes without jumping, and exercise optional upper routes with chapter-appropriate abilities. They check continuous floor coverage and recoverable missed jumps. Full campaign controllers retain enemies and earned progression. Echo pickups must keep simulation running immediately; their complete text remains in World History.
 
 ## Recovery, death and cave regression checks
 
 Recovery tests cover two or three interior springs per gate, different new-journey seeds, stable saved layouts, automatic full-party healing, one activation per attempt, and no healing from camps or travel. Death tests verify that Game Over stops simulation, a penalty is applied once, the dying gate’s enemies return while other gates remain unchanged, first-victory rewards stay claimed, and Retry restores the party at a valid spring. Save/reload and Save & Title must retain a pending death. The focused browser suite checks keyboard/touch retry and portrait rotation over Game Over.
 
-Review real gameplay screenshots of tunnel ceilings, backwalls, attached rock shelves, local light, recovery basins, and boss telegraphs on desktop and mobile. Cave art is presentation-only: existing actual-input traversal fixtures should still pass unchanged geometry.
+Review real gameplay screenshots of tunnel ceilings, backwalls, attached rock shelves, local light, recovery basins, and boss telegraphs on desktop and mobile. Check that the grounded passage reads as a tunnel, with visible floor and headroom. Art must match the revised continuous floors and catch shelves; it must not conceal safe landings or imply a collision surface the engine does not have.

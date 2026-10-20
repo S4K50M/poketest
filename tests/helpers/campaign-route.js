@@ -11,7 +11,7 @@ export function walkTo(g,x,max=1800){
     if(g.abilities.has('blink')&&p.x>1020&&p.x<1120)g.input('dash');
     if(g.thorns.some(h=>p.x>h.x-10&&p.x<h.x+h.w-30)&&!p.grounded&&p.vy>0&&!g.grapple)g.input('dash');
     if(p.wall&&t%10===0)g.input('jump');
-    if(p.grounded&&Math.abs(p.x-980)<150&&g.roomId!=='sanctuary')g.input('jump');
+    if(p.grounded&&g.platforms.some(b=>b.solid&&!b.veil&&b.y<p.y&&b.x-p.x>0&&b.x-p.x<150))g.input('jump');
     const e=g.enemies.find(e=>e.hp>0&&Math.abs(e.x-p.x)<135);if(e&&t%10===0)g.input(e.kind==='pebbleback'?'heavy':'light');
     if(t%80===0&&e){g.setInputs({});g.input('special');g.releaseSpecial();}
     g.step();
@@ -41,10 +41,10 @@ export function playCampaign(g,{chapters=6,switchParty=true,onGuardian=()=>{}}={
     if(g.roomId!==ch.id+'-path')throw Error('Portal did not open '+i);
     if(!walkTo(g,2370))throw Error('Cannot cross '+ch.id+' at '+g.player.x);g.input('interact');
     if(g.roomId===ch.id+'-descent'){
-      const stairs=g.room.platforms.filter(b=>!b.solid&&b.y<520).sort((a,b)=>b.y-a.y);
-      for(const b of stairs)if(!climbTo(g,b.x+b.w*.55,b.y))throw Error(`Cannot climb ${g.roomId} ledge ${b.x},${b.y} at ${g.player.x},${g.player.y}`);
+      // The main dungeon is an excavated floor route. The upper stairs are
+      // optional exploration, not a compulsory sequence over a lethal abyss.
       const door=g.room.objects.find(o=>o.to===ch.id+'-nexus');
-      if(!climbTo(g,door.x,door.y))throw Error('Cannot reach the dungeon nexus '+i);g.input('interact');
+      if(!walkTo(g,door.x))throw Error('Cannot reach the grounded dungeon nexus '+i);g.input('interact');
       if(g.roomId!==ch.id+'-nexus')throw Error('Dungeon nexus did not open '+i);
       if(!walkTo(g,1700)||!fightGuardian(g))throw Error('Gate sentinel fight failed '+i);
       const heartDoor=g.room.objects.find(o=>o.to===ch.id+'-heart');
@@ -68,6 +68,7 @@ export function climbTo(g,x,y,max=2500){
       .sort((a,b)=>a.y-b.y||Math.abs(x-(a.x+a.w/2))-Math.abs(x-(b.x+b.w/2)))[0];
     if(ledge){const approach=Math.max(ledge.x+24,Math.min(x,ledge.x+ledge.w-24));if(!climbTo(g,approach,ledge.y,max))return false;}
   }
+  let jumpFromY=p.y;
   for(let i=0;i<max;i++){
     const p=g.player;if(Math.abs(x-p.x)<13&&Math.abs(y-p.y)<5&&p.grounded){g.setInputs({});return true;}
     g.setInputs({right:p.x<x-12,left:p.x>x+12});
@@ -75,8 +76,11 @@ export function climbTo(g,x,y,max=2500){
     const target=g.platforms.find(b=>Math.abs(b.y-y)<2&&x>=b.x&&x<=b.x+b.w);
     const gap=target?(p.x<x?target.x-p.x:p.x-target.x-target.w):Math.abs(x-p.x);
     const edge=source&&(p.x<x?source.x+source.w-p.x:p.x-source.x);
-    if(p.grounded&&(p.y>y+5&&(gap<120||edge<35)||edge<60&&Math.abs(x-p.x)>45))g.input('jump');
-    if(!p.grounded&&p.vy>-3&&p.y>y-40&&p.jumpCount<2)g.input('jump');
+    if(p.grounded&&(p.y>y+5&&(gap<120||edge<35)||edge<60&&Math.abs(x-p.x)>45)){jumpFromY=p.y;g.input('jump');}
+    // Use a second jump only when the desired rise needs it or the first
+    // jump fell short. Firing it on every 125px hop overshoots the new catch
+    // terraces and can leave the controller above its intended doorway.
+    if(!p.grounded&&p.vy>-3&&p.y>y-40&&p.jumpCount<2&&(jumpFromY-y>150||p.y>y+25&&p.vy>0))g.input('jump');
     if(p.wall&&i%12===0)g.input('jump');
     if(g.roomId==='storm-path'&&i%24===0&&p.x>850&&p.x<1550)g.input('grapple');
     const projectile=g.enemyShots.find(s=>Math.abs(s.x-p.x)<100&&Math.abs(s.y-(p.y-g.data.bodyHeight*.5))<65&&((s.x-p.x)*s.vx<0||Math.abs(s.x-p.x)<35));

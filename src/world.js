@@ -89,26 +89,27 @@ CHAPTERS.forEach((ch,i)=>{
 });
 ROOMS['hidden-grove']={id:'hidden-grove',name:'The Hidden Grove',biome:'moss',width:1700,platforms:[...ground(1700),{x:520,y:415,w:130,h:25},{x:760,y:310,w:130,h:25},{x:1000,y:220,w:170,h:25}],anchors:[{x:1200,y:110}],enemies:[{kind:'thornling',x:850},{kind:'sproutlet',x:1250}],relics:[{id:'grove',x:1070,y:170}],objects:[{id:'return',kind:'door',x:100,to:'moss-path',name:'Return to Rootway'},{id:'chest',kind:'cache',x:1440,name:'Gardener’s Legacy',material:'heartwood',rare:true},{id:'shrine',kind:'shrine',x:1080,y:220,name:'The Sleeping Seed'}]};
 ROOMS['star-observatory']={id:'star-observatory',name:'Fallen Star Observatory',biome:'storm',width:1700,platforms:[...ground(1700),{x:550,y:390,w:130,h:25},{x:780,y:275,w:130,h:25},{x:1100,y:170,w:170,h:25}],anchors:[{x:1050,y:100}],enemies:[{kind:'stormkite',x:900}],relics:[{id:'star',x:1180,y:110}],objects:[{id:'return',kind:'door',x:100,to:'storm-path',name:'Return to Thundersong'},{id:'chest',kind:'cache',x:1450,name:'Stargazer’s Legacy',material:'stormglass',rare:true},{id:'shrine',kind:'shrine',x:1180,y:170,name:'The Ninth Voice'}]};
-// Each biome has its own traversal problem. The central route changes as abilities awaken.
-ROOMS['moss-path'].platforms=ROOMS['moss-path'].platforms.filter(p=>p.y!==520).concat([{x:0,y:520,w:1260,h:260},{x:1420,y:520,w:1080,h:260}]);
-ROOMS['moss-path'].thorns=[{x:1260,w:160,y:625}];
+// Continuous lower tunnels carry the main route. Elevated shelves and anchors
+// remain optional reward paths, with solid ground beneath every missed jump.
+ROOMS['moss-path'].platforms=ROOMS['moss-path'].platforms.filter(p=>p.y!==520).concat(ground(2500));
+ROOMS['moss-path'].thorns=[];
 ROOMS['moss-path'].objects.push({id:'bridge',kind:'lever',x:1190,name:'Raise the Rootbridge',bridge:{x:1260,y:520,w:160,h:25}});
-ROOMS['forge-path'].platforms=ROOMS['forge-path'].platforms.filter(p=>p.y!==520).concat([{x:0,y:520,w:1390,h:260},{x:1680,y:520,w:820,h:260}]);
-ROOMS['forge-path'].thorns=[{x:1390,w:290,y:620}];
+ROOMS['forge-path'].platforms=ROOMS['forge-path'].platforms.filter(p=>p.y!==520).concat(ground(2500));
+ROOMS['forge-path'].thorns=[];
 ROOMS['forge-path'].objects.push({id:'mender',kind:'npc',talk:'mender',name:'Ash, the Wandering Mender',x:630});
-ROOMS['reef-path'].platforms=[{x:0,y:520,w:1030,h:260},{x:1700,y:520,w:800,h:260},{x:690,y:420,w:180,h:25},{x:1160,y:330,w:120,h:25},{x:1490,y:270,w:140,h:25}];
-ROOMS['reef-path'].thorns=[{x:1030,w:670,y:645}];
+ROOMS['reef-path'].platforms=[...ground(2500),{x:690,y:420,w:180,h:25},{x:1160,y:330,w:120,h:25},{x:1490,y:270,w:140,h:25}];
+ROOMS['reef-path'].thorns=[];
 ROOMS['reef-path'].objects.find(o=>o.id==='cache').y=330;
 ROOMS['reef-path'].relics=[{id:'reef-path-a',x:1210,y:265},{id:'reef-path-b',x:1560,y:205}];
 ROOMS['reef-path'].objects.push({id:'archivist',kind:'npc',talk:'archivist',name:'The Paper Archivist',x:510});
-ROOMS['storm-path'].platforms=[{x:0,y:520,w:940,h:260},{x:1810,y:520,w:690,h:260},{x:970,y:425,w:160,h:25,moving:true,origin:970,amplitude:70,rate:.02},{x:1260,y:325,w:160,h:25,moving:true,origin:1260,amplitude:65,rate:.025},{x:1560,y:400,w:170,h:25}];
+ROOMS['storm-path'].platforms=[...ground(2500),{x:970,y:425,w:160,h:25,moving:true,origin:970,amplitude:70,rate:.02},{x:1260,y:325,w:160,h:25,moving:true,origin:1260,amplitude:65,rate:.025},{x:1560,y:400,w:170,h:25}];
 ROOMS['storm-path'].anchors=[{x:1120,y:200},{x:1500,y:140},{x:1810,y:240}];
-ROOMS['storm-path'].thorns=[{x:940,w:870,y:650}];
+ROOMS['storm-path'].thorns=[];
 ROOMS['storm-path'].objects.find(o=>o.id==='secret').x=1640;ROOMS['storm-path'].objects.find(o=>o.id==='secret').y=400;
 ROOMS['storm-path'].objects.find(o=>o.id==='cache').x=1620;ROOMS['storm-path'].objects.find(o=>o.id==='cache').y=400;
 ROOMS['storm-path'].relics=[{id:'storm-path-a',x:1040,y:350},{id:'storm-path-b',x:1640,y:335}];
-ROOMS['frost-path'].platforms=[{x:0,y:520,w:910,h:260},{x:1760,y:520,w:740,h:260},{x:870,y:410,w:150,h:25},{x:1110,y:280,w:150,h:25},{x:1370,y:150,w:170,h:25},{x:1610,y:330,w:160,h:25}];
-ROOMS['frost-path'].thorns=[{x:910,w:850,y:645}];ROOMS['frost-path'].anchors=[{x:1150,y:145},{x:1500,y:65},{x:1780,y:180}];
+ROOMS['frost-path'].platforms=[...ground(2500),{x:870,y:410,w:150,h:25},{x:1110,y:280,w:150,h:25},{x:1370,y:150,w:170,h:25},{x:1610,y:330,w:160,h:25}];
+ROOMS['frost-path'].thorns=[];ROOMS['frost-path'].anchors=[{x:1150,y:145},{x:1500,y:65},{x:1780,y:180}];
 ROOMS['frost-path'].objects.find(o=>o.id==='cache').x=1450;ROOMS['frost-path'].objects.find(o=>o.id==='cache').y=150;
 ROOMS['frost-path'].relics=[{id:'frost-path-a',x:1180,y:215},{id:'frost-path-b',x:1440,y:90}];
 ROOMS['rift-path'].platforms.push({x:1080,y:20,w:30,h:500,solid:true,veil:true});
@@ -119,7 +120,7 @@ Object.assign(ROOMS,DUNGEON_ROOMS);
 ROOMS.sanctuary.map={x:0,y:0};
 for(const [i,ch]of CHAPTERS.entries()){
   const path=ROOMS[ch.id+'-path'],heart=ROOMS[ch.id+'-heart'],dimension=DIMENSIONS[i];
-  path.map={x:0,y:0};path.depth=0;path.dungeon=dimension.title;
+  path.map={x:0,y:0};path.depth=0;path.dungeon=dimension.title;path.traversal='tunnel';path.tunnelCeiling=200;
   const entrance=path.objects.find(o=>o.id==='exit');entrance.to=ch.id+'-descent';entrance.name=dimension.rooms[0];
   // Each gate has one field Waylight. Neither its courts nor guardian chambers
   // can refill the party for free between attempts.
@@ -127,14 +128,14 @@ for(const [i,ch]of CHAPTERS.entries()){
   heart.objects.find(o=>o.id==='return').to=ch.id+'-nexus';
   heart.objects.find(o=>o.id==='return').name='Return to '+dimension.rooms[1];
   heart.objects.find(o=>o.id==='return').spawn={x:3010,y:520};
-  heart.map={x:6,y:1};heart.depth=2;heart.dungeon=dimension.title;
+  heart.map={x:6,y:1};heart.depth=2;heart.dungeon=dimension.title;heart.traversal='tunnel';heart.tunnelCeiling=200;
   path.enemies.push({kind:i%2?'glassmarauder':'graveburrower',x:2030,y:520},
     {kind:i%2?'chaincaster':'veilwasp',x:2220,y:i%2?520:435});
 }
 ROOMS['hidden-grove'].map={x:0,y:-2};
 ROOMS['star-observatory'].map={x:1,y:-3};
 export const DIALOGUES={
-  mender:[['Ash, the Mender','I used to mend cages. Vell taught me to mend bridges instead. Strange how the same hands can do both.'],['Ash, the Mender','Take the high path over the furnace. Jump toward a wall, then Space again to climb. Camps can shape your materials into charms. Springs restore your party when you walk through their light.']],
+  mender:[['Ash, the Mender','I used to mend cages. Vell taught me to mend bridges instead. Strange how the same hands can do both.'],['Ash, the Mender','The lower furnace tunnel has solid ground. Climb the side passages when you want their hidden rewards. Jump toward a wall, then Space again to climb. Camps can shape your materials into charms. Springs restore your party when you walk through their light.']],
   archivist:[['The Paper Archivist','I have been looking for the last page for a hundred years. It says: “A living heart cannot belong to a kingdom.”'],['The Paper Archivist','Golden anchors remember the old roads. Press U when one is above you. Chain your grapples across the drowned stacks.']],
 
   vell:[

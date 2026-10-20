@@ -81,8 +81,60 @@ export function drawTunnelBackdrop(c,g,camX,camY,width,height,t){
  }
 }
 
+// The principal route is a horizontal passage excavated through the rear wall.
+// Its roof is recessed scenery: the higher shelf network remains visible in
+// front of it, and no foreground rock covers a creature or a landing edge.
+function drawGroundPassage(c,g,camX,camY,width,height,t){
+ if(!Number.isFinite(g.room.tunnelCeiling)||camY+height<g.room.tunnelCeiling-30||camY>560)return;
+ const p=tunnelPalette(g.room.biome),roof=g.room.tunnelCeiling,floor=520;
+ const left=Math.max(0,camX-100),right=Math.min(g.worldWidth,camX+width+100);
+ // Long stone soffits and their undercut lip distinguish the walkable tunnel
+ // below from the optional galleries that wind higher through the rock.
+ const opening=c.createLinearGradient(0,roof-110,0,floor);
+ opening.addColorStop(0,p.void+'e0');opening.addColorStop(.25,p.shadow+'cf');opening.addColorStop(1,p.back+'10');
+ c.fillStyle=opening;c.fillRect(left,roof-110,right-left,floor-roof+110);
+ const spacing=560,start=Math.floor(left/spacing)-1,end=Math.ceil(right/spacing)+1;
+ for(let n=start;n<=end;n++){
+  const x=n*spacing,peak=roof-28-noise(n+g.roomId.length)*22;
+  // A broad barrel-vault rim sits behind the play plane. The open centre
+  // carries through into the next chamber instead of ending above a chasm.
+  c.beginPath();c.moveTo(x-18,floor);c.lineTo(x-18,roof+116);
+  c.bezierCurveTo(x+54,peak,x+spacing-54,peak,x+spacing+18,roof+116);
+  c.lineTo(x+spacing+18,floor);c.strokeStyle=p.shadow+'d9';c.lineWidth=39;c.stroke();
+  c.beginPath();c.moveTo(x-8,floor);c.lineTo(x-8,roof+115);
+  c.bezierCurveTo(x+60,peak+15,x+spacing-60,peak+15,x+spacing+8,roof+115);
+  c.lineTo(x+spacing+8,floor);c.strokeStyle=p.stone+'72';c.lineWidth=11;c.stroke();
+  for(let j=0;j<9;j++){
+   const a=Math.PI+(j+.5)*Math.PI/9,xx=x+spacing/2+Math.cos(a)*(spacing/2-8),yy=roof+110+Math.sin(a)*110;
+   polygon(c,[[xx-17,yy-11],[xx+14,yy-15],[xx+21,yy+7],[xx-12,yy+13]],p.wall+'b0',p.vein+'16');
+  }
+  // Stone risers continue into the ground, giving the floor an attached wall
+  // edge rather than a sequence of separate suspended rectangles.
+  for(let j=0;j<5;j++){
+   const y=roof+148+j*36;
+   polygon(c,[[x-25,y-14],[x+12,y-17],[x+20,y+13],[x-21,y+17]],p.wall+'c0',p.stone+'32');
+  }
+  const lampX=x+spacing*.5,lampY=roof+66;
+  if(lampX>left-50&&lampX<right+50){
+   stroke(c,[[lampX,peak+29],[lampX,lampY]],p.edge+'35',1);
+   glow(c,lampX,lampY+6,95,p.light+'10');
+   if(g.room.biome==='forge'){
+    polygon(c,[[lampX-9,lampY+7],[lampX-7,lampY-7],[lampX+7,lampY-7],[lampX+9,lampY+7]],p.stone,p.edge+'55');
+    ellipse(c,lampX,lampY,4,6,'#f9bc7b');
+   }else{
+    for(let j=0;j<3;j++)ellipse(c,lampX+(j-1)*8,lampY+Math.sin(j+t*.4)*3,2.5,1.5,p.light+'70');
+   }
+  }
+ }
+ // A continuous recessed skirting ledge runs beside the real floor. It is
+ // deliberately darker and thinner than the actual collision lip above it.
+ stroke(c,[[left,floor-9],[right,floor-9]],p.wall,12);
+ stroke(c,[[left,floor-16],[right,floor-16]],p.vein+'24',1.3);
+}
+
 export function drawTunnelStructure(c,g,camX,camY,width,height,t){
  const p=tunnelPalette(g.room.biome),left=Math.max(0,Math.floor((camX-100)/90)*90),right=Math.min(g.worldWidth,camX+width+100);
+ drawGroundPassage(c,g,camX,camY,width,height,t);
  const edge=[];for(let x=left;x<=right+90;x+=90)edge.push([x,ceilingAt(g,x)]);
  // The highest traversable ledge always has at least 280px headroom. These
  // ceiling masses follow a climb instead of closing across the jump corridor.

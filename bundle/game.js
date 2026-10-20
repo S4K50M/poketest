@@ -44,35 +44,41 @@
   var door = (id, x, y, to, name, extra = {}) => ({ id, kind: "door", x, y, to, name, ...extra });
   var memory = (id, x, y, text2) => ({ id, kind: "memory", x, y, name: text2.split("|")[0], text: text2 });
   var enemy = (kind, x, y = 520, w = 140) => ({ kind, x, y, left: x - w / 2, right: x + w / 2 });
+  var catchShelves = (route) => route.slice(0, -1).flatMap((source, n) => {
+    const target = route[n + 1], left = Math.min(source.x, target.x) - 45, right = Math.max(source.x + source.w, target.x + target.w) + 45, y = Math.max(source.y, target.y) + 145;
+    return y < 520 ? [ledge(left, y, right - left, { catch: true })] : [];
+  });
   function descent(d, tier) {
     const late = tier >= 4, rise = late ? 185 : 130, start = late ? 335 : 400, stride = late ? 340 : 270;
     const steps = Array.from({ length: 7 }, (_, n) => ledge(
       490 + n * stride,
       start - n * rise,
-      late ? 135 : 150,
-      tier === 3 && [2, 4].includes(n) ? { moving: true, origin: 490 + n * stride, amplitude: 35, rate: 0.018 + n * 1e-3 } : {}
+      late ? 230 : 220,
+      { route: "upper", ...tier === 3 && [2, 4].includes(n) ? { moving: true, origin: 490 + n * stride, amplitude: 35, rate: 0.018 + n * 1e-3 } : {} }
     ));
-    const top = steps.at(-1), exitX = top.x + 105;
+    const top = steps.at(-1), width = late ? 3400 : 3100, exitX = width - 220;
     return {
       id: d.id + "-descent",
       name: d.rooms[0],
       biome: d.id,
-      width: late ? 3400 : 3100,
+      width,
       height: 1600,
+      traversal: "tunnel",
+      tunnelCeiling: 200,
       depth: 1,
       dungeon: d.title,
       map: { x: 2, y: 1 },
       story: d.story[0],
       subtitle: d.depth,
-      platforms: [floor(0, 430), ...steps, ledge(top.x + 125, top.y, 260), floor(late ? 2980 : 2680, 420)],
+      platforms: [floor(0, width), ...steps, ledge(top.x + 125, top.y, 260, { route: "upper" }), ...catchShelves(steps)],
       anchors: tier >= 2 ? steps.filter((_, n) => n % 2 === 1).map((p) => ({ x: p.x + 80, y: p.y - 130 })) : [],
-      thorns: [{ x: 430, w: (late ? 2980 : 2680) - 430, y: 655 }],
-      enemies: [enemy(d.minions[0], steps[1].x + 75, steps[1].y, 100), enemy("veilwasp", steps[3].x + 65, steps[3].y - 70, 160), enemy("chaincaster", steps[5].x + 65, steps[5].y, 90)],
+      thorns: [],
+      enemies: [enemy(d.minions[0], steps[1].x + 75, 520, 100), enemy("veilwasp", steps[3].x + 65, 450, 160), enemy("chaincaster", steps[5].x + 65, 520, 90)],
       relics: [{ id: d.id + "-descent-shard", x: steps[4].x + 65, y: steps[4].y - 60 }],
       objects: [
         door("return", 100, 520, d.id + "-path", "Return to the Gate Road", { spawn: { x: 2260, y: 520 } }),
         memory("witness", 310, 520, d.story[0]),
-        door("exit", exitX, top.y, d.id + "-nexus", d.rooms[1]),
+        door("exit", exitX, 520, d.id + "-nexus", d.rooms[1]),
         door("high-loop", top.x + 290, top.y, d.id + "-ascent", "The High Passage", { spawn: { x: 150, y: 520 } })
       ]
     };
@@ -84,14 +90,16 @@
       biome: d.id,
       width: 3300,
       height: 1350,
+      traversal: "tunnel",
+      tunnelCeiling: 200,
       depth: 2,
       dungeon: d.title,
       map: { x: 4, y: 1 },
       story: d.story[1],
       subtitle: "A guardian below; an older road above",
-      platforms: [floor(0, 940), floor(1160, 2140), ledge(380, 400, 145), ledge(660, 275, 145), ledge(940, 150, 140), ledge(1220, 25, 145), ledge(1490, -100, 240), ledge(1770, -225, 145), ledge(2040, -350, 220)],
+      platforms: [floor(0, 3300), ledge(380, 400, 145), ledge(660, 275, 145), ledge(940, 150, 140), ledge(1220, 25, 145), ledge(1490, -100, 240), ledge(1770, -225, 145), ledge(2040, -350, 220)],
       anchors: tier >= 2 ? [{ x: 1090, y: -10 }, { x: 1740, y: -250 }, { x: 2160, y: -470 }] : [],
-      thorns: [{ x: 940, w: 220, y: 650 }],
+      thorns: [],
       enemies: [enemy("graveburrower", 760), enemy("glassmarauder", 1300), { kind: "warden", boss: d.id + "-warden", x: 2150, y: 520, left: 1740, right: 2900, introX: 1660 }, enemy(d.minions[1], 3020), enemy("veilwasp", 1610, -155, 150)],
       relics: [{ id: d.id + "-court-shard", x: 2110, y: -410 }],
       objects: [
@@ -106,8 +114,7 @@
   }
   function ascent(d, tier) {
     const platforms = [
-      floor(0, 460),
-      floor(2320, 580),
+      floor(0, 2900),
       ledge(430, 395, 135),
       ledge(690, 270, 130),
       ledge(950, 145, 125),
@@ -123,16 +130,23 @@
       ledge(2390, 150, 160),
       ledge(2620, 275, 170)
     ];
+    for (const p of platforms.filter((p2) => p2.y < 520).slice(0, 10)) {
+      p.route = "upper";
+      if (p.w < 175) p.w += 45;
+    }
     if (tier >= 3) {
-      const p = platforms[5];
+      const p = platforms.find((p2) => p2.x === 1210);
       Object.assign(p, { moving: true, origin: p.x, amplitude: 38, rate: 0.021 });
     }
+    platforms.push(...catchShelves(platforms.filter((p) => p.route === "upper")));
     return {
       id: d.id + "-ascent",
       name: d.rooms[2],
       biome: d.id,
       width: 2900,
       height: 1700,
+      traversal: "shaft",
+      tunnelCeiling: 200,
       depth: 0,
       dungeon: d.title,
       map: { x: 3, y: -1 },
@@ -141,7 +155,7 @@
       subtitle: "The abandoned high road and its hidden history",
       platforms,
       anchors: tier >= 2 ? [{ x: 900, y: 80 }, { x: 1650, y: -290 }, { x: 1e3, y: -700 }] : [],
-      thorns: [{ x: 460, w: 1860, y: 655 }],
+      thorns: [],
       enemies: [enemy("veilwasp", 1e3, 75, 180), enemy("chaincaster", 1770, -230, 100), enemy(d.minions[0], 1260, -490, 90), enemy("glassmarauder", 800, -750, 130)],
       relics: [{ id: d.id + "-ascent-shard", x: 790, y: -810 }],
       objects: [
@@ -160,6 +174,8 @@
       biome: d.id,
       width: 3e3,
       height: 1350,
+      traversal: "tunnel",
+      tunnelCeiling: 200,
       depth: 3,
       dungeon: d.title,
       map: { x: 3, y: 3 },
@@ -182,6 +198,14 @@
   }
   var DUNGEON_ROOMS = {};
   for (const [tier, d] of DIMENSIONS.entries()) for (const room of [descent(d, tier), nexus(d, tier), ascent(d, tier), vault(d, tier)]) DUNGEON_ROOMS[room.id] = room;
+  for (const room of Object.values(DUNGEON_ROOMS)) if (!room.id.endsWith("-descent") && !room.id.endsWith("-ascent")) {
+    const upper = room.platforms.filter((p) => p.y < 520 && !p.solid);
+    for (const p of upper) {
+      p.route = "upper";
+      p.w = Math.max(p.w, 180);
+    }
+    room.platforms.push(...catchShelves(upper));
+  }
 
   // src/dungeon-enemies.js
   var gates = [
@@ -299,27 +323,27 @@
   });
   ROOMS["hidden-grove"] = { id: "hidden-grove", name: "The Hidden Grove", biome: "moss", width: 1700, platforms: [...ground(1700), { x: 520, y: 415, w: 130, h: 25 }, { x: 760, y: 310, w: 130, h: 25 }, { x: 1e3, y: 220, w: 170, h: 25 }], anchors: [{ x: 1200, y: 110 }], enemies: [{ kind: "thornling", x: 850 }, { kind: "sproutlet", x: 1250 }], relics: [{ id: "grove", x: 1070, y: 170 }], objects: [{ id: "return", kind: "door", x: 100, to: "moss-path", name: "Return to Rootway" }, { id: "chest", kind: "cache", x: 1440, name: "Gardener\u2019s Legacy", material: "heartwood", rare: true }, { id: "shrine", kind: "shrine", x: 1080, y: 220, name: "The Sleeping Seed" }] };
   ROOMS["star-observatory"] = { id: "star-observatory", name: "Fallen Star Observatory", biome: "storm", width: 1700, platforms: [...ground(1700), { x: 550, y: 390, w: 130, h: 25 }, { x: 780, y: 275, w: 130, h: 25 }, { x: 1100, y: 170, w: 170, h: 25 }], anchors: [{ x: 1050, y: 100 }], enemies: [{ kind: "stormkite", x: 900 }], relics: [{ id: "star", x: 1180, y: 110 }], objects: [{ id: "return", kind: "door", x: 100, to: "storm-path", name: "Return to Thundersong" }, { id: "chest", kind: "cache", x: 1450, name: "Stargazer\u2019s Legacy", material: "stormglass", rare: true }, { id: "shrine", kind: "shrine", x: 1180, y: 170, name: "The Ninth Voice" }] };
-  ROOMS["moss-path"].platforms = ROOMS["moss-path"].platforms.filter((p) => p.y !== 520).concat([{ x: 0, y: 520, w: 1260, h: 260 }, { x: 1420, y: 520, w: 1080, h: 260 }]);
-  ROOMS["moss-path"].thorns = [{ x: 1260, w: 160, y: 625 }];
+  ROOMS["moss-path"].platforms = ROOMS["moss-path"].platforms.filter((p) => p.y !== 520).concat(ground(2500));
+  ROOMS["moss-path"].thorns = [];
   ROOMS["moss-path"].objects.push({ id: "bridge", kind: "lever", x: 1190, name: "Raise the Rootbridge", bridge: { x: 1260, y: 520, w: 160, h: 25 } });
-  ROOMS["forge-path"].platforms = ROOMS["forge-path"].platforms.filter((p) => p.y !== 520).concat([{ x: 0, y: 520, w: 1390, h: 260 }, { x: 1680, y: 520, w: 820, h: 260 }]);
-  ROOMS["forge-path"].thorns = [{ x: 1390, w: 290, y: 620 }];
+  ROOMS["forge-path"].platforms = ROOMS["forge-path"].platforms.filter((p) => p.y !== 520).concat(ground(2500));
+  ROOMS["forge-path"].thorns = [];
   ROOMS["forge-path"].objects.push({ id: "mender", kind: "npc", talk: "mender", name: "Ash, the Wandering Mender", x: 630 });
-  ROOMS["reef-path"].platforms = [{ x: 0, y: 520, w: 1030, h: 260 }, { x: 1700, y: 520, w: 800, h: 260 }, { x: 690, y: 420, w: 180, h: 25 }, { x: 1160, y: 330, w: 120, h: 25 }, { x: 1490, y: 270, w: 140, h: 25 }];
-  ROOMS["reef-path"].thorns = [{ x: 1030, w: 670, y: 645 }];
+  ROOMS["reef-path"].platforms = [...ground(2500), { x: 690, y: 420, w: 180, h: 25 }, { x: 1160, y: 330, w: 120, h: 25 }, { x: 1490, y: 270, w: 140, h: 25 }];
+  ROOMS["reef-path"].thorns = [];
   ROOMS["reef-path"].objects.find((o) => o.id === "cache").y = 330;
   ROOMS["reef-path"].relics = [{ id: "reef-path-a", x: 1210, y: 265 }, { id: "reef-path-b", x: 1560, y: 205 }];
   ROOMS["reef-path"].objects.push({ id: "archivist", kind: "npc", talk: "archivist", name: "The Paper Archivist", x: 510 });
-  ROOMS["storm-path"].platforms = [{ x: 0, y: 520, w: 940, h: 260 }, { x: 1810, y: 520, w: 690, h: 260 }, { x: 970, y: 425, w: 160, h: 25, moving: true, origin: 970, amplitude: 70, rate: 0.02 }, { x: 1260, y: 325, w: 160, h: 25, moving: true, origin: 1260, amplitude: 65, rate: 0.025 }, { x: 1560, y: 400, w: 170, h: 25 }];
+  ROOMS["storm-path"].platforms = [...ground(2500), { x: 970, y: 425, w: 160, h: 25, moving: true, origin: 970, amplitude: 70, rate: 0.02 }, { x: 1260, y: 325, w: 160, h: 25, moving: true, origin: 1260, amplitude: 65, rate: 0.025 }, { x: 1560, y: 400, w: 170, h: 25 }];
   ROOMS["storm-path"].anchors = [{ x: 1120, y: 200 }, { x: 1500, y: 140 }, { x: 1810, y: 240 }];
-  ROOMS["storm-path"].thorns = [{ x: 940, w: 870, y: 650 }];
+  ROOMS["storm-path"].thorns = [];
   ROOMS["storm-path"].objects.find((o) => o.id === "secret").x = 1640;
   ROOMS["storm-path"].objects.find((o) => o.id === "secret").y = 400;
   ROOMS["storm-path"].objects.find((o) => o.id === "cache").x = 1620;
   ROOMS["storm-path"].objects.find((o) => o.id === "cache").y = 400;
   ROOMS["storm-path"].relics = [{ id: "storm-path-a", x: 1040, y: 350 }, { id: "storm-path-b", x: 1640, y: 335 }];
-  ROOMS["frost-path"].platforms = [{ x: 0, y: 520, w: 910, h: 260 }, { x: 1760, y: 520, w: 740, h: 260 }, { x: 870, y: 410, w: 150, h: 25 }, { x: 1110, y: 280, w: 150, h: 25 }, { x: 1370, y: 150, w: 170, h: 25 }, { x: 1610, y: 330, w: 160, h: 25 }];
-  ROOMS["frost-path"].thorns = [{ x: 910, w: 850, y: 645 }];
+  ROOMS["frost-path"].platforms = [...ground(2500), { x: 870, y: 410, w: 150, h: 25 }, { x: 1110, y: 280, w: 150, h: 25 }, { x: 1370, y: 150, w: 170, h: 25 }, { x: 1610, y: 330, w: 160, h: 25 }];
+  ROOMS["frost-path"].thorns = [];
   ROOMS["frost-path"].anchors = [{ x: 1150, y: 145 }, { x: 1500, y: 65 }, { x: 1780, y: 180 }];
   ROOMS["frost-path"].objects.find((o) => o.id === "cache").x = 1450;
   ROOMS["frost-path"].objects.find((o) => o.id === "cache").y = 150;
@@ -333,6 +357,8 @@
     path.map = { x: 0, y: 0 };
     path.depth = 0;
     path.dungeon = dimension.title;
+    path.traversal = "tunnel";
+    path.tunnelCeiling = 200;
     const entrance = path.objects.find((o) => o.id === "exit");
     entrance.to = ch.id + "-descent";
     entrance.name = dimension.rooms[0];
@@ -343,6 +369,8 @@
     heart.map = { x: 6, y: 1 };
     heart.depth = 2;
     heart.dungeon = dimension.title;
+    heart.traversal = "tunnel";
+    heart.tunnelCeiling = 200;
     path.enemies.push(
       { kind: i % 2 ? "glassmarauder" : "graveburrower", x: 2030, y: 520 },
       { kind: i % 2 ? "chaincaster" : "veilwasp", x: 2220, y: i % 2 ? 520 : 435 }
@@ -351,7 +379,7 @@
   ROOMS["hidden-grove"].map = { x: 0, y: -2 };
   ROOMS["star-observatory"].map = { x: 1, y: -3 };
   var DIALOGUES = {
-    mender: [["Ash, the Mender", "I used to mend cages. Vell taught me to mend bridges instead. Strange how the same hands can do both."], ["Ash, the Mender", "Take the high path over the furnace. Jump toward a wall, then Space again to climb. Camps can shape your materials into charms. Springs restore your party when you walk through their light."]],
+    mender: [["Ash, the Mender", "I used to mend cages. Vell taught me to mend bridges instead. Strange how the same hands can do both."], ["Ash, the Mender", "The lower furnace tunnel has solid ground. Climb the side passages when you want their hidden rewards. Jump toward a wall, then Space again to climb. Camps can shape your materials into charms. Springs restore your party when you walk through their light."]],
     archivist: [["The Paper Archivist", "I have been looking for the last page for a hundred years. It says: \u201CA living heart cannot belong to a kingdom.\u201D"], ["The Paper Archivist", "Golden anchors remember the old roads. Press U when one is above you. Chain your grapples across the drowned stacks."]],
     vell: [
       ["Professor Vell", "Once, the Worldheart joined every creature to every living thing. Then the sky cracked. The roads vanished. And the heart fell silent."],
@@ -750,6 +778,8 @@
       biome: "forge",
       width: 2800,
       subtitle: "The dead city was planting something",
+      traversal: "tunnel",
+      tunnelCeiling: 200,
       optional: true,
       mapX: 7,
       mapY: 23,
@@ -775,6 +805,8 @@
       biome: "reef",
       width: 2850,
       subtitle: "Every goodbye has somewhere to go",
+      traversal: "tunnel",
+      tunnelCeiling: 200,
       optional: true,
       mapX: 33,
       mapY: 92,
@@ -800,6 +832,8 @@
       biome: "frost",
       width: 2900,
       subtitle: "A future without a memory",
+      traversal: "tunnel",
+      tunnelCeiling: 200,
       optional: true,
       mapX: 93,
       mapY: 65,
@@ -2690,9 +2724,8 @@
     const points = [{ ...HUB_RECOVERY }];
     for (const [index, ch] of CHAPTERS.entries()) {
       const pick = random((seed3 ^ Math.imul(index + 1, 2654435761)) >>> 0), id = ch.id;
-      const shelves = ROOMS[id + "-descent"].platforms.filter((p) => p.y < 520 && !p.moving);
-      const shelf = shelves[1 + Math.floor(pick() * Math.min(3, shelves.length - 1))];
-      points.push(point(id + ":climb", id + "-descent", shelf.x + shelf.w * 0.5, shelf.y));
+      const floorSites = [1120, 1650, 2180], x = floorSites[Math.floor(pick() * floorSites.length)];
+      points.push(point(id + ":climb", id + "-descent", x));
       points.push(point(id + ":court", id + "-nexus", pick() < 0.5 ? 1460 : 1550));
       if (pick() < 0.5) {
         const upper = pick() < 0.5;
@@ -7320,8 +7353,61 @@
       }
     }
   }
+  function drawGroundPassage(c, g, camX, camY, width, height, t) {
+    if (!Number.isFinite(g.room.tunnelCeiling) || camY + height < g.room.tunnelCeiling - 30 || camY > 560) return;
+    const p = tunnelPalette(g.room.biome), roof = g.room.tunnelCeiling, floor3 = 520;
+    const left = Math.max(0, camX - 100), right = Math.min(g.worldWidth, camX + width + 100);
+    const opening = c.createLinearGradient(0, roof - 110, 0, floor3);
+    opening.addColorStop(0, p.void + "e0");
+    opening.addColorStop(0.25, p.shadow + "cf");
+    opening.addColorStop(1, p.back + "10");
+    c.fillStyle = opening;
+    c.fillRect(left, roof - 110, right - left, floor3 - roof + 110);
+    const spacing = 560, start = Math.floor(left / spacing) - 1, end = Math.ceil(right / spacing) + 1;
+    for (let n = start; n <= end; n++) {
+      const x = n * spacing, peak = roof - 28 - noise2(n + g.roomId.length) * 22;
+      c.beginPath();
+      c.moveTo(x - 18, floor3);
+      c.lineTo(x - 18, roof + 116);
+      c.bezierCurveTo(x + 54, peak, x + spacing - 54, peak, x + spacing + 18, roof + 116);
+      c.lineTo(x + spacing + 18, floor3);
+      c.strokeStyle = p.shadow + "d9";
+      c.lineWidth = 39;
+      c.stroke();
+      c.beginPath();
+      c.moveTo(x - 8, floor3);
+      c.lineTo(x - 8, roof + 115);
+      c.bezierCurveTo(x + 60, peak + 15, x + spacing - 60, peak + 15, x + spacing + 8, roof + 115);
+      c.lineTo(x + spacing + 8, floor3);
+      c.strokeStyle = p.stone + "72";
+      c.lineWidth = 11;
+      c.stroke();
+      for (let j = 0; j < 9; j++) {
+        const a = Math.PI + (j + 0.5) * Math.PI / 9, xx = x + spacing / 2 + Math.cos(a) * (spacing / 2 - 8), yy = roof + 110 + Math.sin(a) * 110;
+        polygon(c, [[xx - 17, yy - 11], [xx + 14, yy - 15], [xx + 21, yy + 7], [xx - 12, yy + 13]], p.wall + "b0", p.vein + "16");
+      }
+      for (let j = 0; j < 5; j++) {
+        const y = roof + 148 + j * 36;
+        polygon(c, [[x - 25, y - 14], [x + 12, y - 17], [x + 20, y + 13], [x - 21, y + 17]], p.wall + "c0", p.stone + "32");
+      }
+      const lampX = x + spacing * 0.5, lampY = roof + 66;
+      if (lampX > left - 50 && lampX < right + 50) {
+        stroke(c, [[lampX, peak + 29], [lampX, lampY]], p.edge + "35", 1);
+        glow6(c, lampX, lampY + 6, 95, p.light + "10");
+        if (g.room.biome === "forge") {
+          polygon(c, [[lampX - 9, lampY + 7], [lampX - 7, lampY - 7], [lampX + 7, lampY - 7], [lampX + 9, lampY + 7]], p.stone, p.edge + "55");
+          ellipse3(c, lampX, lampY, 4, 6, "#f9bc7b");
+        } else {
+          for (let j = 0; j < 3; j++) ellipse3(c, lampX + (j - 1) * 8, lampY + Math.sin(j + t * 0.4) * 3, 2.5, 1.5, p.light + "70");
+        }
+      }
+    }
+    stroke(c, [[left, floor3 - 9], [right, floor3 - 9]], p.wall, 12);
+    stroke(c, [[left, floor3 - 16], [right, floor3 - 16]], p.vein + "24", 1.3);
+  }
   function drawTunnelStructure(c, g, camX, camY, width, height, t) {
     const p = tunnelPalette(g.room.biome), left = Math.max(0, Math.floor((camX - 100) / 90) * 90), right = Math.min(g.worldWidth, camX + width + 100);
+    drawGroundPassage(c, g, camX, camY, width, height, t);
     const edge = [];
     for (let x = left; x <= right + 90; x += 90) edge.push([x, ceilingAt(g, x)]);
     const cap = camY - 1200;

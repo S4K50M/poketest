@@ -1,5 +1,12 @@
 # Changelog
 
+## Grounded tunnel routes
+
+- Replaced long bottomless spans in gate roads and lower dungeon passages with continuous ground. Mandatory dungeon exits now follow the lower tunnel route.
+- Preserved upper exploration routes and added wider landings and catch shelves, making missed jumps recoverable without changing movement or combat physics.
+- Moved each gate’s first seeded Wellspring onto the lower passage while preserving its saved identifier.
+- Refined the lower-route tunnel presentation around the new floor geometry. Boss difficulty, sparse healing, and gate death penalties remain unchanged.
+
 ## Wellsprings, gate resurrection, and tunnels
 
 - Replaced healing benches with utility camps and two or three seeded Wellsprings per gate, placed inside the dungeons. Grounded entry automatically restores party health/Focus and binds the respawn point; each spring works once per attempt. The sanctuary hearth remains reusable.

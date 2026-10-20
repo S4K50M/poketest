@@ -124,3 +124,18 @@ test('camp roster changes cannot refill injured or defeated companions, includin
     assert(g.replaceParty(1,'noxshade'));assert.equal(g.party[1].hp,0);assert.equal(g.party[1].spirit,3);
   }
 });
+
+
+test('old elevated spring checkpoints migrate to the new safe tunnel floor',()=>{
+  const g=new RPGCampaign(undefined,{worldSeed:17}),saved=JSON.parse(JSON.stringify(g.save()));
+  const current=g.recoveryForRoom('moss-descent').find(p=>p.id==='moss:climb');
+  saved.room='moss-descent';saved.safeRest={id:current.id,room:current.room,x:1090,y:140};
+  saved.checkpoint={x:1090,y:140};
+  saved.death={gate:'moss',room:'moss-descent',returnTo:{...saved.safeRest},lostLumens:10,restoredEnemies:20};
+  saved.party.forEach(m=>m.hp=0);
+  const restored=new RPGCampaign(undefined,{save:saved});
+  assert.equal(restored.phase,'gameover');assert.equal(restored.safeRest.id,current.id);
+  assert.equal(restored.safeRest.x,current.x);assert.equal(restored.safeRest.y,520);
+  assert(restored.retryAfterDeath());assert.equal(restored.player.x,current.x);assert.equal(restored.player.y,520);
+  assert(restored.platforms.some(p=>p.y===520&&current.x>=p.x&&current.x<=p.x+p.w));
+});
