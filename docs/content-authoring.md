@@ -1,5 +1,7 @@
 # Content authoring
 
+For branching traversal, use the first gate’s [landing networks](../src/moss-layout.js) as a reference. Author distinct routes with shared destinations and recovery galleries underneath them. Verify deliberate misses at several heights, including a route back up from each landing, with the abilities available on first arrival. Adding a safe floor alone does not make a climb a branching network.
+
 [Documentation index](README.md) · [Project README](../README.md)
 
 ## Before changing content

@@ -4,6 +4,8 @@ An original browser action RPG about three creature companions, a fractured Worl
 
 The playable prototype includes:
 
+- A redesigned first gate with branching climbs, shared landings, and recovery platforms that lead back into the route after missed jumps.
+
 - **42 rooms across six dimensions**, nine major bosses, twelve minibosses, eleven companions, and nineteen wild species.
 - Branching tunnel dungeons with continuous lower floors, optional upper climbs and vaults, looping shortcuts, and a discovered-room atlas without route arrows.
 - Three-phase guardians, stronger knockback, scarce automatic Wellsprings, and committed Focus healing make expeditions dangerous.

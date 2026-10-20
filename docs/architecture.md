@@ -1,5 +1,7 @@
 # Architecture
 
+[moss-layout.js](../src/moss-layout.js) adds the first gate’s connected landing networks after the base room registry is assembled. The layouts use the existing platform physics; room metadata describes their routes for rendering and validation. Ground passages, room identifiers, and progression gates retain their existing contracts.
+
 [Documentation index](README.md) · [Project README](../README.md)
 
 ## Runtime and build

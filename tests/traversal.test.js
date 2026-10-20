@@ -27,11 +27,12 @@ for(const [chapter,dimension]of DIMENSIONS.entries())for(const kind of ['descent
     for(const party of parties){
       const g=geometryFixture(chapter,kind,party),hp=g.player.hp;
       const shelves=g.platforms.filter(p=>p.y<520&&!p.solid&&!p.catch);
-      const route=kind==='descent'?shelves.sort((a,b)=>b.y-a.y):shelves.slice(0,10);
+      const route=g.room.climbNetwork?.routes.find(route=>route.id==='east')?.waypoints||
+        (kind==='descent'?shelves.sort((a,b)=>b.y-a.y):shelves.slice(0,10));
       for(const shelf of route){
         // The final switchback opens onto a wide balcony. Land on its near
         // side first, then walk to its door rather than aiming through it.
-        const x=kind==='ascent'&&shelf.y===-750?780:shelf.x+Math.min(65,shelf.w/2);
+        const x=shelf.w===undefined?shelf.x:kind==='ascent'&&shelf.y===-750?780:shelf.x+Math.min(65,shelf.w/2);
         assert(climbTo(g,x,shelf.y,1600),`${g.data.id}: unreachable shelf ${shelf.x},${shelf.y}`);
         assert.equal(g.player.grounded,true);
         assert.equal(g.player.y,shelf.y);

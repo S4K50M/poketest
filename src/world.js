@@ -1,5 +1,6 @@
 import { DUNGEON_ROOMS, DIMENSIONS } from './dimensions.js';
 import { MINIBOSSES } from './dungeon-enemies.js';
+import { applyMossLandings } from './moss-layout.js';
 // All campaign geography is data. The deepest floor uses Y = 520;
 // dungeon galleries and towers extend upward through a scrolling camera.
 export const BIOMES={
@@ -134,6 +135,7 @@ for(const [i,ch]of CHAPTERS.entries()){
 }
 ROOMS['hidden-grove'].map={x:0,y:-2};
 ROOMS['star-observatory'].map={x:1,y:-3};
+applyMossLandings(ROOMS);
 export const DIALOGUES={
   mender:[['Ash, the Mender','I used to mend cages. Vell taught me to mend bridges instead. Strange how the same hands can do both.'],['Ash, the Mender','The lower furnace tunnel has solid ground. Climb the side passages when you want their hidden rewards. Jump toward a wall, then Space again to climb. Camps can shape your materials into charms. Springs restore your party when you walk through their light.']],
   archivist:[['The Paper Archivist','I have been looking for the last page for a hundred years. It says: “A living heart cannot belong to a kingdom.”'],['The Paper Archivist','Golden anchors remember the old roads. Press U when one is above you. Chain your grapples across the drowned stacks.']],

@@ -14,7 +14,8 @@
     "test:combat": "node tests/combat-browser.mjs",
     "test:mobile": "node tests/mobile-browser.mjs",
     "test:echo": "node tests/echo-browser.mjs",
-    "test:recovery": "node tests/recovery-browser.mjs"
+    "test:recovery": "node tests/recovery-browser.mjs",
+    "test:firstgate": "node tests/firstgate-browser.mjs"
   },
   "engines": {
     "node": ">=20"

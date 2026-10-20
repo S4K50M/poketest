@@ -106,6 +106,8 @@ The atlas shows room connections as you discover them, with depth labels and cur
 
 ## Tunnel presentation and gate death
 
+The first gate’s upper passages now form connected landing networks rather than a single staircase. Parallel climbs meet at broad mezzanines, with crossways, pocket balconies, and lower galleries beneath the jumps. A missed jump can land on another playable tier, from which the player can climb back into the route. The lower tunnel remains continuously grounded. These routes are authored in [moss-layout.js](../src/moss-layout.js); the Rootfall branches work with the first gate’s starting movement abilities.
+
 Outside the sanctuary, chambers are enclosed by layered rock walls, irregular ceilings, arches, and textured shelves attached to receding stone strata. Roots, volcanic masonry, flooded limestone, storm ruins, ice, and rift basalt give the six dimensions distinct geology. Foreground detail and local light preserve readable collision edges. Continuous lower floors and catch shelves now support the tunnel routes; the shared jump, dash, and combat physics are unchanged.
 
 A party wipe reawakens the enemies throughout the current dimension, including the gate’s minibosses and guardians. Your recovered story fragments and abilities remain unlocked, and repeated victories do not duplicate unique loot or first-victory rewards. The Game Over screen shows the penalty before you retry from the last activated spring.

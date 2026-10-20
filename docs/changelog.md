@@ -1,5 +1,11 @@
 # Changelog
 
+## First-gate landing networks
+
+- Added parallel climbing routes, shared mezzanines, side balconies, and crossways throughout the first gate’s upper rooms.
+- Added playable recovery galleries beneath jumps, with paths back into the climb after a missed landing.
+- Added visual distinctions for broad landings and recovery platforms; the continuously grounded lower route remains available.
+
 ## Grounded tunnel routes
 
 - Replaced long bottomless spans in gate roads and lower dungeon passages with continuous ground. Mandatory dungeon exits now follow the lower tunnel route.

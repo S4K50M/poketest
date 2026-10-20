@@ -132,6 +132,46 @@ function drawGroundPassage(c,g,camX,camY,width,height,t){
  stroke(c,[[left,floor-16],[right,floor-16]],p.vein+'24',1.3);
 }
 
+// The first gate is a stack of inhabited galleries rather than a row of
+// suspended steps. These recesses sit in the rear wall, so a real landing edge
+// always stays in front of the architecture and no decorative wall blocks play.
+function drawLandingNetwork(c,g,camX,camY,width,height,t){
+ if(!g.room.climbNetwork)return;
+ const p=tunnelPalette(g.room.biome),visible=g.platforms.filter(s=>s.y<520&&!s.veil&&(s.landing||s.catch)&&s.x+s.w>camX-100&&s.x<camX+width+100&&s.y>camY-60&&s.y<camY+height+130);
+ for(const shelf of visible){
+  const height=shelf.catch?96:126,roof=shelf.y-height,x=shelf.x,w=shelf.w;
+  // Shallow carved rooms put a quiet horizontal band behind each wide terrace.
+  polygon(c,[[x-17,shelf.y+15],[x-12,roof+33],[x+23,roof],[x+w-29,roof-7],[x+w+12,roof+27],[x+w+20,shelf.y+15]],p.shadow+'d9');
+  stroke(c,[[x-12,roof+33],[x+23,roof],[x+w-29,roof-7],[x+w+12,roof+27]],p.stone+'92',7);
+  stroke(c,[[x-5,shelf.y-11],[x+w+4,shelf.y-11]],p.vein+'29',1.3);
+  const bays=Math.max(1,Math.floor(w/180));
+  for(let n=0;n<bays;n++){
+   const xx=x+w*(n+.5)/bays;
+   arch(c,xx,shelf.y-52,Math.min(36,w/bays*.24),54,p.void+'ac',p.wall);
+   // Warm seed lamps distinguish usable landings from far background strata.
+   if(!shelf.catch||n%2===0){
+    glow(c,xx,shelf.y-38,45,p.light+'12');
+    ellipse(c,xx,shelf.y-38,2.2,3.6,'#d4e6baaa');
+    stroke(c,[[xx,roof+10],[xx,shelf.y-46]],p.edge+'33',1);
+   }
+  }
+  // Upright root piers connect lower landings back into the wall without
+  // extending solid-looking wedges over the next route below.
+  for(const side of[-1,1]){
+   const xx=side<0?x+9:x+w-9,root=side<0?-1:1;
+   stroke(c,[[xx,shelf.y+8],[xx+root*9,shelf.y+43],[xx+root*3,shelf.y+86]],p.wall,13);
+   stroke(c,[[xx,shelf.y+8],[xx+root*9,shelf.y+43],[xx+root*3,shelf.y+86]],p.edge+'28',2);
+   if(shelf.catch)for(let leaf=0;leaf<3;leaf++)ellipse(c,xx+root*(6+leaf*3),shelf.y+20+leaf*14,6,2,'#71916b55');
+  }
+  if(shelf.landing){
+   const xx=x+w*.27,yy=roof+15;
+   stroke(c,[[xx,yy],[xx-8,yy+24],[xx+4,yy+50]],'#526b4a77',2);
+   ellipse(c,xx-5,yy+30,6,2,'#93ac7d66');
+   ellipse(c,xx+3,yy+44,6,2,'#93ac7d66');
+  }
+ }
+}
+
 export function drawTunnelStructure(c,g,camX,camY,width,height,t){
  const p=tunnelPalette(g.room.biome),left=Math.max(0,Math.floor((camX-100)/90)*90),right=Math.min(g.worldWidth,camX+width+100);
  drawGroundPassage(c,g,camX,camY,width,height,t);
@@ -148,10 +188,11 @@ export function drawTunnelStructure(c,g,camX,camY,width,height,t){
    for(let j=0;j<3;j++)ellipse(c,x+5+j%2*5,y+40+j*17,6,2,'#68876777');
   }else if(g.room.biome==='frost')polygon(c,[[x-5,y+5],[x+5,y+3],[x+1,y+length+20]],'#b9e1e359');
  }
+ drawLandingNetwork(c,g,camX,camY,width,height,t);
  // Shelves jut from out-of-plane wall buttresses. Their dark receding sides
  // connect them to rock without drawing pretend collision faces in the route.
  for(const shelf of g.platforms){
-  if(shelf.veil||shelf.h>70||shelf.x+shelf.w<camX-120||shelf.x>camX+width+120)continue;
+  if(shelf.veil||shelf.h>70||shelf.x+shelf.w<camX-120||shelf.x>camX+width+120||g.room.climbNetwork&&(shelf.landing||shelf.catch))continue;
   const depth=170+noise(shelf.x+shelf.y)*170,base=shelf.y+depth;
   c.save();c.globalAlpha=.9;
   polygon(c,[[shelf.x+6,shelf.y+14],[shelf.x+shelf.w-6,shelf.y+14],[shelf.x+shelf.w+100,base-28],[shelf.x+shelf.w*.65,base+70],[shelf.x-84,base]],p.wall);
@@ -194,7 +235,8 @@ export function drawTunnelPlatform(c,shelf,biome,t){
  }
  c.restore();
  // Slightly broken lip: readable stone rather than a neon platform outline.
- stroke(c,[[x,y+.5],[x+w,y+.5]],p.edge+'b0',2);
+ stroke(c,[[x,y+.5],[x+w,y+.5]],biome==='moss'&&shelf.catch?'#a8c89caa':p.edge+'b0',shelf.landing||shelf.catch?2.5:2);
+ if(shelf.landing||shelf.catch){stroke(c,[[x+7,y+7],[x+w-7,y+7]],biome==='moss'&&shelf.catch?'#68866399':p.edge+'42',3);if(biome==='moss')for(let xx=x+20;xx<x+w-12;xx+=67)ellipse(c,xx,y+4,14,2,'#75916a88');}
  for(let xx=x+3;xx<x+w-2;xx+=19){const ww=Math.min(18,x+w-xx),chip=noise(xx+seed);polygon(c,[[xx,y+1],[xx+ww,y+1],[xx+ww-3,y+4+chip*4],[xx+4,y+3]],p.stone);}
  if(biome==='moss')for(let xx=x+9;xx<x+w-7;xx+=24){const n=noise(xx);ellipse(c,xx,y+2,9+n*5,2,'#69815f99');if(n>.65)stroke(c,[[xx,y+3],[xx+3,y+12],[xx-1,y+21]],'#596f5299',1.4);}
  else if(biome==='forge'){for(let xx=x+37;xx<x+w;xx+=87)stroke(c,[[xx,y+9],[xx-4,y+17],[xx+4,y+21]],'#d68a4d44',1.4);}

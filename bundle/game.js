@@ -44,8 +44,8 @@
   var door = (id, x, y, to, name, extra = {}) => ({ id, kind: "door", x, y, to, name, ...extra });
   var memory = (id, x, y, text2) => ({ id, kind: "memory", x, y, name: text2.split("|")[0], text: text2 });
   var enemy = (kind, x, y = 520, w = 140) => ({ kind, x, y, left: x - w / 2, right: x + w / 2 });
-  var catchShelves = (route) => route.slice(0, -1).flatMap((source, n) => {
-    const target = route[n + 1], left = Math.min(source.x, target.x) - 45, right = Math.max(source.x + source.w, target.x + target.w) + 45, y = Math.max(source.y, target.y) + 145;
+  var catchShelves = (route2) => route2.slice(0, -1).flatMap((source, n) => {
+    const target = route2[n + 1], left = Math.min(source.x, target.x) - 45, right = Math.max(source.x + source.w, target.x + target.w) + 45, y = Math.max(source.y, target.y) + 145;
     return y < 520 ? [ledge(left, y, right - left, { catch: true })] : [];
   });
   function descent(d, tier) {
@@ -221,6 +221,99 @@
     [biome + "-reaver", { name: reaver, epithet: "WARDEN OF THE FORBIDDEN VAULT", biome, material, color, hp: 500 + i * 100, miniboss: true, encounter: "reaver", reward: null, lore }]
   ]));
 
+  // src/moss-layout.js
+  var shelf = (id, x, y, w, extra = {}) => ({ id, x, y, w, h: 26, landing: true, route: "upper", ...extra });
+  var waypoints = (points) => points.map(([x, y]) => ({ x, y }));
+  var route = (id, name, points) => ({ id, name, waypoints: waypoints(points) });
+  var rescue = (id, x, y, w) => shelf(id, x, y, w, { catch: true, route: "recovery" });
+  function install(room, title2, platforms, routes, drops = []) {
+    for (const p of room.platforms) if (p.y < 520 && !p.veil) {
+      p.landing = true;
+      if (!p.catch) p.route ?? (p.route = "upper");
+    }
+    room.platforms.push(...platforms);
+    room.climbNetwork = { title: title2, routes, drops };
+    room.landingNetwork = room.climbNetwork;
+  }
+  function applyMossLandings(rooms) {
+    install(rooms["moss-path"], "The Rootway Crossings", [
+      shelf("rootway-west-step", 260, 425, 300),
+      shelf("rootway-west-balcony", 180, 335, 330),
+      shelf("rootway-east-balcony", 650, 335, 390),
+      shelf("rootway-west-branch", 450, 245, 340),
+      shelf("rootway-seed-landing", 790, 145, 450),
+      shelf("rootway-arch-landing", 1040, 245, 340),
+      shelf("rootway-east-step", 1430, 200, 340),
+      shelf("rootway-east-gallery", 1240, 80, 350),
+      shelf("rootway-crown", 980, -40, 380),
+      rescue("rootway-lower-catch", 410, 435, 760),
+      rescue("rootway-middle-catch", 720, 365, 1050)
+    ], [
+      route("west", "The Moss Balconies", [[390, 425], [340, 335], [610, 245], [980, 145], [1370, 80], [1170, -40]]),
+      route("east", "The Old Root Arches", [[510, 425], [900, 335], [1200, 245], [1600, 200], [1390, 80], [1170, -40]])
+    ]);
+    install(rooms["moss-descent"], "Rootfall\u2019s Braided Galleries", [
+      // The western zigzag and the old eastern stair meet at a high crossway.
+      shelf("rootfall-entry-gallery", 180, 400, 310),
+      shelf("rootfall-west-low", 100, 270, 290),
+      shelf("rootfall-west-middle", 340, 140, 280),
+      shelf("rootfall-west-turn", 80, 10, 270),
+      shelf("rootfall-west-canopy", 350, -120, 300),
+      shelf("rootfall-west-crown", 110, -250, 270),
+      shelf("rootfall-canopy-crossing", 390, -380, 460),
+      shelf("rootfall-east-crossing", 950, -380, 290),
+      shelf("rootfall-high-island", 1370, -380, 300),
+      shelf("rootfall-high-east", 1800, -380, 260),
+      // These are broad alternative walking galleries, not invisible cushions.
+      rescue("rootfall-low-gallery", 440, 270, 720),
+      rescue("rootfall-middle-gallery", 500, 10, 780),
+      rescue("rootfall-upper-gallery", 800, -250, 1450)
+    ], [
+      route("west", "The Western Rootways", [[260, 400], [250, 270], [460, 140], [220, 10], [460, -120], [240, -250], [590, -380], [1070, -380], [1490, -380], [1920, -380], [2400, -380]]),
+      route("east", "The Cistern Crossings", [[555, 400], [825, 270], [1095, 140], [1365, 10], [1635, -120], [1905, -250], [2175, -380], [2400, -380]])
+    ], [
+      { id: "lower-root-catch", from: { x: 600, y: 140 }, direction: "right", untilX: 690, catchY: 270, return: waypoints([[460, 140]]) },
+      { id: "middle-root-catch", from: { x: 600, y: -120 }, direction: "right", untilX: 690, catchY: 10, return: waypoints([[460, -120]]) },
+      { id: "canopy-root-catch", from: { x: 1210, y: -380 }, direction: "right", untilX: 1310, catchY: -250, return: waypoints([[1490, -380]]) }
+    ]);
+    install(rooms["moss-nexus"], "The Court\u2019s Interwoven Roots", [
+      shelf("court-west-entry", 200, 400, 300),
+      shelf("court-west-rest", 90, 275, 310),
+      shelf("court-west-loop", 320, 150, 330),
+      shelf("court-west-arch", 80, 25, 300),
+      shelf("court-canopy-turn", 340, -100, 310),
+      shelf("court-crossway", 650, -100, 820),
+      shelf("court-east-rest", 1740, 150, 310),
+      shelf("court-east-loop", 2010, 25, 330),
+      shelf("court-east-crown", 2210, -100, 350),
+      rescue("court-low-gallery", 300, 405, 1050),
+      rescue("court-middle-gallery", 750, 275, 1200),
+      rescue("court-return-gallery", 1120, 145, 1250)
+    ], [
+      route("west", "The Warden\u2019s West Gallery", [[330, 400], [240, 275], [470, 150], [230, 25], [490, -100], [1040, -100], [1605, -100]]),
+      route("east", "The Court Balcony", [[450, 400], [730, 275], [1010, 150], [1290, 25], [1605, -100]])
+    ]);
+    install(rooms["moss-ascent"], "Canopy\u2019s Returning Paths", [
+      shelf("canopy-west-entry", 120, 395, 300),
+      shelf("canopy-west-low", 100, 270, 290),
+      shelf("canopy-west-rest", 340, 145, 300),
+      shelf("canopy-west-turn", 90, 20, 290),
+      shelf("canopy-west-bough", 350, -105, 300),
+      shelf("canopy-west-crown", 110, -230, 290),
+      shelf("canopy-west-arch", 370, -355, 310),
+      shelf("canopy-west-high", 130, -480, 290),
+      shelf("canopy-west-lantern", 390, -620, 310),
+      rescue("canopy-low-gallery", 380, 270, 700),
+      rescue("canopy-middle-gallery", 430, 20, 940),
+      rescue("canopy-upper-gallery", 380, -230, 1260),
+      rescue("canopy-high-gallery", 370, -480, 1450),
+      shelf("canopy-top-landing", 640, -750, 270)
+    ], [
+      route("west", "The Returning Canopy", [[260, 395], [240, 270], [480, 145], [230, 20], [490, -105], [250, -230], [520, -355], [270, -480], [540, -620], [780, -750]]),
+      route("east", "The Seedkeeper\u2019s Walk", [[490, 395], [750, 270], [1010, 145], [1270, 20], [1530, -105], [1800, -230], [1520, -360], [1260, -490], [1005, -620], [780, -750]])
+    ]);
+  }
+
   // src/world.js
   var BIOMES = {
     sanctuary: { name: "The Last Lantern", subtitle: "A small light at the end of the world", color: "#e5d6a4", sky: ["#101c23", "#30433d"], ground: "#273f3a", accent: "#c9b87f", icon: "\u2726", kind: "sanctuary" },
@@ -378,6 +471,7 @@
   }
   ROOMS["hidden-grove"].map = { x: 0, y: -2 };
   ROOMS["star-observatory"].map = { x: 1, y: -3 };
+  applyMossLandings(ROOMS);
   var DIALOGUES = {
     mender: [["Ash, the Mender", "I used to mend cages. Vell taught me to mend bridges instead. Strange how the same hands can do both."], ["Ash, the Mender", "The lower furnace tunnel has solid ground. Climb the side passages when you want their hidden rewards. Jump toward a wall, then Space again to climb. Camps can shape your materials into charms. Springs restore your party when you walk through their light."]],
     archivist: [["The Paper Archivist", "I have been looking for the last page for a hundred years. It says: \u201CA living heart cannot belong to a kingdom.\u201D"], ["The Paper Archivist", "Golden anchors remember the old roads. Press U when one is above you. Chain your grapples across the drowned stacks."]],
@@ -7405,6 +7499,38 @@
     stroke(c, [[left, floor3 - 9], [right, floor3 - 9]], p.wall, 12);
     stroke(c, [[left, floor3 - 16], [right, floor3 - 16]], p.vein + "24", 1.3);
   }
+  function drawLandingNetwork(c, g, camX, camY, width, height, t) {
+    if (!g.room.climbNetwork) return;
+    const p = tunnelPalette(g.room.biome), visible = g.platforms.filter((s) => s.y < 520 && !s.veil && (s.landing || s.catch) && s.x + s.w > camX - 100 && s.x < camX + width + 100 && s.y > camY - 60 && s.y < camY + height + 130);
+    for (const shelf2 of visible) {
+      const height2 = shelf2.catch ? 96 : 126, roof = shelf2.y - height2, x = shelf2.x, w = shelf2.w;
+      polygon(c, [[x - 17, shelf2.y + 15], [x - 12, roof + 33], [x + 23, roof], [x + w - 29, roof - 7], [x + w + 12, roof + 27], [x + w + 20, shelf2.y + 15]], p.shadow + "d9");
+      stroke(c, [[x - 12, roof + 33], [x + 23, roof], [x + w - 29, roof - 7], [x + w + 12, roof + 27]], p.stone + "92", 7);
+      stroke(c, [[x - 5, shelf2.y - 11], [x + w + 4, shelf2.y - 11]], p.vein + "29", 1.3);
+      const bays = Math.max(1, Math.floor(w / 180));
+      for (let n = 0; n < bays; n++) {
+        const xx = x + w * (n + 0.5) / bays;
+        arch(c, xx, shelf2.y - 52, Math.min(36, w / bays * 0.24), 54, p.void + "ac", p.wall);
+        if (!shelf2.catch || n % 2 === 0) {
+          glow6(c, xx, shelf2.y - 38, 45, p.light + "12");
+          ellipse3(c, xx, shelf2.y - 38, 2.2, 3.6, "#d4e6baaa");
+          stroke(c, [[xx, roof + 10], [xx, shelf2.y - 46]], p.edge + "33", 1);
+        }
+      }
+      for (const side of [-1, 1]) {
+        const xx = side < 0 ? x + 9 : x + w - 9, root = side < 0 ? -1 : 1;
+        stroke(c, [[xx, shelf2.y + 8], [xx + root * 9, shelf2.y + 43], [xx + root * 3, shelf2.y + 86]], p.wall, 13);
+        stroke(c, [[xx, shelf2.y + 8], [xx + root * 9, shelf2.y + 43], [xx + root * 3, shelf2.y + 86]], p.edge + "28", 2);
+        if (shelf2.catch) for (let leaf = 0; leaf < 3; leaf++) ellipse3(c, xx + root * (6 + leaf * 3), shelf2.y + 20 + leaf * 14, 6, 2, "#71916b55");
+      }
+      if (shelf2.landing) {
+        const xx = x + w * 0.27, yy = roof + 15;
+        stroke(c, [[xx, yy], [xx - 8, yy + 24], [xx + 4, yy + 50]], "#526b4a77", 2);
+        ellipse3(c, xx - 5, yy + 30, 6, 2, "#93ac7d66");
+        ellipse3(c, xx + 3, yy + 44, 6, 2, "#93ac7d66");
+      }
+    }
+  }
   function drawTunnelStructure(c, g, camX, camY, width, height, t) {
     const p = tunnelPalette(g.room.biome), left = Math.max(0, Math.floor((camX - 100) / 90) * 90), right = Math.min(g.worldWidth, camX + width + 100);
     drawGroundPassage(c, g, camX, camY, width, height, t);
@@ -7422,16 +7548,17 @@
         for (let j = 0; j < 3; j++) ellipse3(c, x + 5 + j % 2 * 5, y + 40 + j * 17, 6, 2, "#68876777");
       } else if (g.room.biome === "frost") polygon(c, [[x - 5, y + 5], [x + 5, y + 3], [x + 1, y + length + 20]], "#b9e1e359");
     }
-    for (const shelf of g.platforms) {
-      if (shelf.veil || shelf.h > 70 || shelf.x + shelf.w < camX - 120 || shelf.x > camX + width + 120) continue;
-      const depth = 170 + noise2(shelf.x + shelf.y) * 170, base = shelf.y + depth;
+    drawLandingNetwork(c, g, camX, camY, width, height, t);
+    for (const shelf2 of g.platforms) {
+      if (shelf2.veil || shelf2.h > 70 || shelf2.x + shelf2.w < camX - 120 || shelf2.x > camX + width + 120 || g.room.climbNetwork && (shelf2.landing || shelf2.catch)) continue;
+      const depth = 170 + noise2(shelf2.x + shelf2.y) * 170, base = shelf2.y + depth;
       c.save();
       c.globalAlpha = 0.9;
-      polygon(c, [[shelf.x + 6, shelf.y + 14], [shelf.x + shelf.w - 6, shelf.y + 14], [shelf.x + shelf.w + 100, base - 28], [shelf.x + shelf.w * 0.65, base + 70], [shelf.x - 84, base]], p.wall);
-      polygon(c, [[shelf.x + shelf.w * 0.66, shelf.y + 20], [shelf.x + shelf.w + 65, base - 28], [shelf.x + shelf.w * 0.65, base + 70]], p.shadow);
+      polygon(c, [[shelf2.x + 6, shelf2.y + 14], [shelf2.x + shelf2.w - 6, shelf2.y + 14], [shelf2.x + shelf2.w + 100, base - 28], [shelf2.x + shelf2.w * 0.65, base + 70], [shelf2.x - 84, base]], p.wall);
+      polygon(c, [[shelf2.x + shelf2.w * 0.66, shelf2.y + 20], [shelf2.x + shelf2.w + 65, base - 28], [shelf2.x + shelf2.w * 0.65, base + 70]], p.shadow);
       for (let n = 1; n < 4; n++) {
-        const yy = shelf.y + depth * n / 4;
-        stroke(c, [[shelf.x - 7 - n * 9, yy], [shelf.x + shelf.w * 0.42, yy + 10], [shelf.x + shelf.w + 15 + n * 8, yy - 4]], p.vein + "14", 2);
+        const yy = shelf2.y + depth * n / 4;
+        stroke(c, [[shelf2.x - 7 - n * 9, yy], [shelf2.x + shelf2.w * 0.42, yy + 10], [shelf2.x + shelf2.w + 15 + n * 8, yy - 4]], p.vein + "14", 2);
       }
       c.restore();
     }
@@ -7452,8 +7579,8 @@
       else ellipse3(c, x, y, 0.6 + noise2(i) * 0.9, 0.6 + noise2(i) * 0.9, p.light + "22");
     }
   }
-  function drawTunnelPlatform(c, shelf, biome, t) {
-    const p = tunnelPalette(biome), { x, y, w, h } = shelf, depth = Math.max(12, h), seed3 = x + y;
+  function drawTunnelPlatform(c, shelf2, biome, t) {
+    const p = tunnelPalette(biome), { x, y, w, h } = shelf2, depth = Math.max(12, h), seed3 = x + y;
     const silhouette = [[x, y], [x + w, y], [x + w, y + Math.min(depth, 17)]];
     for (let xx = x + w; xx > x; xx -= 29) silhouette.push([Math.max(x, xx - 9), y + depth * (0.72 + noise2(xx + seed3) * 0.28)]);
     silhouette.push([x, y + Math.min(depth, 14)]);
@@ -7479,7 +7606,11 @@
       stroke(c, [[xx + 4, yy + d], [xx + 20, yy + d + 8]], p.edge + "20", 1);
     }
     c.restore();
-    stroke(c, [[x, y + 0.5], [x + w, y + 0.5]], p.edge + "b0", 2);
+    stroke(c, [[x, y + 0.5], [x + w, y + 0.5]], biome === "moss" && shelf2.catch ? "#a8c89caa" : p.edge + "b0", shelf2.landing || shelf2.catch ? 2.5 : 2);
+    if (shelf2.landing || shelf2.catch) {
+      stroke(c, [[x + 7, y + 7], [x + w - 7, y + 7]], biome === "moss" && shelf2.catch ? "#68866399" : p.edge + "42", 3);
+      if (biome === "moss") for (let xx = x + 20; xx < x + w - 12; xx += 67) ellipse3(c, xx, y + 4, 14, 2, "#75916a88");
+    }
     for (let xx = x + 3; xx < x + w - 2; xx += 19) {
       const ww = Math.min(18, x + w - xx), chip = noise2(xx + seed3);
       polygon(c, [[xx, y + 1], [xx + ww, y + 1], [xx + ww - 3, y + 4 + chip * 4], [xx + 4, y + 3]], p.stone);
@@ -7497,7 +7628,7 @@
         stroke(c, [[xx, y + 4], [xx + 4, y - 5]], "#8bafaa44", 1);
       }
     } else if (biome === "frost") stroke(c, [[x + 4, y + 2], [x + w * 0.31, y + 4], [x + w * 0.78, y + 2], [x + w - 4, y + 3]], "#cbe5e877", 3);
-    if (shelf.moving) {
+    if (shelf2.moving) {
       for (const xx of [x + w * 0.25, x + w * 0.75]) {
         stroke(c, [[xx, y + 5], [xx + 4, y - 30], [xx, y - 62]], p.edge + "55", 2);
         for (let n = 0; n < 3; n++) ellipse3(c, xx + n % 2 * 3, y - 15 - n * 17, 3, 6, p.stone);

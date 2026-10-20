@@ -96,9 +96,12 @@ test('earned movement abilities open a challenging optional upper dungeon and it
   door=g.room.objects.find(o=>o.to==='moss-ascent');assert(climbTo(g,door.x,door.y));assert(g.input('interact'));assert.equal(g.roomId,'moss-ascent');
   for(const [x,y] of [[490,395],[750,270],[1010,145],[1270,20],[1530,-105],[1800,-230],[1520,-360],[1260,-490],[1005,-620],[780,-750]])assert(climbTo(g,x,y),'upper switchback '+x+','+y);
   assert(climbTo(g,810,-750));assert(g.input('interact'));assert(g.memories.has('moss-ascent:unwritten'));
-  // Descend the eastern switchback. The vault door sits beneath the final
-  // shelf, so walk off its outer edge before returning under it.
-  for(const [x,y] of [[1005,-620],[1260,-490],[1520,-360],[1800,-230],[2010,-100],[2240,25],[2470,150],[2690,275]])assert(climbTo(g,x,y),'eastern descent '+x+','+y);
+  // Walk off the upper route and follow the connected rescue galleries. The
+  // network now catches drops before several former staircase coordinates.
+  g.releaseJump();g.setInputs({right:true});const landings=new Set();
+  for(let frame=0;frame<800;frame++){g.step();if(g.player.grounded&&g.player.y>-750&&g.player.y<520)landings.add(g.player.y);if(g.player.x>2820&&g.player.grounded&&g.player.y===520)break;}
+  g.setInputs({});assert(landings.size>=2,'the descent lands on several playable tiers');
+  assert(g.player.x>2820&&g.player.y===520);assert.equal(g.stats.falls,0);
   assert(walkTo(g,2860));
   door=g.room.objects.find(o=>o.to==='moss-vault');assert(climbTo(g,door.x,door.y));assert(g.input('interact'));assert.equal(g.roomId,'moss-vault');
   assert(walkTo(g,1800));assert(fightGuardian(g));assert(g.bossDefeated('moss-reaver'));

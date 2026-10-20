@@ -16,6 +16,7 @@ npm run test:combat
 npm run test:mobile
 npm run test:echo
 npm run test:recovery
+npm run test:firstgate
 ```
 
 | Command | What it verifies |
@@ -29,6 +30,7 @@ npm run test:recovery
 | `npm run test:mobile` | Portrait gate on home, menus and gameplay; rotation pause/input release, preserved menus, thumb targets, priority menu, multitouch combat, phone/tablet landscape |
 | `npm run test:echo` | Nonblocking echo pickup, journal records, repeated interaction and reload safety, elevated shrine collection |
 | `npm run test:recovery` | Automatic full-party recovery, one-use springs, persistent Game Over, Retry and mobile death-screen rotation |
+| `npm run test:firstgate` | First-gate branch traversal, missed-jump landings, reclimbing, and desktop/mobile presentation |
 
 The Momentum release passed 145 Node tests and all three browser suites. This is a release baseline, not a permanently fixed test-count requirement. Documentation-only edits need link/path checks and command review; they do not require rebuilding or rerunning combat routes.
 
@@ -48,6 +50,7 @@ npx playwright install chromium
 | Mobile landscape | 3150 | `MOBILE_TEST_PORT` |
 | Echo pickups | 3160 | `ECHO_TEST_PORT` |
 | Recovery / Game Over | 3170 | `RECOVERY_TEST_PORT` |
+| First-gate landings | 3180 | `FIRSTGATE_TEST_PORT` |
 
 Each suite starts and stops its own server. Choose a free override port if another task uses the default. Screenshots are written to ignored test-results/. Inspect screenshots after rendering or layout changes; a passing input test cannot prove visual quality by itself.
 
@@ -88,3 +91,5 @@ The dimension suite checks all six main routes, twelve miniboss seals, scarce se
 Recovery tests cover two or three interior springs per gate, different new-journey seeds, stable saved layouts, automatic full-party healing, one activation per attempt, and no healing from camps or travel. Death tests verify that Game Over stops simulation, a penalty is applied once, the dying gate’s enemies return while other gates remain unchanged, first-victory rewards stay claimed, and Retry restores the party at a valid spring. Save/reload and Save & Title must retain a pending death. The focused browser suite checks keyboard/touch retry and portrait rotation over Game Over.
 
 Review real gameplay screenshots of tunnel ceilings, backwalls, attached rock shelves, local light, recovery basins, and boss telegraphs on desktop and mobile. Check that the grounded passage reads as a tunnel, with visible floor and headroom. Art must match the revised continuous floors and catch shelves; it must not conceal safe landings or imply a collision surface the engine does not have.
+
+The first-gate network tests deliberately walk off ledges at several heights, require landing on another elevated platform, and climb back into the route with the abilities available on first arrival. Distinct route fixtures verify parallel paths rather than treating all platforms as a single ascending staircase.
