@@ -89,7 +89,7 @@ See [combat-data.js](../src/combat-data.js) for current values and [combat.js](.
 - Guard starts at 100, drains while held, and spends more on frontal blocks. Release it to recover after its regeneration delay. Rear attacks bypass it.
 - The opening deflect window is seven frames; repeated taps cannot bypass its 24-frame lock. A successful deflect opens a 45-frame riposte opportunity.
 - Guard break disables the shield for 52 frames and initially staggers the actor. After stagger, movement and attacks allow an escape while Guard reforms.
-- Boss posture gains from hits and breaks at 100. A break grants a longer stun; ordinary boss hit-stun is capped to prevent endless light-attack locking. Parry and posture recovery openings remain punishable.
+- Boss posture gains from hits and breaks at 100. A break grants 65 frames of stun and an 80-frame recovery, with a 180-active-frame lock on rebuilding posture. Ordinary boss hit-stun is capped. Parry and posture recovery openings remain punishable.
 - The normal air-dash allowance is one; Zephyrix has two. Ground contact, pogo, wall-jump, and grapple rules can refresh resources. Party swaps cannot.
 - Most offense cancels Focus healing and lowers Guard. Raising Guard clears a queued attack so a buffered strike cannot attack under a fresh shield.
 - Focus healing requires still, grounded commitment. Damage and movement interrupt it; it does not provide invulnerability.
@@ -102,7 +102,11 @@ These are implemented action-RPG effects, not the original arena type-chart prop
 
 ## Reading boss attacks
 
-Every main guardian, gatekeeper, and vault boss now has its own named attacks and phase order. Read the attack name and avoidance hint, then watch the marked area: its warning precedes the damaging shape. Some moves change the chamber with one-way landings, summon enemies, pull you toward a strike, or lock a dash onto your earlier position. Keep moving after a target is committed and use recovery to punish or heal.
+Every main guardian, gatekeeper, and vault boss has its own named attacks and phase patterns. Its next choice also responds to spacing, recent moves, and sustained pressure. Read the attack name and avoidance hint, then watch the marked area: its warning precedes the damaging shape. Some moves change the chamber with one-way landings, summon enemies, pull you toward a strike, or lock a dash onto your earlier position. Keep moving after a target is committed and use recovery to punish or heal.
+
+Three identical grounded heavy hits at close range can provoke a warned repositioning response. After 12 frames of its tell, a visible guard chips that recognized frontal heavy to 30% damage and three posture rather than the usual 17. Light attacks, another heavy route, aerial attacks, rear hits, and ripostes retain full damage; recovery, healing, and phase changes are unguarded. Ordinary flinches do not cancel the response, while a parry or posture break does. Evade the response or wait for recovery, then commit to a punish. Strong boss knockback can cancel and displace a heavy through startup armor; the armor still halves HP damage.
+
+Later bosses scale health and pressure with progression. Stronger encounters become faster and hit harder below 40% health, and their limited healing channels create another interruptible commitment. Read the channel and punish it instead of retreating indefinitely. See the [boss encounter guide](boss-encounters.md) for progression and counterplay.
 
 A normal frontal hit can be shielded or deflected. Marked unblockable attacks require escape or dash timing; a late execution beam can defeat the active companion outright if it connects. Use its advertised safe lane or raised landing rather than standing behind Guard. First-gate encounters remain solvable with the starting jump, dash, and shield. Detailed move names and counters are in the [boss encounter guide](boss-encounters.md).
 

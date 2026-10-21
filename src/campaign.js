@@ -128,16 +128,21 @@ export class CampaignEngine extends TrainingEngine{
   }
   strike(e,damage,direction,options={}){
     if(e.hp<=0)return;
+    if(this.combat.bossReadsStrike(e,options)){
+      damage*=.3;options={...options,guarded:true};
+      this.emit('bossguard',{boss:e.boss,x:e.x,y:e.y-80});
+      if(!e.guardNoticedTick||this.tick-e.guardNoticedTick>90){e.guardNoticedTick=this.tick;this.effects.push({type:'number',x:e.x,y:e.y-115,text:'READ · CHANGE ROUTE',life:40,color:BOSSES[e.boss].color});}
+    }
     if(e.kind==='glassmarauder'&&['patrol','windup'].includes(e.state)){
       if(options.heavy){e.state='recover';e.timer=52;this.emit('slam');}
       else damage*=.22;
     }
-    const before=e.hp,brokenStun=e.stun>20&&e.boss&&e.state==='recover'?e.stun:0;const power=(this.equipped.includes('fang')?1.22:1)*(1+this.combat.flow*.0015);
+    const before=e.hp,brokenStun=e.stun>20&&e.boss&&e.state==='recover'?e.stun:0,committingCounter=e.boss&&['countertell','evade','enrage'].includes(e.state);const power=(this.equipped.includes('fang')?1.22:1)*(1+this.combat.flow*.0015);
     const owner=this.party[options.source??this.activeSlot],focus=owner.spirit,frameEnemies=this.enemies;
     super.strike(e,damage*power,direction,options);
     if(this.enemies!==frameEnemies||this.player.respawning)return;
     owner.spirit=Math.min(owner.spirit,focus+(options.dot?.15:4));
-    if(e.hp<before){if(e.boss)e.stun=brokenStun||Math.min(e.stun,3);this.hitstop=options.dot?0:this.player.attack?.hitstop||(options.heavy?3:1);
+    if(e.hp<before){if(e.boss)e.stun=committingCounter?0:brokenStun||Math.min(e.stun,3);this.hitstop=options.dot?0:this.player.attack?.hitstop||(options.heavy?3:1);
       if(!options.dot){this.combo++;this.comboTimer=100;this.effects.push({type:'number',x:e.x,y:e.y-80,text:String(Math.round(before-e.hp)),life:35,color:this.data.accent});}
     }
     this.combat.onStrike(e,before,direction,options);
@@ -147,9 +152,13 @@ export class CampaignEngine extends TrainingEngine{
     if(this.player.dash&&this.player.invul)this.combat.evade(direction);
     const defended=status.unblockable?null:this.combat.defend(direction,amount);if(defended!==null)return defended;
     if(this.preventLethal?.(amount,direction))return true;
+    const armored=this.player.armor>0,strongImpact=Number.isFinite(status.knockback)&&status.knockback>=1.4;
     const ok=super.hurt(direction,amount,status);
     if(this.enemies!==frameEnemies||this.player.respawning)return ok;
-    if(ok)this.combat.onHurt();
+    // Heavy armor still reduces damage, but a committed boss impact must move
+    // the attacker away instead of allowing stationary heavy trades forever.
+    if(ok&&armored&&strongImpact){const p=this.player,force=Math.min(3,status.knockback);p.vx=direction*10*force;p.vy=-Math.min(10,5+force);p.grounded=false;p.wallLock=Math.max(p.wallLock,10);p.attack=null;p.armor=0;}
+    if(ok)this.combat.onHurt(status);
     if(ok&&this.equipped.includes('thorn'))for(const e of this.enemies)if(e.hp>0&&Math.abs(e.x-this.player.x)<180)this.strike(e,18,direction,{heavy:true});
     return ok;
   }
@@ -185,6 +194,8 @@ export class CampaignEngine extends TrainingEngine{
     const lethalFall=!wipe&&this.player.hp<=1&&!this.party.some((m,i)=>i!==this.activeSlot&&m.hp>0);
     if(wipe||lethalFall){this.stats.falls++;this.beginGameOver();return;}
     super.respawn(false);this.combat?.reset();this.grapple=null;
+    for(const e of [...this.enemies])if(e.hp>0&&e.boss)clearBossEncounter(this,e);
+    resetBossEncounters(this);
     for(const e of this.enemies)if(e.hp>0&&e.boss){e.hp=e.maxHp;e.phase=1;e.pattern=0;}this.save();
   }
   beginGameOver(){
@@ -344,5 +355,5 @@ export class CampaignEngine extends TrainingEngine{
     if(dist<35&&Math.abs(p.y-e.y)<65)this.hurt(Math.sign(p.x-e.x),1,e.kind==='frostmite'?{slow:100}:{});
   }
   updateBoss(e){updateBossEncounter(this,e);}
-  snapshot(){const s=super.snapshot();return {...s,mode:'campaign',worldSeed:this.worldSeed,recoveryPoints:this.recoveryPoints.map(r=>({...r})),spentRecovery:[...this.spentRecovery],discoveredRecovery:[...this.discoveredRecovery],death:this.death?structuredClone(this.death):null,safeRest:{...this.safeRest},combat:this.combat.snapshot(),room:this.roomId,roomName:this.room.name,biome:this.room.biome,chapter:CHAPTERS[Math.min(this.fragments.size,5)].title,abilities:[...this.abilities],fragments:[...this.fragments],unlocked:[...this.unlocked],visited:[...this.visited],inventory:{...this.inventory},charms:[...this.charms],equipped:[...this.equipped],memories:[...this.memories],shrines:[...this.shrines],combo:this.combo,finished:this.finished,ending:this.ending,playtime:this.playtime,bossHazards:(this.bossHazards||[]).map(h=>structuredClone(h)),enemies:this.enemies.map(e=>({id:e.id,boss:e.boss,kind:e.kind,hp:e.hp,maxHp:e.maxHp,state:e.state,x:e.x,y:e.y,phase:e.phase,timer:e.timer,moveId:e.moveId,moveName:e.moveName,attackKind:e.attackKind,counter:e.counter,hint:e.hint,attackFrame:e.attackFrame,windupFrames:e.windupFrames,summonedBy:e.summonedBy,telegraph:e.telegraph?structuredClone(e.telegraph):null})),nearby:this.room.objects.filter(o=>Math.abs(o.x-this.player.x)<100).map(o=>o.id)};}
+  snapshot(){const s=super.snapshot();return {...s,mode:'campaign',worldSeed:this.worldSeed,recoveryPoints:this.recoveryPoints.map(r=>({...r})),spentRecovery:[...this.spentRecovery],discoveredRecovery:[...this.discoveredRecovery],death:this.death?structuredClone(this.death):null,safeRest:{...this.safeRest},combat:this.combat.snapshot(),room:this.roomId,roomName:this.room.name,biome:this.room.biome,chapter:CHAPTERS[Math.min(this.fragments.size,5)].title,abilities:[...this.abilities],fragments:[...this.fragments],unlocked:[...this.unlocked],visited:[...this.visited],inventory:{...this.inventory},charms:[...this.charms],equipped:[...this.equipped],memories:[...this.memories],shrines:[...this.shrines],combo:this.combo,finished:this.finished,ending:this.ending,playtime:this.playtime,bossHazards:(this.bossHazards||[]).map(h=>structuredClone(h)),enemies:this.enemies.map(e=>({id:e.id,boss:e.boss,kind:e.kind,hp:e.hp,maxHp:e.maxHp,state:e.state,x:e.x,y:e.y,phase:e.phase,timer:e.timer,pressureReady:!!e.pressureReady,pressure:e.pressure?{...e.pressure}:null,postureLock:e.postureLock||0,guarding:!!e.guarding,berserk:!!e.berserk,healUsed:!!e.healUsed,healChannel:e.healChannel?{...e.healChannel}:null,counterMotion:e.counterMotion?{...e.counterMotion}:null,counterState:e.counterState||null,moveId:e.moveId,moveName:e.moveName,attackKind:e.attackKind,counter:e.counter,hint:e.hint,attackFrame:e.attackFrame,windupFrames:e.windupFrames,summonedBy:e.summonedBy,telegraph:e.telegraph?structuredClone(e.telegraph):null})),nearby:this.room.objects.filter(o=>Math.abs(o.x-this.player.x)<100).map(o=>o.id)};}
 }

@@ -59,9 +59,10 @@ test('boss rewards are unique, unlock abilities and companions, and survive room
   const g=new CampaignEngine();g.loadRoom('moss-heart');g.enemies[0].introduced=true;g.player.x=850;assert(fightGuardian(g));assert(g.fragments.has('briar'));assert(g.abilities.has('claw'));assert(g.unlocked.has('mycora'));const coins=g.lumens;g.awardEnemy(g.enemies[0]);assert.equal(g.lumens,coins);g.loadRoom('moss-heart');assert.equal(g.enemies[0].hp,0);
 });
 test('every main guardian retains three phases and individually named, telegraphed mechanics',()=>{
+  let previousHealth=0;
   for(const [id,b] of Object.entries(BOSSES).filter(([,b])=>!b.miniboss)){
     const g=new CampaignEngine();g.loadRoom(b.biome+'-heart');const e=g.enemies.find(e=>e.boss===id);
-    assert(e);assert.equal(e.maxHp,Math.round(b.hp*2.2));e.introduced=true;
+    assert(e);assert(e.maxHp>=Math.round(b.hp*2.2));assert(e.maxHp>previousHealth,'each successive main guardian has a larger health pool');previousHealth=e.maxHp;e.introduced=true;
     for(const fraction of [.6,.3]){e.hp=e.maxHp*fraction;g.updateBoss(e);assert.equal(e.state,'enrage');}
     const names=new Set();for(let i=0;i<4;i++){
       beginBossMove(g,e,i);assert.equal(e.state,'windup');assert(e.telegraph?.events.length>0);assert(e.timer>=28);assert(e.hint&&e.counter);names.add(e.moveName);

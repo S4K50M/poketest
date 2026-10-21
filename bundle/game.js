@@ -2034,18 +2034,46 @@
     }
   };
 
+  // src/boss-progression.js
+  var BIOME_RANK = { moss: 1, forge: 2, reef: 3, storm: 4, frost: 5, rift: 6 };
+  var NAMED_RANK = { briar: 1, bell: 2, leviathan: 3, conductor: 4, hourglass: 5, crown: 6, belltwin: 4, palimpsest: 5, nullheart: 7 };
+  var CONFIGS = Object.freeze(Object.fromEntries(Array.from({ length: 7 }, (_, i) => {
+    const rank = i + 1;
+    return [rank, Object.freeze({ rank, health: 1 + i * 0.04, damage: 1 + i * 0.04, tempo: 1 + i * 0.018, late: rank >= 4, healFraction: rank >= 4 ? 0.09 : 0, healFrames: 100, readFrames: rank <= 2 ? 36 : 30, counterCooldown: 180 })];
+  })));
+  function bossRank(boss) {
+    if (typeof boss === "string") return NAMED_RANK[boss] || BIOME_RANK[boss.split("-")[0]] || 1;
+    if (!boss) return 1;
+    if (boss.finale) return 7;
+    if (boss.id && NAMED_RANK[boss.id]) return NAMED_RANK[boss.id];
+    const rank = BIOME_RANK[boss.biome] || 1;
+    return Math.min(7, rank + (boss.optional ? 2 : 0));
+  }
+  var bossProgression = (boss) => CONFIGS[bossRank(boss)];
+  var bossPhase = (e) => e.hp <= e.maxHp / 3 ? 3 : e.hp <= e.maxHp * 2 / 3 ? 2 : 1;
+  var bossTempo = (e) => bossProgression(e.boss).tempo * (e.berserk ? 1.12 : 1);
+  var bossDamage = (e, damage) => damage * bossProgression(e.boss).damage * (e.berserk ? 1.18 : 1);
+  var bossKnockback = (e, force2) => force2 * (1 + (bossRank(e.boss) - 1) * 0.025) * (e.berserk ? 1.1 : 1);
+
   // src/boss-encounters.js
   var BOSS_ENCOUNTERS = Object.freeze({ ...MAJOR_ENCOUNTERS, ...WARDEN_ENCOUNTERS, ...REAVER_ENCOUNTERS });
   var clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   var finite = (n2, fallback = 0) => Number.isFinite(n2) ? n2 : fallback;
   var ownerOf = (e) => e.key ?? `boss:${e.boss}:${e.id}`;
-  var phaseOf = (e) => e.hp <= e.maxHp / 3 ? 3 : e.hp <= e.maxHp * 2 / 3 ? 2 : 1;
+  var phaseOf = bossPhase;
   var valid = (g) => g.phase === "playing" && !g.player.respawning;
   function clearAttack(g, e) {
     const owner = ownerOf(e);
     e.encounter = null;
     e.motion = null;
     e.telegraph = null;
+    e.counterMotion = null;
+    e.counterState = null;
+    e.healChannel = null;
+    e.rageMotion = null;
+    e.guarding = false;
+    e.counterGuard = false;
+    e.counterFollowup = false;
     g.bossHazards = (g.bossHazards || []).filter((h) => h.bossOwner !== owner);
     g.enemyShots = g.enemyShots.filter((s) => s.bossOwner !== owner);
     g.hazards = g.hazards.filter((s) => s.bossOwner !== owner);
@@ -2068,16 +2096,35 @@
       e.encounter = null;
       e.motion = null;
       e.telegraph = null;
+      e.counterMotion = null;
+      e.counterState = null;
+      e.healChannel = null;
+      e.rageMotion = null;
+      e.healUsed = false;
+      e.healRequest = false;
+      e.berserk = false;
+      e.pressure = null;
+      e.pressureReady = false;
+      e.postureLock = 0;
+      e.poise = 0;
+      e.guarding = false;
+      e.counterGuard = false;
+      e.counterFollowup = false;
+      e.guardReadMove = null;
+      e.counterCooldown = 0;
+      e.attackHistory = [];
+      e.recoveryElapsed = 0;
+      e.tactic = null;
     }
   }
   function context(g, e, b) {
     const left = Math.max(50, finite(e.left, 50)), right = Math.min(g.worldWidth - 50, finite(e.right, g.worldWidth - 50));
     return { x: e.x, y: e.y, floor: e.baseY ?? 520, tx: clamp(g.player.x, left, right), ty: g.player.y, left, right, center: (left + right) / 2, phase: e.phase || 1, face: Math.sign(g.player.x - e.x) || e.face || 1, mechanic: b.mechanic, clampX: (x) => clamp(x, left + 24, right - 24) };
   }
-  function beginBossMove(g, e, index, definition = BOSSES[e.boss]) {
+  function beginBossMove(g, e, index, definition2 = BOSSES[e.boss]) {
     const profile = BOSS_ENCOUNTERS[e.boss], move2 = profile?.moves[index];
     if (!move2 || e.hp <= 0) return false;
-    const c = context(g, e, definition), events2 = move2.build(c).map((event, n2) => ({ ...event, at: Math.max(0, Math.floor(event.at || 0)), order: n2 })).sort((a, b) => a.at - b.at || a.order - b.order);
+    const c = context(g, e, definition2), tempo = bossTempo(e), events2 = move2.build(c).map((event, n2) => ({ ...event, at: Math.max(0, Math.floor((event.at || 0) / tempo)), delay: event.delay === void 0 ? void 0 : Math.max(12, Math.round(event.delay / tempo)), duration: event.duration === void 0 ? void 0 : Math.max(10, Math.round(event.duration / tempo)), order: n2 })).sort((a, b) => a.at - b.at || a.order - b.order);
     e.move = index;
     e.moveId = move2.id;
     e.moveName = move2.name;
@@ -2085,14 +2132,19 @@
     e.counter = move2.counter;
     e.hint = move2.hint;
     e.face = c.face;
-    e.windupFrames = move2.tell;
-    e.moveDuration = move2.active;
+    const execution = events2.some((event) => event.damage === "lethal");
+    e.guarding = !!e.counterGuard;
+    e.counterGuard = false;
+    e.windupFrames = Math.max(execution ? 90 : 28, Math.round(move2.tell / tempo));
+    e.moveDuration = Math.ceil(move2.active / tempo);
     e.attackFrame = -1;
     e.state = "windup";
-    e.timer = move2.tell;
+    e.timer = e.windupFrames;
     e.targetX = c.tx;
     e.targetY = c.ty;
-    e.encounter = { events: events2, frame: -1, next: 0, context: { ...c, clampX: void 0 }, recover: move2.recover, active: move2.active };
+    e.recoveryElapsed = 0;
+    e.attackHistory = [...e.attackHistory || [], index].slice(-4);
+    e.encounter = { events: events2, frame: -1, next: 0, context: { ...c, clampX: void 0 }, recover: Math.max(28, Math.round(move2.recover / tempo)), active: e.moveDuration };
     e.telegraph = { kind: move2.kind, x: c.x, y: c.floor, targetX: c.tx, targetY: c.ty, radius: 100, name: move2.name, hint: move2.hint, counter: move2.counter, events: events2 };
     g.emit("warning", { boss: e.boss, move: move2.id });
     return true;
@@ -2101,11 +2153,11 @@
     const owner = ownerOf(e), color = b.color, base = e.baseY ?? 520;
     if (event.type === "zone") {
       const life = clamp(finite(event.life, 20), 1, 180), delay = clamp(finite(event.delay, 18), 0, 180);
-      const h = { ...event, type: "zone", x: finite(event.x, e.x), y: finite(event.y, base - 25), w: Math.max(8, finite(event.w, 120)), h: Math.max(8, finite(event.h, 70)), delay, maxDelay: delay, life, maxLife: life, bossOwner: owner, boss: e.boss, color, name: event.label || e.moveName, hint: e.hint, counter: e.counter, lethal: event.damage === "lethal" };
+      const h = { ...event, type: "zone", damage: event.damage === "lethal" ? "lethal" : bossDamage(e, event.damage ?? 1.5), knockback: bossKnockback(e, event.knockback || 1), x: finite(event.x, e.x), y: finite(event.y, base - 25), w: Math.max(8, finite(event.w, 120)), h: Math.max(8, finite(event.h, 70)), delay, maxDelay: delay, life, maxLife: life, bossOwner: owner, boss: e.boss, color, name: event.label || e.moveName, hint: e.hint, counter: e.counter, lethal: event.damage === "lethal" };
       g.bossHazards ?? (g.bossHazards = []);
       if (g.bossHazards.filter((n2) => n2.bossOwner === owner).length < 36) g.bossHazards.push(h);
     } else if (event.type === "dash") {
-      e.motion = { x: e.x, y: e.y, to: clamp(finite(event.to, e.targetX), e.left, e.right), duration: Math.max(10, event.duration || 18), height: Math.max(0, event.height || 0), frame: 0, damage: event.damage ?? 1.5, knockback: event.knockback || 1.4 };
+      e.motion = { x: e.x, y: e.y, to: clamp(finite(event.to, e.targetX), e.left, e.right), duration: Math.max(10, event.duration || 18), height: Math.max(0, event.height || 0), frame: 0, damage: bossDamage(e, event.damage ?? 1.5), knockback: bossKnockback(e, event.knockback || 1.4) };
       e.face = Math.sign(e.motion.to - e.x) || e.face;
       e.state = e.motion.height ? "leap" : "charge";
     } else if (event.type === "warp") {
@@ -2116,9 +2168,9 @@
     } else if (event.type === "shots") {
       const x = finite(event.x, e.x), y = finite(event.y, e.y - 75), a = finite(event.angle, Math.atan2(e.targetY - 35 - y, e.targetX - x)), count = clamp(Math.round(event.count || 1), 1, 9), spread = event.spread || 0;
       for (let i = 0; i < count; i++) {
-        const angle = a + (count === 1 ? 0 : (i / (count - 1) - 0.5) * spread), speed = clamp(event.speed || 6, 2, 14);
+        const angle = a + (count === 1 ? 0 : (i / (count - 1) - 0.5) * spread), speed = clamp((event.speed || 6) * Math.min(1.16, bossTempo(e)), 2, 14);
         if (g.enemyShots.filter((s) => s.bossOwner === owner).length >= 64) break;
-        g.enemyShots.push({ x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, gravity: event.gravity || 0, damage: event.damage ?? 1, status: event.status || {}, life: 150, color, kind: event.kind || "orb", radius: event.radius || 7, bossOwner: owner });
+        g.enemyShots.push({ x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, gravity: event.gravity || 0, damage: bossDamage(e, event.damage ?? 1), status: { ...event.status, knockback: bossKnockback(e, event.status?.knockback || 1) }, life: 150, color, kind: event.kind || "orb", radius: event.radius || 7, bossOwner: owner });
       }
       g.emit("cast");
     } else if (event.type === "summon" && MINIONS[event.kind]) {
@@ -2138,7 +2190,7 @@
     } else if (event.type === "force") {
       g.bossHazards ?? (g.bossHazards = []);
       g.bossHazards.push({ ...event, type: "force", x: finite(event.x, e.x), y: finite(event.y, base - 50), radius: clamp(event.radius || 240, 50, 500), pull: clamp(event.pull || 0.5, -1.2, 1.2), delay: 0, maxDelay: 0, life: clamp(event.duration || 45, 1, 90), maxLife: clamp(event.duration || 45, 1, 90), bossOwner: owner, boss: e.boss, color, name: e.moveName, hint: e.hint });
-    } else if (event.type === "heal" && g.enemies.some((n2) => n2.summonedBy === owner && n2.hp > 0)) e.hp = Math.min(e.maxHp, e.hp + Math.min(e.maxHp * 0.03, event.amount || 8));
+    } else if (event.type === "heal" && bossProgression(e.boss).late && g.enemies.some((n2) => n2.summonedBy === owner && n2.hp > 0)) e.healRequest = true;
   }
   function moveBoss(g, e) {
     const m = e.motion;
@@ -2155,30 +2207,167 @@
       e.state = "attack";
     }
   }
-  function updateBossEncounter(g, e, definition = BOSSES[e.boss]) {
+  function chooseBossMove(g, e, profile = BOSS_ENCOUNTERS[e.boss]) {
+    const sequence = profile.sequences[(e.phase || 1) - 1], history = e.attackHistory || [], last2 = history.at(-1), distance = Math.abs(g.player.x - e.x), air = g.player.y < (e.baseY ?? 520) - 90;
+    e.attackCursor = (e.attackCursor || 0) + 1;
+    const seed3 = e.attackCursor + (e.phase || 1) + (e.id || 0), preferred = sequence[(e.attackCursor - 1) % sequence.length];
+    const scores = profile.moves.map((move2, index2) => {
+      let score = index2 === preferred ? 2 : 0;
+      score += (seed3 + index2 * 3) % 5 * 0.18;
+      if (index2 === last2) score -= 7;
+      if (history.slice(-3).includes(index2)) score -= 1.5;
+      if (distance < 155 && ["retreat", "behind", "jump"].includes(move2.counter)) score += 3.5;
+      if (distance > 320 && ["dodge", "platform", "minions"].includes(move2.counter)) score += 3;
+      if (air && ["beam", "rain", "orbit", "lightning", "dive"].includes(move2.kind)) score += 3;
+      if (e.counterFollowup && ["leap", "dive", "axe", "hammer", "sword", "dash", "roots"].some((kind) => move2.kind.includes(kind))) score += 3;
+      if (move2.counter === "minions" && g.enemies.some((n2) => n2.summonedBy === ownerOf(e) && n2.hp > 0)) score -= 5;
+      return score;
+    });
+    let index = 0;
+    for (let n2 = 1; n2 < scores.length; n2++) if (scores[n2] > scores[index]) index = n2;
+    e.tactic = air ? "ANTI-AIR" : distance < 155 ? "CLOSE PRESSURE" : distance > 320 ? "RANGE CONTROL" : "MIX-UP";
+    e.counterFollowup = false;
+    return index;
+  }
+  function breakawayWarning(g, e, profile, { delay, phase = false } = {}) {
+    const style = profile.movement, base = e.baseY ?? 520, face = Math.sign(g.player.x - e.x) || e.face || 1;
+    const shape = style === "anchor" ? "floor" : style === "stalk" ? "slash" : style === "hover" ? "pillar" : "blast";
+    const x = style === "stalk" ? e.x + face * 75 : style === "hover" ? g.player.x : e.x;
+    const w = style === "anchor" ? 260 : style === "stalk" ? 220 : style === "hover" ? 100 : 220, h = style === "anchor" ? 38 : style === "stalk" ? 130 : style === "hover" ? 180 : 100;
+    const hint = style === "anchor" ? "Jump the low root breakaway." : style === "stalk" ? "Cross behind the raised weapon." : style === "hover" ? "Leave the marked dive lane." : "Dash clear of the crossing strike.";
+    g.bossHazards ?? (g.bossHazards = []);
+    g.bossHazards.push({ type: "zone", shape, x, y: base - h / 2, w, h, delay, maxDelay: delay, life: 10, maxLife: 10, damage: bossDamage(e, phase ? 0.85 : 1.5), knockback: bossKnockback(e, 2.6), bossOwner: ownerOf(e), boss: e.boss, color: BOSSES[e.boss].color, name: phase ? "PHASE BREAKAWAY" : e.tactic, hint, counter: style === "anchor" ? "jump" : style === "stalk" ? "behind" : "dodge" });
+  }
+  function startCounter(g, e, profile) {
+    const p = g.player, config = bossProgression(e.boss), away = Math.sign(e.x - p.x) || -e.face;
+    clearAttack(g, e);
+    e.pressureReady = false;
+    e.counterCooldown = config.counterCooldown;
+    e.counterState = "read";
+    e.state = "countertell";
+    e.timer = config.readFrames;
+    e.stun = 0;
+    const style = profile.movement, reach = style === "anchor" ? 135 : style === "hover" ? 255 : style === "skirmish" ? 190 : 210;
+    let target = style === "skirmish" ? p.x - away * reach : e.x + away * reach;
+    if (target < e.left + 24 || target > e.right - 24) target = p.x - away * reach;
+    e.counterMotion = { x: e.x, y: e.y, to: clamp(target, e.left + 24, e.right - 24), height: style === "anchor" ? 38 : style === "hover" ? 160 : style === "skirmish" ? 170 : 75, duration: style === "anchor" ? 28 : 24, frame: 0 };
+    e.moveName = profile.title + " \xB7 Breakaway";
+    e.hint = style === "anchor" ? "The rooted body braces, then shifts away. Let it settle before attacking." : style === "skirmish" ? "It is reading your heavy rhythm. Do not chase under the crossing vault." : style === "hover" ? "Watch the rising body. Reposition below it, then punish the next landing." : "The heavy steps back and changes its angle. Follow the tell, not the retreat.";
+    e.tactic = style === "anchor" ? "ROOTED RESET" : style === "skirmish" ? "CROSSING VAULT" : style === "hover" ? "ASCENDING RESET" : "FLANKING STEP";
+    breakawayWarning(g, e, profile, { delay: config.readFrames });
+    g.emit("bosscounter", { boss: e.boss, x: e.x, y: e.y, stage: "tell" });
+    g.say("HEAVY PATTERN READ \xB7 " + e.tactic);
+  }
+  function updateCounter(g, e, profile) {
+    const m = e.counterMotion;
+    if (!m) {
+      e.state = "patrol";
+      e.timer = 10;
+      e.counterState = null;
+      return;
+    }
+    if (e.state === "countertell") {
+      if (e.timer <= bossProgression(e.boss).readFrames - 12) e.guarding = true;
+      if (e.timer > 0) return;
+      e.state = "evade";
+      e.counterState = "escape";
+      g.emit("bosscounter", { boss: e.boss, x: e.x, y: e.y, stage: "escape" });
+      return;
+    }
+    const t = clamp(++m.frame / m.duration, 0, 1), base = e.baseY ?? 520;
+    e.x = m.x + (m.to - m.x) * t;
+    e.y = m.y + (base - m.y) * t - Math.sin(Math.PI * t) * m.height;
+    if (g.tick % 4 === 0) g.effects.push({ type: "bossTrail", x: e.x, y: e.y, color: BOSSES[e.boss].color, life: 15 });
+    if (t >= 1) {
+      e.y = base;
+      e.counterMotion = null;
+      e.counterState = null;
+      e.counterFollowup = true;
+      e.counterGuard = true;
+      beginBossMove(g, e, chooseBossMove(g, e, profile));
+    }
+  }
+  function startHeal(g, e, profile) {
+    const config = bossProgression(e.boss);
+    clearAttack(g, e);
+    e.healUsed = true;
+    e.healRequest = false;
+    e.state = "heal";
+    e.stun = 0;
+    e.timer = config.healFrames;
+    e.healChannel = { remaining: config.healFrames, total: config.healFrames, startHp: e.hp, interrupted: false };
+    e.moveName = profile.title + " \xB7 Rekindle";
+    e.hint = "Land a heavy strike or a riposte before the healing channel completes.";
+    e.tactic = "REKINDLING";
+    g.emit("bossheal", { boss: e.boss, x: e.x, y: e.y, stage: "start" });
+    g.say("REKINDLING \xB7 HEAVY STRIKE OR RIPOSTE TO INTERRUPT");
+  }
+  function updateHeal(g, e) {
+    const channel = e.healChannel;
+    if (!channel) return;
+    if (channel.interrupted || e.state !== "heal") {
+      e.healChannel = null;
+      e.state = "recover";
+      e.stun = Math.max(e.stun || 0, 18);
+      e.timer = 70;
+      e.recoveryElapsed = 0;
+      g.emit("bossheal", { boss: e.boss, x: e.x, y: e.y, stage: "interrupt" });
+      g.say("REKINDLING BROKEN \xB7 PUNISH THE OPENING");
+      return;
+    }
+    e.stun = 0;
+    channel.remaining = Math.max(0, channel.remaining - 1);
+    e.timer = channel.remaining;
+    if (g.tick % 12 === 0) g.effects.push({ type: "heal", x: e.x, y: e.y - 80, color: BOSSES[e.boss].color, life: 22 });
+    if (!channel.remaining) {
+      e.hp = Math.min(e.maxHp, e.hp + Math.round(e.maxHp * bossProgression(e.boss).healFraction));
+      e.healChannel = null;
+      e.state = "recover";
+      e.timer = 48;
+      e.recoveryElapsed = 0;
+      g.emit("bossheal", { boss: e.boss, x: e.x, y: e.y, stage: "complete" });
+      g.say("REKINDLING SPENT \xB7 THE BOSS CANNOT HEAL AGAIN");
+    }
+  }
+  function updateBossEncounter(g, e, definition2 = BOSSES[e.boss]) {
     if (!e.introduced || e.hp <= 0 || g.paused || g.hitstop > 0 || !valid(g) || e.frozen > 0) return;
     const profile = BOSS_ENCOUNTERS[e.boss];
     if (!profile) return;
-    const phase = phaseOf(e), base = e.baseY ?? 520;
-    if (phase > (e.phase || 1)) {
+    const config = bossProgression(e.boss), phase = phaseOf(e), base = e.baseY ?? 520, newRage = config.late && !e.berserk && e.hp <= e.maxHp * 0.4;
+    if (newRage || phase > (e.phase || 1)) {
       clearBossEncounter(g, e);
-      e.phase = phase;
+      e.phase = Math.max(phase, e.phase || 1);
+      e.berserk = !!e.berserk || newRage;
       e.state = "enrage";
-      e.timer = 54;
+      e.timer = newRage ? 60 : 54;
       e.stun = 0;
       e.poise = 0;
       e.y = base;
       e.attackCursor = 0;
-      g.effects.push({ type: "burst", x: e.x, y: base - 70, color: definition.color, life: 40 });
-      g.emit("enrage");
-      g.say(definition.name.toUpperCase() + " \xB7 PHASE " + phase + " \xB7 " + profile.title);
+      e.pressureReady = false;
+      const away = Math.sign(e.x - g.player.x) || -e.face, target = e.x + away * 235;
+      e.rageMotion = { x: e.x, y: e.y, to: clamp(target, e.left + 24, e.right - 24), frame: 0, duration: 30, height: profile.movement === "anchor" ? 55 : profile.movement === "hover" ? 180 : 120 };
+      breakawayWarning(g, e, profile, { delay: 24, phase: true });
+      g.effects.push({ type: "burst", x: e.x, y: base - 70, color: definition2.color, life: 40 });
+      g.emit(newRage ? "bossrage" : "enrage", { boss: e.boss, x: e.x, y: e.y });
+      g.say(definition2.name.toUpperCase() + (newRage ? " \xB7 DESPERATION \xB7 FASTER / STRONGER" : " \xB7 PHASE " + phase + " \xB7 " + profile.title));
       return;
     }
     if (e.flash > 0) e.flash--;
     if (e.slow > 0) e.slow--;
-    if (e.encounter && (e.state === "recover" || e.stun > 12)) {
+    if (e.counterCooldown > 0) e.counterCooldown--;
+    if (e.healChannel) {
+      updateHeal(g, e);
+      return;
+    }
+    if ((e.encounter || e.counterMotion) && (e.state === "recover" || e.stun > 12)) {
       clearAttack(g, e);
       e.y = base;
+      e.recoveryElapsed = 0;
+      if (e.state !== "recover") {
+        e.state = "recover";
+        e.timer = Math.max(55, e.timer);
+      }
     }
     if (e.stun > 0) {
       e.stun--;
@@ -2187,15 +2376,37 @@
       return;
     }
     e.timer--;
+    if (e.state === "countertell" || e.state === "evade") {
+      updateCounter(g, e, profile);
+      return;
+    }
     if (e.state === "enrage") {
+      const m = e.rageMotion;
+      if (m && e.timer < 30) {
+        const t = clamp(++m.frame / m.duration, 0, 1);
+        e.x = m.x + (m.to - m.x) * t;
+        e.y = m.y + (base - m.y) * t - Math.sin(Math.PI * t) * m.height;
+      }
       if (e.timer <= 0) {
+        e.y = base;
+        e.rageMotion = null;
         e.state = "patrol";
         e.timer = 12;
       }
       return;
     }
+    if (e.state === "windup" && e.pressureReady && !e.counterCooldown && !e.postureLock && e.windupFrames - e.timer >= 18 && Math.abs(g.player.x - e.x) < 230) {
+      startCounter(g, e, profile);
+      return;
+    }
     if (e.state === "recover") {
+      e.guarding = false;
       e.y = base;
+      e.recoveryElapsed = (e.recoveryElapsed || 0) + 1;
+      if (e.pressureReady && !e.counterCooldown && !e.postureLock && e.recoveryElapsed >= 24 && Math.abs(g.player.x - e.x) < 230) {
+        startCounter(g, e, profile);
+        return;
+      }
       if (e.timer <= 0) {
         e.state = "patrol";
         e.timer = 12;
@@ -2203,17 +2414,22 @@
       return;
     }
     if (e.state === "patrol") {
-      const dx = g.player.x - e.x, range = profile.preferredRange ?? 140, speed = (profile.speed ?? 2.4) * (e.slow > 0 ? 0.55 : 1);
+      const dx = g.player.x - e.x, distance = Math.abs(dx), range = profile.preferredRange ?? 140, speed = (profile.speed ?? 2.4) * bossTempo(e) * (e.slow > 0 ? 0.55 : 1);
       e.face = Math.sign(dx) || e.face;
-      if (profile.movement === "skirmish" && Math.abs(dx) < range * 0.65) e.x = clamp(e.x - e.face * speed * 0.7, e.left, e.right);
-      else if (profile.movement !== "anchor" && Math.abs(dx) > range) e.x = clamp(e.x + e.face * speed, e.left, e.right);
-      e.y = base - (profile.movement === "hover" ? 24 + Math.sin(g.tick * 0.06) * 10 : 0);
-      if (e.timer <= 0) {
-        const sequence = profile.sequences[(e.phase || 1) - 1];
-        e.attackCursor = e.attackCursor || 0;
-        const index = sequence[e.attackCursor++ % sequence.length];
-        beginBossMove(g, e, index, definition);
+      if (e.pressureReady && !e.counterCooldown && !e.postureLock && distance < 230) {
+        startCounter(g, e, profile);
+        return;
       }
+      if (config.late && e.berserk && !e.healUsed && e.hp <= e.maxHp * 0.4 && distance > 190) {
+        startHeal(g, e, profile);
+        return;
+      }
+      if (profile.movement === "anchor" && distance < 90) e.x = clamp(e.x - e.face * speed * 0.5, e.left, e.right);
+      else if (profile.movement === "skirmish" && distance < range * 0.75) e.x = clamp(e.x - e.face * speed, e.left, e.right);
+      else if (profile.movement === "hover" && distance < range * 0.65) e.x = clamp(e.x - e.face * speed * 0.6, e.left, e.right);
+      else if (profile.movement !== "anchor" && distance > range) e.x = clamp(e.x + e.face * speed, e.left, e.right);
+      e.y = base - (profile.movement === "hover" ? 35 + Math.sin(g.tick * 0.06) * 16 : 0);
+      if (e.timer <= 0) beginBossMove(g, e, chooseBossMove(g, e, profile), definition2);
       return;
     }
     if (e.state === "windup") {
@@ -2226,11 +2442,12 @@
       e.state = "recover";
       e.timer = 30;
       e.y = base;
+      e.recoveryElapsed = 0;
       return;
     }
     e.attackFrame = ++encounter.frame;
     while (encounter.next < encounter.events.length && encounter.events[encounter.next].at <= encounter.frame) {
-      execute(g, e, encounter.events[encounter.next++], definition);
+      execute(g, e, encounter.events[encounter.next++], definition2);
       if (!valid(g)) return;
     }
     moveBoss(g, e);
@@ -2238,9 +2455,11 @@
     if (encounter.frame >= encounter.active) {
       e.encounter = null;
       e.motion = null;
+      e.guarding = false;
       e.state = "recover";
       e.timer = encounter.recover;
       e.y = base;
+      e.recoveryElapsed = 0;
     }
   }
   function bossHazardHits(h, p, bodyHeight = 72) {
@@ -3845,6 +4064,21 @@
         if (a.dir === "down") g.pogo();
       }
     }
+    noteBossPressure(e, options) {
+      if (!e.boss || options.dot || e.hp <= 0) return;
+      const g = this.g, p = g.player, move2 = options.move || (options.heavy ? "heavy" : "light"), previous = e.pressure;
+      const close = Math.abs(e.x - p.x) < 205 && Math.abs(e.y - p.y) < 135, groundedHeavy = options.heavy && move2 !== "riposte" && p.grounded && close;
+      const repeated = previous && g.tick - previous.lastTick <= 150 && previous.lastMove === move2;
+      e.pressure = { lastMove: groundedHeavy ? move2 : null, chain: groundedHeavy ? repeated ? previous.chain + 1 : 1 : 0, lastTick: g.tick, closeHits: close ? (previous?.closeHits || 0) + 1 : 0 };
+      if (!groundedHeavy) e.pressureReady = false;
+      else if (e.pressure.chain >= 3 && !e.postureLock && e.state !== "heal") e.pressureReady = true;
+    }
+    bossReadsStrike(e, options) {
+      const p = this.g.player;
+      if (!e.boss || !e.guarding || options.dot || !options.heavy || typeof options.move !== "string" || options.move === "riposte" || !p.grounded || ["recover", "heal", "enrage"].includes(e.state)) return false;
+      const read = e.guardReadMove || e.pressure?.lastMove;
+      return !!read && Math.abs(e.x - p.x) < 205 && Math.abs(e.y - p.y) < 135 && Math.sign(p.x - e.x) === e.face && read === (options.move || "heavy");
+    }
     onStrike(e, before, direction, options) {
       if (e.hp >= before) return;
       const g = this.g, p = g.player;
@@ -3854,7 +4088,12 @@
         g.emit("impact", { x: e.x, y: e.y - (e.boss ? 80 : 30), element: options.element || g.data.types[0], heavy: options.heavy, move: options.move });
         e.recoil = 12;
         e.recoilDir = direction;
-        e.stun = Math.max(e.stun || 0, e.boss ? 3 : options.stun || 12);
+        e.stun = e.boss && ["countertell", "evade", "enrage"].includes(e.state) ? 0 : Math.max(e.stun || 0, e.boss ? 3 : options.stun || 12);
+        this.noteBossPressure(e, options);
+        if (e.boss && e.state === "heal" && e.healChannel && (options.heavy || options.move === "riposte")) {
+          e.healChannel.interrupted = true;
+          e.pressureReady = false;
+        }
         if (options.launch && !e.boss && e.hp > 0) {
           e.juggle = 32;
           e.launchVy = typeof options.launch === "number" ? options.launch : -10.5;
@@ -3862,10 +4101,13 @@
           this.stats.launches++;
           g.emit("launch", { x: e.x, y: e.y - 30 });
         }
-        if (e.boss) {
-          e.poise = (e.poise || 0) + (options.heavy ? 17 : 6);
+        if (e.boss && e.hp > 0 && !e.postureLock) {
+          e.poise = (e.poise || 0) + (options.guarded ? 3 : options.heavy ? 17 : 6);
           if (e.poise >= 100) {
             e.poise = 0;
+            e.postureLock = 180;
+            e.pressureReady = false;
+            e.guarding = false;
             e.stun = 65;
             e.state = "recover";
             e.timer = 80;
@@ -3890,6 +4132,13 @@
         e.frozen--;
         if (e.flash) e.flash--;
         return true;
+      }
+      if (e.boss) {
+        if (e.postureLock > 0) e.postureLock--;
+        if (e.pressure && this.g.tick - e.pressure.lastTick > 180) {
+          e.pressure = null;
+          e.pressureReady = false;
+        }
       }
       if (e.juggle > 0 && e.hp > 0) {
         e.juggle = Math.max(1, e.juggle - 1);
@@ -3952,10 +4201,10 @@
       g.emit("guardbreak", { x: p.x, y: p.y - 30 });
       g.say("SHIELD SHATTERED \xB7 EVADE UNTIL IT REFORMS");
     }
-    onHurt() {
+    onHurt(status = {}) {
       const p = this.g.player;
       p.invul = Math.min(p.invul, COMBAT.hitInvul);
-      p.stagger = Math.max(p.stagger, 9);
+      p.stagger = Math.max(p.stagger, (status.knockback || 1) >= 1.4 ? 16 : 9);
       this.flow = Math.max(0, this.flow - 28);
       this.releaseShield();
       this.buffer = null;
@@ -4081,7 +4330,7 @@
   var clamp5 = (n2, a, b) => Math.max(a, Math.min(b, n2));
   var DUNGEON_HEAL = Object.freeze({ frames: 72, cost: 40, amount: 1 });
   var DUNGEON_MINIONS = ["glassmarauder", "veilwasp", "graveburrower", "chaincaster"];
-  var bossHealth = (boss) => Math.round(boss.hp * (boss.miniboss ? 1 : 2.2));
+  var bossHealth = (boss) => Math.round(boss.hp * (boss.miniboss ? 1 : 2.2) * bossProgression(boss).health);
   var shot3 = (g, e, angle, speed, damage, status = {}) => g.enemyShots.push({ x: e.x, y: e.y - 70, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, life: 145, color: BOSSES[e.boss]?.color || MINIONS[e.kind].color, damage, status });
   function updateDungeonMinion(g, e) {
     if (!DUNGEON_MINIONS.includes(e.kind)) return false;
@@ -4462,6 +4711,15 @@
     }
     strike(e, damage, direction, options = {}) {
       if (e.hp <= 0) return;
+      if (this.combat.bossReadsStrike(e, options)) {
+        damage *= 0.3;
+        options = { ...options, guarded: true };
+        this.emit("bossguard", { boss: e.boss, x: e.x, y: e.y - 80 });
+        if (!e.guardNoticedTick || this.tick - e.guardNoticedTick > 90) {
+          e.guardNoticedTick = this.tick;
+          this.effects.push({ type: "number", x: e.x, y: e.y - 115, text: "READ \xB7 CHANGE ROUTE", life: 40, color: BOSSES[e.boss].color });
+        }
+      }
       if (e.kind === "glassmarauder" && ["patrol", "windup"].includes(e.state)) {
         if (options.heavy) {
           e.state = "recover";
@@ -4469,14 +4727,14 @@
           this.emit("slam");
         } else damage *= 0.22;
       }
-      const before = e.hp, brokenStun = e.stun > 20 && e.boss && e.state === "recover" ? e.stun : 0;
+      const before = e.hp, brokenStun = e.stun > 20 && e.boss && e.state === "recover" ? e.stun : 0, committingCounter = e.boss && ["countertell", "evade", "enrage"].includes(e.state);
       const power = (this.equipped.includes("fang") ? 1.22 : 1) * (1 + this.combat.flow * 15e-4);
       const owner = this.party[options.source ?? this.activeSlot], focus = owner.spirit, frameEnemies = this.enemies;
       super.strike(e, damage * power, direction, options);
       if (this.enemies !== frameEnemies || this.player.respawning) return;
       owner.spirit = Math.min(owner.spirit, focus + (options.dot ? 0.15 : 4));
       if (e.hp < before) {
-        if (e.boss) e.stun = brokenStun || Math.min(e.stun, 3);
+        if (e.boss) e.stun = committingCounter ? 0 : brokenStun || Math.min(e.stun, 3);
         this.hitstop = options.dot ? 0 : this.player.attack?.hitstop || (options.heavy ? 3 : 1);
         if (!options.dot) {
           this.combo++;
@@ -4492,9 +4750,19 @@
       const defended = status.unblockable ? null : this.combat.defend(direction, amount);
       if (defended !== null) return defended;
       if (this.preventLethal?.(amount, direction)) return true;
+      const armored = this.player.armor > 0, strongImpact = Number.isFinite(status.knockback) && status.knockback >= 1.4;
       const ok = super.hurt(direction, amount, status);
       if (this.enemies !== frameEnemies || this.player.respawning) return ok;
-      if (ok) this.combat.onHurt();
+      if (ok && armored && strongImpact) {
+        const p = this.player, force2 = Math.min(3, status.knockback);
+        p.vx = direction * 10 * force2;
+        p.vy = -Math.min(10, 5 + force2);
+        p.grounded = false;
+        p.wallLock = Math.max(p.wallLock, 10);
+        p.attack = null;
+        p.armor = 0;
+      }
+      if (ok) this.combat.onHurt(status);
       if (ok && this.equipped.includes("thorn")) {
         for (const e of this.enemies) if (e.hp > 0 && Math.abs(e.x - this.player.x) < 180) this.strike(e, 18, direction, { heavy: true });
       }
@@ -4590,6 +4858,8 @@
       super.respawn(false);
       this.combat?.reset();
       this.grapple = null;
+      for (const e of [...this.enemies]) if (e.hp > 0 && e.boss) clearBossEncounter(this, e);
+      resetBossEncounters(this);
       for (const e of this.enemies) if (e.hp > 0 && e.boss) {
         e.hp = e.maxHp;
         e.phase = 1;
@@ -4749,7 +5019,7 @@
     }
     showDialogue(lines, source = null) {
       if (!Array.isArray(lines)) return false;
-      const copy = lines.filter((line13) => Array.isArray(line13) && typeof line13[0] === "string" && typeof line13[1] === "string").map((line13) => [line13[0], line13[1]]);
+      const copy = lines.filter((line14) => Array.isArray(line14) && typeof line14[0] === "string" && typeof line14[1] === "string").map((line14) => [line14[0], line14[1]]);
       if (!copy.length) return false;
       const anchor = source || this.room.objects.find((o) => o.kind === "npc" && o.name === copy[0][0]) || this.player;
       this.emit("dialogue", { lines: copy, source: { room: this.roomId, id: anchor.id || anchor.talk || "voice", x: Number.isFinite(anchor.x) ? anchor.x : this.player.x, y: Number.isFinite(anchor.y) ? anchor.y : 520, name: anchor.name || copy[0][0], kind: anchor.kind || "npc" } });
@@ -5078,7 +5348,7 @@
     }
     snapshot() {
       const s = super.snapshot();
-      return { ...s, mode: "campaign", worldSeed: this.worldSeed, recoveryPoints: this.recoveryPoints.map((r) => ({ ...r })), spentRecovery: [...this.spentRecovery], discoveredRecovery: [...this.discoveredRecovery], death: this.death ? structuredClone(this.death) : null, safeRest: { ...this.safeRest }, combat: this.combat.snapshot(), room: this.roomId, roomName: this.room.name, biome: this.room.biome, chapter: CHAPTERS[Math.min(this.fragments.size, 5)].title, abilities: [...this.abilities], fragments: [...this.fragments], unlocked: [...this.unlocked], visited: [...this.visited], inventory: { ...this.inventory }, charms: [...this.charms], equipped: [...this.equipped], memories: [...this.memories], shrines: [...this.shrines], combo: this.combo, finished: this.finished, ending: this.ending, playtime: this.playtime, bossHazards: (this.bossHazards || []).map((h) => structuredClone(h)), enemies: this.enemies.map((e) => ({ id: e.id, boss: e.boss, kind: e.kind, hp: e.hp, maxHp: e.maxHp, state: e.state, x: e.x, y: e.y, phase: e.phase, timer: e.timer, moveId: e.moveId, moveName: e.moveName, attackKind: e.attackKind, counter: e.counter, hint: e.hint, attackFrame: e.attackFrame, windupFrames: e.windupFrames, summonedBy: e.summonedBy, telegraph: e.telegraph ? structuredClone(e.telegraph) : null })), nearby: this.room.objects.filter((o) => Math.abs(o.x - this.player.x) < 100).map((o) => o.id) };
+      return { ...s, mode: "campaign", worldSeed: this.worldSeed, recoveryPoints: this.recoveryPoints.map((r) => ({ ...r })), spentRecovery: [...this.spentRecovery], discoveredRecovery: [...this.discoveredRecovery], death: this.death ? structuredClone(this.death) : null, safeRest: { ...this.safeRest }, combat: this.combat.snapshot(), room: this.roomId, roomName: this.room.name, biome: this.room.biome, chapter: CHAPTERS[Math.min(this.fragments.size, 5)].title, abilities: [...this.abilities], fragments: [...this.fragments], unlocked: [...this.unlocked], visited: [...this.visited], inventory: { ...this.inventory }, charms: [...this.charms], equipped: [...this.equipped], memories: [...this.memories], shrines: [...this.shrines], combo: this.combo, finished: this.finished, ending: this.ending, playtime: this.playtime, bossHazards: (this.bossHazards || []).map((h) => structuredClone(h)), enemies: this.enemies.map((e) => ({ id: e.id, boss: e.boss, kind: e.kind, hp: e.hp, maxHp: e.maxHp, state: e.state, x: e.x, y: e.y, phase: e.phase, timer: e.timer, pressureReady: !!e.pressureReady, pressure: e.pressure ? { ...e.pressure } : null, postureLock: e.postureLock || 0, guarding: !!e.guarding, berserk: !!e.berserk, healUsed: !!e.healUsed, healChannel: e.healChannel ? { ...e.healChannel } : null, counterMotion: e.counterMotion ? { ...e.counterMotion } : null, counterState: e.counterState || null, moveId: e.moveId, moveName: e.moveName, attackKind: e.attackKind, counter: e.counter, hint: e.hint, attackFrame: e.attackFrame, windupFrames: e.windupFrames, summonedBy: e.summonedBy, telegraph: e.telegraph ? structuredClone(e.telegraph) : null })), nearby: this.room.objects.filter((o) => Math.abs(o.x - this.player.x) < 100).map((o) => o.id) };
     }
   };
 
@@ -6166,8 +6436,79 @@
     }
   }
 
-  // src/combat-fx.js
+  // src/boss-adaptation-render.js
   var TAU2 = Math.PI * 2;
+  function drawBossAdaptation(c, e, time, color = "#dce5ba") {
+    if (!e.boss || e.hp <= 0) return;
+    const heal = e.state === "heal", read = e.state === "countertell" || !!e.guarding, escape3 = e.state === "evade";
+    if (!heal && !read && !escape3 && !e.berserk) return;
+    const t = e.reducedMotion ? 0 : time, x = e.x, y = e.y, col = heal ? "#b5efcd" : e.berserk ? "#ffb088" : color;
+    c.save();
+    try {
+      if (e.berserk) {
+        c.strokeStyle = "#ffb08855";
+        c.lineWidth = 1.5;
+        c.beginPath();
+        c.ellipse(x, y - 4, 99, 14, 0, 0, TAU2);
+        c.stroke();
+        for (let i = 0; i < 7; i++) {
+          const a = i * TAU2 / 7 + t * 0.5, xx = x + Math.cos(a) * 78, yy = y - 90 + Math.sin(a) * 67;
+          c.fillStyle = "#ffc29a99";
+          c.fillRect(xx - 1, yy - 2, 2, 4);
+        }
+      }
+      if (read || escape3) {
+        c.strokeStyle = col + "bb";
+        c.lineWidth = 3;
+        c.beginPath();
+        c.ellipse(x, y - 90, 77, 105, 0, e.face < 0 ? Math.PI * 0.6 : -Math.PI * 0.4, e.face < 0 ? Math.PI * 1.4 : Math.PI * 0.4);
+        c.stroke();
+        c.setLineDash([5, 7]);
+        c.strokeStyle = col + "88";
+        c.lineWidth = 1.5;
+        c.beginPath();
+        c.ellipse(x, y - 5, 117, 18, 0, 0, TAU2);
+        c.stroke();
+        c.setLineDash([]);
+      }
+      if (heal) {
+        const total = e.healChannel?.total || 100, progress = Math.max(0, Math.min(1, 1 - (e.healChannel?.remaining ?? e.timer ?? 0) / total));
+        c.strokeStyle = "#b5efcd44";
+        c.lineWidth = 4;
+        c.beginPath();
+        c.arc(x, y - 125, 77, 0, TAU2);
+        c.stroke();
+        c.strokeStyle = "#d9ffe2";
+        c.beginPath();
+        c.arc(x, y - 125, 77, -Math.PI / 2, -Math.PI / 2 + TAU2 * progress);
+        c.stroke();
+        for (let i = 0; i < 9; i++) {
+          const phase = (t * 0.7 + i / 9) % 1, xx = x + Math.sin(i * 2.4) * 56, yy = y - 20 - phase * 150;
+          c.strokeStyle = "#c9f8d9aa";
+          c.lineWidth = 1.5;
+          c.beginPath();
+          c.moveTo(xx - 4, yy);
+          c.lineTo(xx + 4, yy);
+          c.moveTo(xx, yy - 4);
+          c.lineTo(xx, yy + 4);
+          c.stroke();
+        }
+      }
+      if (read || heal) {
+        c.font = "600 10px Barlow, sans-serif";
+        c.textAlign = "center";
+        c.fillStyle = col;
+        c.shadowColor = "#06121c";
+        c.shadowBlur = 8;
+        c.fillText(heal ? "HEAVY TO INTERRUPT" : "READING YOUR RHYTHM", x, y - 255);
+      }
+    } finally {
+      c.restore();
+    }
+  }
+
+  // src/combat-fx.js
+  var TAU3 = Math.PI * 2;
   var clamp9 = (n2, a, b) => Math.max(a, Math.min(b, n2));
   var fract = (n2) => n2 - Math.floor(n2);
   var noise = (n2) => fract(Math.sin(n2 * 127.1 + 311.7) * 43758.5453);
@@ -6195,16 +6536,16 @@
   };
   function ellipse(c, x, y, rx, ry) {
     c.beginPath();
-    c.ellipse(x, y, Math.max(0.01, rx), Math.max(0.01, ry), 0, 0, TAU2);
+    c.ellipse(x, y, Math.max(0.01, rx), Math.max(0.01, ry), 0, 0, TAU3);
     c.fill();
   }
   function glow2(c, x, y, radius, color, alpha4 = 0.2) {
-    const gradient2 = c.createRadialGradient(x, y, 0, x, y, radius);
-    gradient2.addColorStop(0, color);
-    gradient2.addColorStop(1, "transparent");
+    const gradient3 = c.createRadialGradient(x, y, 0, x, y, radius);
+    gradient3.addColorStop(0, color);
+    gradient3.addColorStop(1, "transparent");
     c.save();
     c.globalAlpha *= alpha4;
-    c.fillStyle = gradient2;
+    c.fillStyle = gradient3;
     ellipse(c, x, y, radius, radius);
     c.restore();
   }
@@ -6253,7 +6594,7 @@
         ...p
       });
     }
-    burst(x, y, count, colors, { angle = 0, spread = TAU2, speed = 240, gravity = 220, kind = "spark", life = 0.4 } = {}) {
+    burst(x, y, count, colors, { angle = 0, spread = TAU3, speed = 240, gravity = 220, kind = "spark", life = 0.4 } = {}) {
       count = Math.round(count * (this.reducedMotion ? 0.45 : 1));
       for (let i = 0; i < count; i++) {
         const a = angle + (this.random() - 0.5) * spread;
@@ -6305,7 +6646,7 @@
       } else if (element === "Wind" || element === "Shadow") {
         this.slashes.push({ x, y, face, color: colors[0], life: 0.28, maxLife: 0.28, kind: "ribbon", angle: (this.random() - 0.5) * 0.7 });
       } else if (element === "Electric") {
-        this.slashes.push({ x, y, face, color: colors[0], life: 0.14, maxLife: 0.14, kind: "bolt", angle: this.random() * TAU2 });
+        this.slashes.push({ x, y, face, color: colors[0], life: 0.14, maxLife: 0.14, kind: "bolt", angle: this.random() * TAU3 });
       }
     }
     ring(x, y, color, radius = 70, duration = 0.35, options = {}) {
@@ -6321,14 +6662,14 @@
         squash: 1,
         rotation: 0,
         start: 0,
-        end: TAU2,
+        end: TAU3,
         ...options
       });
     }
     impulse(amount, face = 1, vertical = 0) {
       if (this.reducedMotion) return;
       this.shake = Math.min(15, Math.max(this.shake, amount));
-      this.shakeAngle = this.random() * TAU2;
+      this.shakeAngle = this.random() * TAU3;
       this.kickX = -face * amount * 0.55;
       this.kickY = vertical * amount * 0.4;
       this.zoom = Math.max(this.zoom, Math.min(0.022, amount * 16e-4));
@@ -6359,7 +6700,7 @@
           this.burst(x, y, 5, ["#fffce1"], { speed: 150, gravity: 80, life: 0.14 });
           this.ring(x, y, colors[1], 26 + strength * 18, 0.2, { width: heavy ? 4 : 2, squash: 0.8 });
           this.impact = Math.max(this.impact, heavy ? 0.7 : 0.32);
-          this.impactAngle = this.random() * TAU2;
+          this.impactAngle = this.random() * TAU3;
           this.impulse(heavy ? 4.8 : 2.4, face);
           break;
         }
@@ -6607,7 +6948,7 @@
         if (biome === "reef") {
           c.lineWidth = 0.6;
           c.beginPath();
-          c.arc(x, y, size * 2.4, 0, TAU2);
+          c.arc(x, y, size * 2.4, 0, TAU3);
           c.stroke();
           c.globalAlpha *= 0.5;
           ellipse(c, x - size * 0.65, y - size, size * 0.5, size * 0.7);
@@ -6719,7 +7060,7 @@
         c.strokeStyle = color;
         c.lineWidth = 1;
         for (let i = 0; i < 5; i++) {
-          const a = time * 2 + i * TAU2 / 5;
+          const a = time * 2 + i * TAU3 / 5;
           c.beginPath();
           c.ellipse(p.x, p.y - 28, 35 + i * 2, 43, a * 0.3, a, a + 0.8);
           c.stroke();
@@ -6733,7 +7074,7 @@
         for (let i = 0; i < 3; i++) {
           const phase = (time * 0.8 + i / 3) % 1;
           c.beginPath();
-          c.ellipse(p.x, p.y - phase * 58, 18 + phase * 20, 5 + phase * 4, 0, 0, TAU2);
+          c.ellipse(p.x, p.y - phase * 58, 18 + phase * 20, 5 + phase * 4, 0, 0, TAU3);
           c.stroke();
         }
       }
@@ -6750,13 +7091,13 @@
         }
       }
       c.globalCompositeOperation = "lighter";
-      for (const ring3 of this.rings) {
-        const progress = 1 - ring3.life / ring3.maxLife, radius = ring3.radius * smooth2(progress);
+      for (const ring4 of this.rings) {
+        const progress = 1 - ring4.life / ring4.maxLife, radius = ring4.radius * smooth2(progress);
         c.globalAlpha = (1 - progress) ** 1.6 * 0.8;
-        c.strokeStyle = ring3.color;
-        c.lineWidth = ring3.width * (1 - progress * 0.65);
+        c.strokeStyle = ring4.color;
+        c.lineWidth = ring4.width * (1 - progress * 0.65);
         c.beginPath();
-        c.ellipse(ring3.x, ring3.y, Math.max(0.01, radius), Math.max(0.01, radius * ring3.squash), ring3.rotation, ring3.start, ring3.end);
+        c.ellipse(ring4.x, ring4.y, Math.max(0.01, radius), Math.max(0.01, radius * ring4.squash), ring4.rotation, ring4.start, ring4.end);
         c.stroke();
       }
       for (const s of this.slashes) {
@@ -6781,7 +7122,7 @@
           const extent = 18 + progress * 51;
           c.lineWidth = 1.3 * (1 - progress) + 0.4;
           for (let i = 0; i < 6; i++) {
-            const a = i * TAU2 / 6;
+            const a = i * TAU3 / 6;
             c.beginPath();
             c.moveTo(Math.cos(a) * 8, Math.sin(a) * 8);
             c.lineTo(Math.cos(a + 0.12) * extent * 0.5, Math.sin(a + 0.12) * extent * 0.5);
@@ -6918,12 +7259,12 @@
       if (this.hurtVignette > 5e-3 || this.powerVignette > 5e-3) {
         const hurt = this.hurtVignette > this.powerVignette;
         const amount = hurt ? this.hurtVignette : this.powerVignette * 0.5;
-        const gradient2 = c.createRadialGradient(width * 0.5, height * 0.5, Math.min(width, height) * 0.15, width * 0.5, height * 0.5, Math.max(width, height) * 0.64);
-        gradient2.addColorStop(0, "transparent");
-        gradient2.addColorStop(0.5, "transparent");
-        gradient2.addColorStop(1, hurt ? "#e87575" : "#83e8cc");
+        const gradient3 = c.createRadialGradient(width * 0.5, height * 0.5, Math.min(width, height) * 0.15, width * 0.5, height * 0.5, Math.max(width, height) * 0.64);
+        gradient3.addColorStop(0, "transparent");
+        gradient3.addColorStop(0.5, "transparent");
+        gradient3.addColorStop(1, hurt ? "#e87575" : "#83e8cc");
         c.globalAlpha = Math.min(this.reducedMotion ? 0.12 : 0.55, amount);
-        c.fillStyle = gradient2;
+        c.fillStyle = gradient3;
         c.fillRect(0, 0, width, height);
       }
       if (this.flash > 7e-3) {
@@ -6936,7 +7277,7 @@
         c.globalAlpha = this.impact * 0.12;
         c.lineWidth = 1;
         for (let i = 0; i < 15; i++) {
-          const angle = i * TAU2 / 15 + this.impactAngle;
+          const angle = i * TAU3 / 15 + this.impactAngle;
           const dx = Math.cos(angle), dy = Math.sin(angle);
           const radius = Math.min(width, height) * (0.38 + noise(i) * 0.13);
           const length = (26 + noise(i + 50) * 85) * this.impact;
@@ -6951,7 +7292,7 @@
   };
 
   // src/enemy-art.js
-  var TAU3 = Math.PI * 2;
+  var TAU4 = Math.PI * 2;
   var INK = "#101b23";
   var clamp10 = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
   var finite4 = (n2, f = 0) => Number.isFinite(n2) ? n2 : f;
@@ -6985,7 +7326,7 @@
   }
   function oval2(c, x, y, rx, ry, fill, edge = null, w = 1.2) {
     c.beginPath();
-    c.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), 0, 0, TAU3);
+    c.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), 0, 0, TAU4);
     if (fill) {
       c.fillStyle = fill;
       c.fill();
@@ -7398,10 +7739,10 @@
     oval2(c, 0, -29, 22, 23, p.dark, p.edge, 1.5);
     oval2(c, 0, -29, 16, 18, p.pale, INK, 1);
     for (let n2 = 0; n2 < 12; n2++) {
-      const a2 = n2 * TAU3 / 12;
+      const a2 = n2 * TAU4 / 12;
       line2(c, [[Math.cos(a2) * 13, -29 + Math.sin(a2) * 15], [Math.cos(a2) * 15, -29 + Math.sin(a2) * 17]], p.dark, 1);
     }
-    const a = m.wind ? m.anticipation * TAU3 : m.t * 0.6;
+    const a = m.wind ? m.anticipation * TAU4 : m.t * 0.6;
     line2(c, [[Math.cos(a) * 11, -29 + Math.sin(a) * 12], [0, -29], [Math.sin(a) * 7, -29 - Math.cos(a) * 8]], p.dark, 1.6);
     oval2(c, 0, -29, 2, 2, p.mid);
     for (const s of [-1, 1]) curve(c, [s * 16, -45, s * 23, -63, s * 30, -49, s * 32, -62], p.mid, 2);
@@ -7497,7 +7838,7 @@
   var ENEMY_ART_SPECIES = Object.freeze([...SPECIES]);
 
   // src/boss-encounter-render.js
-  var TAU4 = Math.PI * 2;
+  var TAU5 = Math.PI * 2;
   var finite5 = (v, f = 0) => Number.isFinite(v) ? v : f;
   var clamp11 = (v, a = 0, b = 1) => Math.max(a, Math.min(b, finite5(v)));
   var alpha2 = (color, a) => {
@@ -7529,7 +7870,7 @@
   }
   function oval3(c, x, y, rx, ry, col, edge, w = 1) {
     c.beginPath();
-    c.ellipse(x, y, Math.max(0.05, rx), Math.max(0.05, ry), 0, 0, TAU4);
+    c.ellipse(x, y, Math.max(0.05, rx), Math.max(0.05, ry), 0, 0, TAU5);
     if (col) {
       c.fillStyle = col;
       c.fill();
@@ -7582,11 +7923,11 @@
         const rx = w / 2, ry = height / 2, inner = Math.max(0, Math.min(rx - 2, finite5(h.inner)));
         c.save();
         c.beginPath();
-        c.ellipse(x, y, rx, ry, 0, 0, TAU4);
+        c.ellipse(x, y, rx, ry, 0, 0, TAU5);
         c.clip();
         c.beginPath();
-        c.ellipse(x, y, rx, ry, 0, 0, TAU4);
-        if (shape === "ring" && inner > 0) c.ellipse(x, y, inner, inner, 0, 0, TAU4, true);
+        c.ellipse(x, y, rx, ry, 0, 0, TAU5);
+        if (shape === "ring" && inner > 0) c.ellipse(x, y, inner, inner, 0, 0, TAU5, true);
         c.fill("evenodd");
         c.stroke();
         c.restore();
@@ -7596,7 +7937,7 @@
         } else {
           oval3(c, x, y, Math.max(2, rx * (0.86 + progress * 0.1)), Math.max(2, ry * (0.86 + progress * 0.1)), null, alpha2("#fff6d9", 0.5 * (1 - progress)), 1.3);
           for (let i = 0; i < 12; i++) {
-            const a = i * TAU4 / 12 + motion * 0.12, r = 1 - progress * 0.12;
+            const a = i * TAU5 / 12 + motion * 0.12, r = 1 - progress * 0.12;
             line3(c, [[x + Math.cos(a) * rx * 0.8 * r, y + Math.sin(a) * ry * 0.8 * r], [x + Math.cos(a) * rx * r, y + Math.sin(a) * ry * r]], alpha2(color, 0.6), 1.2);
           }
         }
@@ -7651,7 +7992,7 @@
       if (shape === "mine") {
         oval3(c, x, y, Math.min(w, height) * 0.28, Math.min(w, height) * 0.28, alpha2(color, warning ? 0.15 : 0.55), alpha2(color, 0.8), 1.5);
         for (let i = 0; i < 6; i++) {
-          const a = i * TAU4 / 6 + motion * 0.15;
+          const a = i * TAU5 / 6 + motion * 0.15;
           diamond2(c, x + Math.cos(a) * w * 0.36, y + Math.sin(a) * height * 0.36, warning ? 2.5 : 4, alpha2(color, 0.85));
         }
         if (warning) {
@@ -7678,7 +8019,7 @@
       oval3(c, x, y, r, r, null, alpha2(col, 0.15), 1);
       oval3(c, x, y, r * 0.4, r * 0.4, null, alpha2(col, 0.3), 1.3);
       for (let i = 0; i < 8; i++) {
-        const a = i * TAU4 / 8 + clock2 * 0.7, p = reducedMotion2 ? 0.55 : (clock2 * 0.5 + i / 8) % 1, rr = r * (1 - p * 0.8), xx = x + Math.cos(a) * rr, yy = y + Math.sin(a) * rr;
+        const a = i * TAU5 / 8 + clock2 * 0.7, p = reducedMotion2 ? 0.55 : (clock2 * 0.5 + i / 8) % 1, rr = r * (1 - p * 0.8), xx = x + Math.cos(a) * rr, yy = y + Math.sin(a) * rr;
         line3(c, [[xx + Math.cos(a) * 15, yy + Math.sin(a) * 15], [xx, yy], [xx + Math.cos(a + 0.6) * 7, yy + Math.sin(a + 0.6) * 7]], alpha2(col, 0.3 + p * 0.3), 1.2);
       }
       diamond2(c, x, y, 5, alpha2(col, 0.5));
@@ -7723,7 +8064,7 @@
       c.strokeStyle = alpha2(col, 0.8);
       c.lineWidth = 2;
       c.beginPath();
-      c.arc(x, y - 272, 11, -Math.PI / 2, -Math.PI / 2 + TAU4 * wind);
+      c.arc(x, y - 272, 11, -Math.PI / 2, -Math.PI / 2 + TAU5 * wind);
       c.stroke();
       if (wind > 0.8) diamond2(c, x, y - 272, 3, col);
       const name = String(e.moveName || cue.name || "").toUpperCase();
@@ -7854,7 +8195,7 @@
         c.globalAlpha *= 0.5 + progress * 0.3;
         oval3(c, 0, -120, radius, radius, null, color, 1.4);
         for (let i = 0; i < 4; i++) {
-          const a = i * TAU4 / 4 + (e.reducedMotion ? 0 : time) * 0.5;
+          const a = i * TAU5 / 4 + (e.reducedMotion ? 0 : time) * 0.5;
           diamond2(c, Math.cos(a) * radius, -120 + Math.sin(a) * radius, 3, color);
         }
       }
@@ -7864,7 +8205,7 @@
   }
 
   // src/boss-art.js
-  var TAU5 = Math.PI * 2;
+  var TAU6 = Math.PI * 2;
   var clamp12 = (v, a = 0, b = 1) => Math.max(a, Math.min(b, Number.isFinite(v) ? v : 0));
   var n = (v, f = 0) => Number.isFinite(v) ? v : f;
   var INK2 = "#101b24";
@@ -7899,7 +8240,7 @@
   }
   function oval4(c, x, y, rx, ry, fill, edge, width = 1.4) {
     c.beginPath();
-    c.ellipse(x, y, Math.max(0.05, rx), Math.max(0.05, ry), 0, 0, TAU5);
+    c.ellipse(x, y, Math.max(0.05, rx), Math.max(0.05, ry), 0, 0, TAU6);
     if (fill) {
       c.fillStyle = fill;
       c.fill();
@@ -7961,7 +8302,7 @@
     c.strokeStyle = color;
     c.lineWidth = width;
     c.beginPath();
-    c.ellipse(0, 0, rx, ry, 0, 0, TAU5);
+    c.ellipse(0, 0, rx, ry, 0, 0, TAU6);
     c.stroke();
     c.restore();
   }
@@ -8034,8 +8375,9 @@
     }
   }
   function pose2(e, time) {
-    const motion = e.reducedMotion || e.frozen > 0 ? 0 : 1, phase = Math.max(1, Math.min(3, n(e.phase, 1))), wind = e.state === "windup" ? clamp12(1 - n(e.timer) / Math.max(1, e.windupFrames || 46 - phase * 5)) : 0, walk = ["patrol", "charge", "chase"].includes(e.state) ? motion : 0;
-    return { phase, wind, walk, gait: time * (e.state === "charge" ? 15 : 7) + n(e.id), breath: Math.sin(time * 2.2 + n(e.id)) * 0.012 * motion, strike: e.state === "charge" ? 1 : e.state === "attack" ? Math.sin(clamp12(n(e.attackFrame) / Math.max(1, n(e.moveDuration, 60))) * Math.PI) : e.state === "recover" ? clamp12(n(e.timer) / 42) * 0.4 : 0, cast: e.state === "windup" && (e.move === 1 || e.move === 2), crouch: e.state === "leap" ? 0.65 : e.state === "recover" ? 0.35 : wind * 0.2, flutter: Math.sin(time * 4.5) * motion, clock: time * motion, motion };
+    const motion = e.reducedMotion || e.frozen > 0 ? 0 : 1, phase = Math.max(1, Math.min(3, n(e.phase, 1))), healing = e.state === "heal", bracing = e.state === "countertell" || !!e.guarding;
+    const wind = bracing ? 0.7 : e.state === "windup" ? clamp12(1 - n(e.timer) / Math.max(1, e.windupFrames || 46 - phase * 5)) : 0, walk = ["patrol", "charge", "chase", "evade"].includes(e.state) ? motion : 0;
+    return { phase, wind, walk, gait: time * (["charge", "evade"].includes(e.state) ? 15 : 7) + n(e.id), breath: Math.sin(time * 2.2 + n(e.id)) * 0.012 * motion, strike: e.state === "charge" ? 1 : e.state === "attack" ? Math.sin(clamp12(n(e.attackFrame) / Math.max(1, n(e.moveDuration, 60))) * Math.PI) : e.state === "recover" ? clamp12(n(e.timer) / 42) * 0.4 : 0, cast: healing || e.state === "windup" && (e.move === 1 || e.move === 2), crouch: healing ? 0.45 : e.state === "leap" ? 0.65 : e.state === "recover" ? 0.35 : wind * 0.2, flutter: Math.sin(time * 4.5) * motion, clock: time * motion, motion };
   }
   function ribs(c, t, width = 38, y = -117, count = 5) {
     for (let i = 0; i < count; i++) {
@@ -8054,7 +8396,7 @@
     ring(c, x, y, r, r * 0.93, rgba(t.light, 0.24), 1.2);
     ring(c, x, y, r + 7, r * 0.99, rgba(t.energy, 0.25), 0.7, m.clock * 0.08);
     for (let i = 0; i < 9; i++) {
-      const a = i * TAU5 / 9 + m.clock * 0.07;
+      const a = i * TAU6 / 9 + m.clock * 0.07;
       gem(c, x + Math.cos(a) * (r + 7), y + Math.sin(a) * (r + 7), 2.5, t, i % 3 === 0);
     }
   }
@@ -8073,7 +8415,7 @@
       }
       oval4(c, 8, 11, 28, 39, t.dark, t.mid, 2);
       for (let i = 0; i < 4; i++) {
-        const a = i * TAU5 / 4 + m.clock * 0.1;
+        const a = i * TAU6 / 4 + m.clock * 0.1;
         path2(c, [[8, 14], [8 + Math.cos(a) * 35, 14 + Math.sin(a) * 40], [8 + Math.cos(a + 0.7) * 29, 14 + Math.sin(a + 0.7) * 37]], t.base, t.light, 1);
       }
       glow4(c, 8, 12, 45, t.energy, 0.2 + m.phase * 0.04);
@@ -8095,7 +8437,7 @@
       for (const side of [-1, 1]) curve2(c, [side * 31, -18, side * 49, -6, side * 48, 3, side * 43, 16], t.dark, 6);
     });
     if (m.phase >= 2) for (let i = 0; i < 5; i++) {
-      const a = i * TAU5 / 5 + m.clock * 0.3, xx = Math.cos(a) * 61, yy = -145 + Math.sin(a) * 23;
+      const a = i * TAU6 / 5 + m.clock * 0.3, xx = Math.cos(a) * 61, yy = -145 + Math.sin(a) * 23;
       oval4(c, xx, yy, 10, 5, t.mid);
       gem(c, xx, yy, 3, t, true);
     }
@@ -8276,7 +8618,7 @@
     line4(c, [[27, -164], [27 + Math.sin(m.clock * 0.15) * 21, -164 - Math.cos(m.clock * 0.15) * 21]], t.light, 2);
     line4(c, [[27, -164], [42, -151]], t.mid, 1.5);
     if (m.phase >= 2) for (let i = 0; i < 6; i++) {
-      const a = i * TAU5 / 6 + m.clock * 0.1;
+      const a = i * TAU6 / 6 + m.clock * 0.1;
       gem(c, 27 + Math.cos(a) * 60, -164 + Math.sin(a) * 57, 5, t, true);
     }
     if (m.phase === 3) for (const side of [-1, 1]) thorn(c, side * 60, -92, 46, side * 0.6, t);
@@ -8316,7 +8658,7 @@
     });
     if (m.phase >= 2) aureole(c, t, m, 0, -162, 95);
     if (m.phase === 3) for (let i = 0; i < 6; i++) {
-      const a = i * TAU5 / 6 + m.clock * 0.08;
+      const a = i * TAU6 / 6 + m.clock * 0.08;
       gem(c, Math.cos(a) * 108, -153 + Math.sin(a) * 91, 9, t, true);
     }
   }
@@ -8346,7 +8688,7 @@
       for (let i = 0; i < 3; i++) cloth(c, (i - 1) * 14, 64, 8, 39 + i * 8, { ...t, dark: i % 2 ? t.base : t.mid }, m.clock + i);
     });
     if (m.phase >= 2) for (let i = 0; i < 5; i++) {
-      const a = i * TAU5 / 5 + m.clock * 0.2, x = Math.cos(a) * 105, y = -150 + Math.sin(a) * 75;
+      const a = i * TAU6 / 5 + m.clock * 0.2, x = Math.cos(a) * 105, y = -150 + Math.sin(a) * 75;
       joint2(c, x, y, Math.sin(m.clock + i) * 0.2, () => {
         path2(c, [[-8, -13], [8, -13], [12, -6], [10, 13], [-8, 13]], PAPER, t.dark, 0.8);
         line4(c, [[-4, -6], [6, -6]], t.dark, 0.7);
@@ -8380,7 +8722,7 @@
       for (const side of [-1, 1]) for (let i = 0; i < 4; i++) curve2(c, [side * 18, -164, side * (80 + i * 9), -137 + i * 17, side * (43 + i * 13), -48, side * (66 + i * 11), -6], i % 2 ? t.mid : t.dark, 11 - i);
       oval4(c, 0, -112, 49, 78, metal(c, 0, -100, 60, 90, t), INK2, 2);
       for (let i = 0; i < 9; i++) {
-        const a = i * TAU5 / 9 + m.clock * 0.05, x = Math.cos(a) * 55, y = -140 + Math.sin(a) * 70;
+        const a = i * TAU6 / 9 + m.clock * 0.05, x = Math.cos(a) * 55, y = -140 + Math.sin(a) * 70;
         oval4(c, x, y, 13, 18, t.light, t.dark);
         eye2(c, x - 4, y - 3, t, 1.8);
         eye2(c, x + 4, y - 3, t, 1.8);
@@ -8412,7 +8754,7 @@
       aureole(c, t, m, 0, -156, 83);
     }
     if (m.phase >= 2) for (let i = 0; i < 3 + m.phase; i++) {
-      const a = i * TAU5 / (3 + m.phase) + m.clock * 0.15;
+      const a = i * TAU6 / (3 + m.phase) + m.clock * 0.15;
       gem(c, Math.cos(a) * 108, -135 + Math.sin(a) * 97, 5 + m.phase, t, true);
     }
   }
@@ -8658,7 +9000,7 @@
     if (m.phase >= 2) {
       glow4(c, 0, -101, 60, t.energy, 0.07 * m.phase);
       for (let i = 0; i < m.phase + 2; i++) {
-        const a = i * TAU5 / (m.phase + 2) + m.clock * 0.22;
+        const a = i * TAU6 / (m.phase + 2) + m.clock * 0.22;
         gem(c, Math.cos(a) * 78, -113 + Math.sin(a) * 47, 4, t, true);
       }
     }
@@ -8703,7 +9045,7 @@
   }
 
   // src/chronicle-art.js
-  var TAU6 = Math.PI * 2;
+  var TAU7 = Math.PI * 2;
   var clamp13 = (n2, a = 0, b = 1) => Math.max(a, Math.min(b, n2));
   var finite6 = (n2, fallback = 0) => Number.isFinite(n2) ? n2 : fallback;
   var seed2 = (value) => String(value ?? 0).split("").reduce((n2, ch) => (n2 * 31 + ch.charCodeAt(0)) % 997, 7);
@@ -8733,7 +9075,7 @@
   }
   function oval5(c, x, y, rx, ry, fill, stroke2, width = 1.5) {
     c.beginPath();
-    c.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), 0, 0, TAU6);
+    c.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), 0, 0, TAU7);
     if (fill) {
       c.fillStyle = fill;
       c.fill();
@@ -8769,7 +9111,7 @@
     g.addColorStop(1, alpha3(color, 0));
     oval5(c, x, y, r, r, g);
   }
-  function ring2(c, x, y, r, col, width = 1, start = 0, end = TAU6) {
+  function ring2(c, x, y, r, col, width = 1, start = 0, end = TAU7) {
     c.beginPath();
     c.arc(x, y, Math.max(0.1, r), start, end);
     c.strokeStyle = col;
@@ -8782,7 +9124,7 @@
   function gear(c, x, y, r, teeth, col, angle = 0) {
     const pts = [];
     for (let i = 0; i < teeth * 4; i++) {
-      const a = angle + i * TAU6 / (teeth * 4), rr = r * (i % 4 < 2 ? 1 : 0.87);
+      const a = angle + i * TAU7 / (teeth * 4), rr = r * (i % 4 < 2 ? 1 : 0.87);
       pts.push([x + Math.cos(a) * rr, y + Math.sin(a) * rr]);
     }
     poly4(c, pts, alpha3(col, 0.08), alpha3(col, 0.55));
@@ -8837,7 +9179,7 @@
   function tell(c, pose3, y, col, t, big = false) {
     if (!pose3.wind) return;
     const r = (big ? 25 : 12) + pose3.anticipation * 7;
-    ring2(c, 0, y, r, alpha3(col, 0.6), 1.5, -Math.PI / 2, -Math.PI / 2 + TAU6 * pose3.anticipation);
+    ring2(c, 0, y, r, alpha3(col, 0.6), 1.5, -Math.PI / 2, -Math.PI / 2 + TAU7 * pose3.anticipation);
     star(c, 0, y, 5 + Math.sin(t * 12) * 1.5, "#ffe8bd");
     line5(c, [[-r - 8, y], [-r - 3, y]], alpha3(col, 0.55));
     line5(c, [[r + 3, y], [r + 8, y]], alpha3(col, 0.55));
@@ -8880,7 +9222,7 @@
         c.restore();
       }
       for (let i = 0; i < 3; i++) {
-        const a = t * 0.8 + i * TAU6 / 3;
+        const a = t * 0.8 + i * TAU7 / 3;
         star(c, Math.cos(a) * 36, -33 + Math.sin(a) * 15, 2, col);
       }
     } else if (e.kind === "clockscarab") {
@@ -8997,7 +9339,7 @@
       ring2(c, 0, 0, 142, alpha3(col, 0.25), 1, 0.2, 2.5);
       ring2(c, 0, 0, 142, alpha3(col, 0.25), 1, 3.3, 5.7);
       for (let i = 0; i < 8; i++) {
-        const a = i * TAU6 / 8;
+        const a = i * TAU7 / 8;
         star(c, Math.cos(a) * 142, Math.sin(a) * 142, 3, col);
       }
       c.restore();
@@ -9135,7 +9477,7 @@
     c.translate(0, -112 + Math.sin(t * 1.6) * 5);
     const beat = 1 + Math.pow(Math.max(0, Math.sin(t * (pose3.rage ? 7 : 4))), 7) * 0.045;
     const orbit = t * (pose3.rage ? 0.42 : 0.23);
-    const cages = Array.from({ length: 6 }, (_, i) => ({ i, a: orbit + i * TAU6 / 6 }));
+    const cages = Array.from({ length: 6 }, (_, i) => ({ i, a: orbit + i * TAU7 / 6 }));
     const drawCage = ({ i, a }) => {
       const x = Math.cos(a) * 125, y = Math.sin(a) * 63 - 4, sz = 12 + Math.sin(a) * 2;
       line5(c, [[0, 0], [x, y]], alpha3(col, 0.19), 1);
@@ -9200,7 +9542,7 @@
     c.restore();
     for (const cage of cages) if (Math.sin(cage.a) >= 0) drawCage(cage);
     for (let i = 0; i < 8; i++) {
-      const a = i * TAU6 / 8 - t * 0.2;
+      const a = i * TAU7 / 8 - t * 0.2;
       star(c, Math.cos(a) * 101, Math.sin(a) * 101, 2.8, "#f4d3da");
     }
     if (pose3.wind || pose3.attack) {
@@ -9225,7 +9567,7 @@
       ring2(c, 0, 0, 151, alpha3(col, 0.35), 1);
       ring2(c, 0, 0, 189, alpha3(col, 0.2), 1);
       const vertices = Array.from({ length: 7 }, (_, i) => {
-        const a = i * TAU6 / 7;
+        const a = i * TAU7 / 7;
         return [Math.cos(a) * 157, Math.sin(a) * 157];
       });
       for (let i = 0; i < 7; i++) {
@@ -9234,7 +9576,7 @@
       }
       c.restore();
       for (let i = 0; i < 14; i++) {
-        const a = i * TAU6 / 14 + t * 0.3, x = Math.cos(a) * 150, yy = -((t * 45 + i * 29) % 260), weight = 1 - Math.abs(yy) / 300;
+        const a = i * TAU7 / 14 + t * 0.3, x = Math.cos(a) * 150, yy = -((t * 45 + i * 29) % 260), weight = 1 - Math.abs(yy) / 300;
         line5(c, [[x, 0], [x, yy]], alpha3(col, 0.1 * weight), 1);
         star(c, x, yy, 2.3 + weight, col);
       }
@@ -9292,11 +9634,11 @@
       ring2(c, 0, 0, 78, "#f4c3cf", 2);
       ring2(c, 0, 0, 82, "#f3c2cf66", 5);
       for (let i = 0; i < 18; i++) {
-        const a = i * TAU6 / 18 + t * 0.03, r = 83 + Math.sin(t * 3 + i) * 4;
+        const a = i * TAU7 / 18 + t * 0.03, r = 83 + Math.sin(t * 3 + i) * 4;
         line5(c, [[Math.cos(a) * r, Math.sin(a) * r], [Math.cos(a) * (r + 8), Math.sin(a) * (r + 8)]], alpha3(col, 0.4), 1);
       }
       for (let i = 0; i < 7; i++) {
-        const a = t * 0.1 + i * TAU6 / 7;
+        const a = t * 0.1 + i * TAU7 / 7;
         star(c, Math.cos(a) * 110, Math.sin(a) * 110, 4, col);
       }
     } else {
@@ -9316,7 +9658,7 @@
   }
 
   // src/creature-art.js
-  var TAU7 = Math.PI * 2;
+  var TAU8 = Math.PI * 2;
   var INK3 = "#101d25";
   var BONE = "#eadcb7";
   var clamp14 = (n2, a = 0, b = 1) => Math.max(a, Math.min(b, n2));
@@ -9366,7 +9708,7 @@
   }
   function oval6(c, x, y, rx, ry, fill, edge, width = 2) {
     c.beginPath();
-    c.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), 0, 0, TAU7);
+    c.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), 0, 0, TAU8);
     if (fill) {
       c.fillStyle = fill;
       c.fill();
@@ -9905,7 +10247,7 @@
     }
     if (m.cast) {
       for (let i = 0; i < 5; i++) {
-        const a = m.time * 1.5 + i * TAU7 / 5, x = 12 + Math.cos(a) * 31, sy = (low ? -149 : -226) + Math.sin(a) * 11;
+        const a = m.time * 1.5 + i * TAU8 / 5, x = 12 + Math.cos(a) * 31, sy = (low ? -149 : -226) + Math.sin(a) * 11;
         poly5(c, [[x, sy - 4], [x + 3, sy], [x, sy + 4], [x - 3, sy]], col, null);
       }
     }
@@ -9952,7 +10294,7 @@
   }
 
   // src/creatures.js
-  var TAU8 = Math.PI * 2;
+  var TAU9 = Math.PI * 2;
   function poly6(c, p, fill, stroke2 = "#111b1d", width = 2) {
     c.beginPath();
     p.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y));
@@ -9968,7 +10310,7 @@
   }
   function oval7(c, x, y, rx, ry, fill, stroke2 = null) {
     c.beginPath();
-    c.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), 0, 0, TAU8);
+    c.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), 0, 0, TAU9);
     c.fillStyle = fill;
     c.fill();
     if (stroke2) {
@@ -10059,10 +10401,10 @@
   }
 
   // src/rpg-render.js
-  var TAU9 = Math.PI * 2;
+  var TAU10 = Math.PI * 2;
   var oval8 = (c, x, y, rx, ry, col) => {
     c.beginPath();
-    c.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), 0, 0, TAU9);
+    c.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), 0, 0, TAU10);
     c.fillStyle = col;
     c.fill();
   };
@@ -10108,7 +10450,7 @@
       glow7(c, 0, -36, 80, "#c9b6e620");
       poly7(c, [[-31, 0], [-22, -35], [-14, -44], [14, -44], [23, -34], [32, 0]], "#50636a", "#9bb4a6");
       for (let i = 0; i < 3; i++) {
-        const a = t * 0.35 + i * TAU9 / 3, x = Math.cos(a) * 25, y = -65 + Math.sin(a) * 12;
+        const a = t * 0.35 + i * TAU10 / 3, x = Math.cos(a) * 25, y = -65 + Math.sin(a) * 12;
         poly7(c, [[x, y - 9], [x + 5, y], [x, y + 9], [x - 5, y]], ["#efc68b", "#9ae6e4", "#d7b7ff"][i]);
       }
       label(c, "THE COVENANTS", 0, -114, "#c6bead");
@@ -10152,11 +10494,11 @@
       c.strokeStyle = "#baded2";
       c.lineWidth = 2;
       c.beginPath();
-      c.arc(0, -33, 29, 0, TAU9);
+      c.arc(0, -33, 29, 0, TAU10);
       c.stroke();
       poly7(c, [[-19, -29], [-12, -60], [4, -76], [20, -47], [20, -20]], "#8bafa688", "#c9ddc3");
       for (let i = 0; i < 8; i++) {
-        const a = t * 0.6 + i * TAU9 / 8;
+        const a = t * 0.6 + i * TAU10 / 8;
         oval8(c, Math.cos(a) * 18, -35 + Math.sin(a) * 16, 2, 3, ["#f4d999", "#9cdef2", "#dfb0e5"][i % 3]);
       }
       line8(c, [[22, -13], [38, -37], [43, -51]], "#8cc9bd", 3);
@@ -10208,10 +10550,10 @@
       c.strokeStyle = "#d5b17a33";
       c.lineWidth = 9;
       c.beginPath();
-      c.arc(0, 0, 135, 0, TAU9);
+      c.arc(0, 0, 135, 0, TAU10);
       c.stroke();
       for (let i = 0; i < 16; i++) {
-        const a = i * TAU9 / 16;
+        const a = i * TAU10 / 16;
         c.save();
         c.rotate(a);
         poly7(c, [[120, -9], [165, -11], [165, 11], [120, 9]], "#937b5644", "#dbb77533");
@@ -10241,7 +10583,7 @@
     } else if (id === "cradle-zero") {
       glow7(c, 2100, 240, 280, "#e2c8f018");
       for (let i = 0; i < 9; i++) {
-        const a = i * TAU9 / 9;
+        const a = i * TAU10 / 9;
         line8(c, [[2100, 260], [2100 + Math.cos(a) * 195, 260 + Math.sin(a) * 195]], "#dfdcf222", 1);
         oval8(c, 2100 + Math.cos(a) * 195, 260 + Math.sin(a) * 195, 3, 3, "#f7edd166");
       }
@@ -10258,7 +10600,7 @@
       const col = rank === 3 ? "#ffe2aa" : rank === 2 ? "#d4b3ff" : "#b9e7d0";
       glow7(c, p.x, p.y - 30, 45 + rank * 10, col + "14");
       for (let i = 0; i < rank + 2; i++) {
-        const a = t * 1.5 + i * TAU9 / (rank + 2);
+        const a = t * 1.5 + i * TAU10 / (rank + 2);
         oval8(c, p.x + Math.cos(a) * 38, p.y - 35 + Math.sin(a) * 20, 1.3, 1.3, col + "aa");
       }
     }
@@ -10274,7 +10616,7 @@
       glow7(c, xx, yy, 25, "#ffedbf22");
       if (g.trueEnding) {
         for (let i = 0; i < 6; i++) {
-          const a = t + i * TAU9 / 6;
+          const a = t + i * TAU10 / 6;
           line8(c, [[xx, yy], [xx + Math.cos(a) * 13, yy + Math.sin(a) * 13]], "#f8e3ae", 3);
         }
         oval8(c, xx, yy, 7, 8, "#f3deb2");
@@ -10288,14 +10630,14 @@
     if (surge) for (const [i, m] of g.party.entries()) {
       c.save();
       c.globalAlpha = 0.4 * Math.min(1, surge.life / 30);
-      const a = t * 2 + i * TAU9 / 3;
+      const a = t * 2 + i * TAU10 / 3;
       drawCreature(c, m.data, p.x + Math.cos(a) * 115, p.y - 60 + Math.sin(a) * 35, 0.3, p.face, { attack: 0.9, air: true }, t, { shadow: false, aura: true, reducedMotion: !!g.combat?.settings?.reducedMotion });
       c.restore();
     }
   }
 
   // src/mourningwild-render.js
-  var TAU10 = Math.PI * 2;
+  var TAU11 = Math.PI * 2;
   var clamp15 = (v, a, b) => Math.max(a, Math.min(b, v));
   var finite7 = (v, f = 0) => Number.isFinite(v) ? v : f;
   var noise2 = (n2) => {
@@ -10331,7 +10673,7 @@
   }
   function oval9(c, x, y, rx, ry, fill, edge, width = 1) {
     c.beginPath();
-    c.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), 0, 0, TAU10);
+    c.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), 0, 0, TAU11);
     if (fill) {
       c.fillStyle = fill;
       c.fill();
@@ -10461,7 +10803,7 @@
     oval9(c, x, y, r, r, p.ink + "aa", p.bark, 10);
     oval9(c, x, y, r - 9, r - 9, null, p.edge + "35", 1.3);
     for (let i = 0; i < 8; i++) {
-      const a = i * TAU10 / 8;
+      const a = i * TAU11 / 8;
       c.save();
       c.translate(x, y);
       c.rotate(a);
@@ -10484,7 +10826,7 @@
       const xx = x + (i - 1.5) * size * 0.55, h = size * (0.6 + noise2(i + x) * 0.5);
       curve5(c, [xx, y, xx - 3, y - h * 0.3, xx + 4, y - h * 0.65, xx, y - h], p.moss, Math.max(1, size * 0.08));
       c.beginPath();
-      c.ellipse(xx, y - h, size * 0.43, size * 0.2, 0, Math.PI, TAU10);
+      c.ellipse(xx, y - h, size * 0.43, size * 0.2, 0, Math.PI, TAU11);
       c.closePath();
       c.fillStyle = i % 2 ? p.light + "a0" : p.moss;
       c.fill();
@@ -10588,7 +10930,7 @@
     const y = floor3 - 258;
     glow8(c, x, y, 173, p.light, 0.11);
     for (let i = 0; i < 10; i++) {
-      const a = i * TAU10 / 10;
+      const a = i * TAU11 / 10;
       c.save();
       c.translate(x, y);
       c.rotate(a);
@@ -10608,7 +10950,7 @@
     for (const side of [-1, 1]) curve5(c, [x, y - 60, x + side * 36, y - 20, x + side * 26, y + 36, x, y + 61], p.bark, 2);
     oval9(c, x, y + 2, 6, 17, "#fff0bc");
     for (let i = 0; i < 6; i++) {
-      const a = i * TAU10 / 6 + t * 0.15, xx = x + Math.cos(a) * 146, yy = y + Math.sin(a) * 111;
+      const a = i * TAU11 / 6 + t * 0.15, xx = x + Math.cos(a) * 146, yy = y + Math.sin(a) * 111;
       oval9(c, xx, yy, 2, 2, p.light + "b0");
     }
   }
@@ -10812,17 +11154,17 @@
   }
 
   // src/render.js
-  var TAU11 = Math.PI * 2;
-  function ellipse2(c, x, y, rx, ry, fill, stroke2 = null, line13 = 2) {
+  var TAU12 = Math.PI * 2;
+  function ellipse2(c, x, y, rx, ry, fill, stroke2 = null, line14 = 2) {
     c.beginPath();
-    c.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), 0, 0, TAU11);
+    c.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), 0, 0, TAU12);
     if (fill) {
       c.fillStyle = fill;
       c.fill();
     }
     if (stroke2) {
       c.strokeStyle = stroke2;
-      c.lineWidth = line13;
+      c.lineWidth = line14;
       c.stroke();
     }
   }
@@ -10856,10 +11198,10 @@
       c.strokeStyle = "#b9d97844";
       c.lineWidth = 2;
       c.beginPath();
-      c.arc(0, 0, w * 0.34, 0, TAU11);
+      c.arc(0, 0, w * 0.34, 0, TAU12);
       c.stroke();
       c.beginPath();
-      c.arc(0, 0, w * 0.28, 0, TAU11);
+      c.arc(0, 0, w * 0.28, 0, TAU12);
       c.stroke();
       c.restore();
       drawCreature(c, d, x, y, size, face, { state: "idle" }, time, { aura: true, reducedMotion: reducedMotion2 });
@@ -10873,7 +11215,7 @@
   }
 
   // src/dungeon-art.js
-  var TAU12 = Math.PI * 2;
+  var TAU13 = Math.PI * 2;
   var line10 = (c, p, color, width = 2) => {
     c.beginPath();
     p.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y));
@@ -10897,7 +11239,7 @@
   };
   var oval10 = (c, x, y, rx, ry, color) => {
     c.beginPath();
-    c.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), 0, 0, TAU12);
+    c.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), 0, 0, TAU13);
     c.fillStyle = color;
     c.fill();
   };
@@ -10948,7 +11290,7 @@
         c.strokeStyle = color + "77";
         c.lineWidth = 2;
         c.beginPath();
-        c.ellipse(0, 2, 42 + Math.sin(t * 9) * 4, 7, 0, 0, TAU12);
+        c.ellipse(0, 2, 42 + Math.sin(t * 9) * 4, 7, 0, 0, TAU13);
         c.stroke();
       }
     } else {
@@ -11030,7 +11372,7 @@
       c.strokeStyle = col + "88";
       c.lineWidth = 2;
       c.beginPath();
-      c.ellipse(0, -2, 82 + Math.sin(t * 6) * 6, 13, 0, 0, TAU12);
+      c.ellipse(0, -2, 82 + Math.sin(t * 6) * 6, 13, 0, 0, TAU13);
       c.stroke();
     }
     if (wind) {
@@ -11062,19 +11404,19 @@
       c.setLineDash([]);
       c.strokeStyle = col;
       c.beginPath();
-      c.arc(tx, ty - 30, 19 + pulse * 4, 0, TAU12);
+      c.arc(tx, ty - 30, 19 + pulse * 4, 0, TAU13);
       c.stroke();
       line10(c, [[tx - 28, ty - 30], [tx + 28, ty - 30]], col + "88", 1);
       line10(c, [[tx, ty - 58], [tx, ty - 2]], col + "88", 1);
     } else {
       const radius = cue.radius || 90, target = cue.kind === "slam" ? x : tx, base = cue.kind === "slam" ? y : ty;
       c.beginPath();
-      c.ellipse(target, base - 3, radius, 13, 0, 0, TAU12);
+      c.ellipse(target, base - 3, radius, 13, 0, 0, TAU13);
       c.fill();
       c.stroke();
       c.strokeStyle = col + "88";
       c.beginPath();
-      c.ellipse(target, base - 3, radius * (0.55 + pulse * 0.2), 9, 0, 0, TAU12);
+      c.ellipse(target, base - 3, radius * (0.55 + pulse * 0.2), 9, 0, 0, TAU13);
       c.stroke();
       for (const side of [-1, 1]) line10(c, [[target + side * radius, base - 12], [target + side * radius, base + 4]], col, 2);
     }
@@ -11082,7 +11424,7 @@
   }
 
   // src/tunnel-render.js
-  var TAU13 = Math.PI * 2;
+  var TAU14 = Math.PI * 2;
   var noise3 = (n2) => {
     const a = Math.sin(n2 * 127.1 + 37) * 43758.5453;
     return a - Math.floor(a);
@@ -11112,15 +11454,15 @@
   };
   var ellipse3 = (c, x, y, rx, ry, color) => {
     c.beginPath();
-    c.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), 0, 0, TAU13);
+    c.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), 0, 0, TAU14);
     c.fillStyle = color;
     c.fill();
   };
   var glow10 = (c, x, y, r, color) => {
-    const gradient2 = c.createRadialGradient(x, y, 0, x, y, r);
-    gradient2.addColorStop(0, color);
-    gradient2.addColorStop(1, "transparent");
-    ellipse3(c, x, y, r, r, gradient2);
+    const gradient3 = c.createRadialGradient(x, y, 0, x, y, r);
+    gradient3.addColorStop(0, color);
+    gradient3.addColorStop(1, "transparent");
+    ellipse3(c, x, y, r, r, gradient3);
   };
   var PALETTES = {
     moss: { void: "#071415", back: "#112727", wall: "#183331", shadow: "#0c1d20", stone: "#35483e", face: "#26372f", edge: "#7f9a75", vein: "#8fb795", light: "#b9e5b3" },
@@ -11422,7 +11764,7 @@
   }
 
   // src/world-render.js
-  var TAU14 = Math.PI * 2;
+  var TAU15 = Math.PI * 2;
   var poly10 = (c, pts, fill, stroke2) => {
     c.beginPath();
     pts.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y));
@@ -11439,7 +11781,7 @@
   };
   var oval11 = (c, x, y, rx, ry, color) => {
     c.beginPath();
-    c.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), 0, 0, TAU14);
+    c.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), 0, 0, TAU15);
     c.fillStyle = color;
     c.fill();
   };
@@ -11580,7 +11922,10 @@
         }
         if (e.hp > 0) this.corpses.delete(key);
         this.actorHistory.set(key, actor);
-        if (e.boss && e.hp > 0) drawBossAura(c, actor, actorTime, BOSSES[e.boss].color);
+        if (e.boss && e.hp > 0) {
+          drawBossAura(c, actor, actorTime, BOSSES[e.boss].color);
+          drawBossAdaptation(c, actor, actorTime, BOSSES[e.boss].color);
+        }
         drawEntityAnimated(c, actor, actorTime, () => e.boss ? this.boss(c, actor, actorTime, g) : this.minion(c, actor, actorTime));
         if (e.hp > 0 && e.hp < e.maxHp) {
           c.fillStyle = "#0c1729";
@@ -11621,7 +11966,7 @@
       if (p.healing) {
         glow11(c, p.x, p.y - 30, 80, "#abf2ce38");
         for (let i = 0; i < 6; i++) {
-          const ang = t * 3 + i * TAU14 / 6;
+          const ang = t * 3 + i * TAU15 / 6;
           oval11(c, p.x + Math.cos(ang) * 32, p.y - 35 + Math.sin(ang) * 35, 2, 2, "#dcffe0");
         }
       }
@@ -11673,7 +12018,7 @@
         c.lineWidth = 2;
         c.setLineDash(f.type === "time" ? [8, 12] : []);
         c.beginPath();
-        c.ellipse(f.x, f.y, radius * (0.9 + Math.sin(t * 5) * 0.04), f.type === "gravity" ? radius * 0.6 : 35, t * 0.15, 0, TAU14);
+        c.ellipse(f.x, f.y, radius * (0.9 + Math.sin(t * 5) * 0.04), f.type === "gravity" ? radius * 0.6 : 35, t * 0.15, 0, TAU15);
         c.stroke();
         glow11(c, f.x, f.y, radius, (f.color || b.color) + "14");
         c.restore();
@@ -11765,7 +12110,7 @@
           c.strokeStyle = "#a4e7ed25";
           c.lineWidth = 1;
           c.beginPath();
-          c.arc(x, y, 3 + noise4(i) * 8, 0, TAU14);
+          c.arc(x, y, 3 + noise4(i) * 8, 0, TAU15);
           c.stroke();
         }
         for (let i = 0; i < 6; i++) {
@@ -11803,10 +12148,10 @@
         c.strokeStyle = "#efa7c455";
         c.lineWidth = 2;
         c.beginPath();
-        c.arc(x, y, 122, 0, TAU14);
+        c.arc(x, y, 122, 0, TAU15);
         c.stroke();
         for (let i = 0; i < 14; i++) {
-          const ang = i * TAU14 / 14 + t * 0.08, xx = x + Math.cos(ang) * 160, yy = y + Math.sin(ang) * 160;
+          const ang = i * TAU15 / 14 + t * 0.08, xx = x + Math.cos(ang) * 160, yy = y + Math.sin(ang) * 160;
           c.save();
           c.translate(xx, yy);
           c.rotate(ang);
@@ -11884,12 +12229,12 @@
         c.strokeStyle = active ? cc + "88" : "#526161";
         c.lineWidth = 7;
         c.beginPath();
-        c.ellipse(x, y - 65, 37, 65, 0, Math.PI, TAU14);
+        c.ellipse(x, y - 65, 37, 65, 0, Math.PI, TAU15);
         c.lineTo(x + 37, y);
         c.stroke();
         line11(c, [[x - 37, y], [x - 37, y - 65]], active ? cc + "88" : "#526161", 7);
         for (let i = 0; i < 4; i++) if (active) {
-          const a = t * 0.7 + i * TAU14 / 4;
+          const a = t * 0.7 + i * TAU15 / 4;
           oval11(c, x + Math.cos(a) * 21, y - 60 + Math.sin(a) * 35, 1.5, 1.5, cc);
         }
         text2(c, BIOMES[o.id].icon, x, y - 46, active ? cc : "#63716f", 23);
@@ -12000,7 +12345,7 @@
           c.strokeStyle = "#e0deb7";
           c.lineWidth = 2;
           c.beginPath();
-          c.arc(4, -144, 40, 0, TAU14);
+          c.arc(4, -144, 40, 0, TAU15);
           c.stroke();
           line11(c, [[4, -144], [4, -169], [19, -144]], "#e7dcae", 2);
         }
@@ -12040,7 +12385,7 @@
         line11(c, [[32, -108], [81, -64], [110, -172]], col, 4);
       } else {
         for (let i = 0; i < 6; i++) {
-          const ang = i * TAU14 / 6 + t * 0.3;
+          const ang = i * TAU15 / 6 + t * 0.3;
           line11(c, [[Math.cos(ang) * 30, -110 + Math.sin(ang) * 30], [Math.cos(ang) * 115, -110 + Math.sin(ang) * 115]], col + "55", 3);
           oval11(c, Math.cos(ang) * 115, -110 + Math.sin(ang) * 115, 6, 6, col + "88");
         }
@@ -12057,7 +12402,7 @@
         c.strokeStyle = col + "55";
         c.lineWidth = 1;
         c.beginPath();
-        c.ellipse(0, -50, 100 + Math.sin(t * 8) * 5, 20, 0, 0, TAU14);
+        c.ellipse(0, -50, 100 + Math.sin(t * 8) * 5, 20, 0, 0, TAU15);
         c.stroke();
       }
       c.restore();
@@ -12093,10 +12438,10 @@
           c.strokeStyle = col + "99";
           c.lineWidth = 2;
           c.beginPath();
-          c.arc(e.x, e.y, radius * 0.65, 0, TAU14);
+          c.arc(e.x, e.y, radius * 0.65, 0, TAU15);
           c.stroke();
           for (let i = 0; i < 8; i++) {
-            const angle = i * TAU14 / 8;
+            const angle = i * TAU15 / 8;
             line11(c, [[e.x + Math.cos(angle) * radius * 0.5, e.y + Math.sin(angle) * radius * 0.5], [e.x + Math.cos(angle) * radius, e.y + Math.sin(angle) * radius]], col + "88", 2);
           }
         }
@@ -12123,10 +12468,10 @@
       c.strokeStyle = "#b8d4af22";
       c.lineWidth = 1;
       c.beginPath();
-      c.arc(mid, 265, 140, 0, TAU14);
+      c.arc(mid, 265, 140, 0, TAU15);
       c.stroke();
       for (let i = 0; i < 12; i++) {
-        const ang = i * TAU14 / 12 + t * 0.03, x = mid + Math.cos(ang) * 140, y = 265 + Math.sin(ang) * 140;
+        const ang = i * TAU15 / 12 + t * 0.03, x = mid + Math.cos(ang) * 140, y = 265 + Math.sin(ang) * 140;
         poly10(c, [[x, y - 5], [x + 3, y], [x, y + 5], [x - 3, y]], "#d7e7b466");
       }
       const positions = [{ x: mid - 105, y: 570, s: 0.83, face: 1 }, { x: mid + 115, y: 558, s: 0.72, face: -1 }, { x: mid + 15, y: 565, s: 0.72, face: 1 }];
@@ -12195,7 +12540,7 @@
   // src/opening-cinematic.js
   var OPENING_DURATION = 12e3;
   var ACT_DURATION = 4e3;
-  var TAU15 = Math.PI * 2;
+  var TAU16 = Math.PI * 2;
   var clamp16 = (n2, a = 0, b = 1) => Math.max(a, Math.min(b, n2));
   var finite8 = (n2, fallback = 0) => Number.isFinite(n2) ? n2 : fallback;
   var smooth3 = (n2) => {
@@ -12241,7 +12586,7 @@
   }
   function oval12(c, x, y, rx, ry, color, edge, width = 1) {
     c.beginPath();
-    c.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), 0, 0, TAU15);
+    c.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), 0, 0, TAU16);
     if (color) {
       c.fillStyle = color;
       c.fill();
@@ -12366,7 +12711,7 @@
       c.restore();
     }
     for (let i = 0; i < 17; i++) {
-      const a = i * TAU15 / 17 + motion * 0.018, r = 390 + noise5(i + 44) * 120, x = cx + Math.cos(a) * r, yy = cy + Math.sin(a) * r * 0.66;
+      const a = i * TAU16 / 17 + motion * 0.018, r = 390 + noise5(i + 44) * 120, x = cx + Math.cos(a) * r, yy = cy + Math.sin(a) * r * 0.66;
       c.save();
       c.translate(x, yy);
       c.rotate(a + 0.5);
@@ -12380,9 +12725,9 @@
     if (!reduced) c.scale(1 + progress * 0.025, 1 + progress * 0.025);
     const colors = ["#b9dba0", "#e6ad77", "#8edbd6", "#c3ace2", "#bfdeed", "#e4a9c4"];
     for (let i = 0; i < 6; i++) {
-      const a = -Math.PI / 2 + i * TAU15 / 6, angle = a + Math.sin(motion * 0.25 + i) * 0.025, rx = Math.cos(angle) * (253 + spread * 18), ry = Math.sin(angle) * (220 + spread * 18);
-      arc(c, 0, 0, 205 + i % 2 * 9, a + 0.11, a + TAU15 / 6 - 0.13, colors[i] + "66", 4);
-      arc(c, 0, 0, 223, a + 0.14, a + TAU15 / 6 - 0.16, colors[i] + "22", 1);
+      const a = -Math.PI / 2 + i * TAU16 / 6, angle = a + Math.sin(motion * 0.25 + i) * 0.025, rx = Math.cos(angle) * (253 + spread * 18), ry = Math.sin(angle) * (220 + spread * 18);
+      arc(c, 0, 0, 205 + i % 2 * 9, a + 0.11, a + TAU16 / 6 - 0.13, colors[i] + "66", 4);
+      arc(c, 0, 0, 223, a + 0.14, a + TAU16 / 6 - 0.16, colors[i] + "22", 1);
       c.save();
       c.translate(rx, ry);
       c.rotate(angle + Math.PI / 2);
@@ -12506,7 +12851,7 @@
     glow12(c, sunX, sunY, 420, "#b6d3ad", 0.15);
     glow12(c, sunX, sunY, 210, "#f0dfaf", 0.21);
     oval12(c, sunX, sunY, 76, 76, "#d5d9ad44");
-    arc(c, sunX, sunY, 93, 0.2, TAU15 - 0.3, "#e5deae44", 1);
+    arc(c, sunX, sunY, 93, 0.2, TAU16 - 0.3, "#e5deae44", 1);
     for (let i = -1; i < 5; i++) {
       const x = cx - 500 + i * 235, y = 565;
       poly11(c, [[x - 60, y], [x - 49, 252 - noise5(i + 3) * 90], [x - 17, 231 - noise5(i + 3) * 90], [x + 25, 258 - noise5(i + 3) * 90], [x + 48, y]], "#1c3c3e");
@@ -12521,7 +12866,7 @@
     diamond3(c, cx + 120, 437, 43, "#527b6244", "#c2dca566");
     diamond3(c, cx + 120, 437, 25, "#b2dba077");
     for (let i = 0; i < 6; i++) {
-      const a = i * TAU15 / 6 + Math.PI / 6;
+      const a = i * TAU16 / 6 + Math.PI / 6;
       leaf3(c, cx + 120 + Math.cos(a) * 54, 438 + Math.sin(a) * 54, 18, a, "#8eae7644");
     }
     for (const side of [-1, 1]) {
@@ -12691,9 +13036,473 @@
     };
   }
 
+  // src/boss-cinematic.js
+  var BOSS_CINEMATIC_DURATION = 6500;
+  var FINALE_CINEMATIC_DURATION = 9e3;
+  var ESSENTIAL_BOSSES = Object.freeze(["briar", "bell", "leviathan", "conductor", "hourglass", "crown", "belltwin", "palimpsest", "nullheart"]);
+  var DEFINITIONS = { ...BOSSES, ...CHRONICLE_BOSSES };
+  var TAU17 = Math.PI * 2;
+  var finite9 = (n2, f = 0) => Number.isFinite(n2) ? n2 : f;
+  var clamp17 = (n2, a = 0, b = 1) => Math.max(a, Math.min(b, n2));
+  var smooth4 = (n2) => {
+    n2 = clamp17(n2);
+    return n2 * n2 * (3 - 2 * n2);
+  };
+  var noise6 = (n2) => {
+    const x = Math.sin(n2 * 127.1 + 47.17) * 43758.5453;
+    return x - Math.floor(x);
+  };
+  var GATES = {
+    briar: ["MOURNINGWILD \xB7 THE FIRST GARDEN", "The roots are holding their breath.", "Little heartbeats\u2026 stay behind my roots. I can keep you safe."],
+    bell: ["CINDER CATHEDRAL \xB7 THE FURNACE SERMON", "The bells were never made of bronze alone.", "Come closer, pilgrims. The city must not go cold."],
+    leviathan: ["DROWNED ARCHIVE \xB7 THE LIVING TIDE", "A thousand stories turn beneath the water.", "No more stories lost. No more names beneath the tide."],
+    conductor: ["THUNDERSONG \xB7 THE NINTH REST", "The storm stops long enough to listen.", "One voice is missing. I will make the whole sky answer."],
+    hourglass: ["PALE MERIDIAN \xB7 THE LAST SECOND", "Here, even the snow remembers how to wait.", "Wait. Give me one more second. I can change what happens."],
+    crown: ["THE HOLLOW CROWN \xB7 THE WORLDHEART", "Behind the throne, something is afraid.", "I kept the roads. I kept the voices. Why did nobody come home?"],
+    belltwin: ["CLOCKWORK OSSUARY \xB7 TWO DAWNS", "Two saints have been sheltering one small sunrise.", "If one of us falls silent, who will keep tomorrow warm?"],
+    palimpsest: ["THE PAPER MOON \xB7 THE LAST WORD", "The book has eaten every goodbye but its own.", "Do not turn the last page. I cannot bear another ending."],
+    nullheart: ["CRADLE ZERO \xB7 THE UNWRITTEN FUTURE", "A perfect tomorrow has no room left to grow.", "Stay. Nothing can ever hurt you in a world that never changes."]
+  };
+  var ENDINGS = {
+    restore: [["THE SIX MEMORIES", "The heart remembers.", "The cage opens. This time, nobody asks the living world to obey."], ["A DAWN WORTH KEEPING", "A home with open doors.", "Lanterns wake along the roads. Vell leaves a light for every traveler still on their way."], ["THE LAST LANTERN", "Some bonds outlast the end.", "Three companions. One impossible journey. A whole world learning how to begin again."]],
+    release: [["THE SIX MEMORIES", "A heart can choose the sky.", "The locks fall away. The Worldheart unfolds into a thousand unfamiliar constellations."], ["A ROAD WITHOUT A CROWN", "No kingdom owns the dawn.", "The old roads become rivers of stars. Every creature carries a piece of their light."], ["A SKY FULL OF HEARTBEATS", "Find one another. Again.", "Your companions look up. Somewhere in the dark, a new road answers with a heartbeat."]],
+    wardens: [["THE CRADLE OPENS", "No life is expendable.", "The perfect memory lowers its hand. Shelter can be a promise instead of a prison."], ["THE LANTERN COMPACT", "A refuge with open doors.", "The Waylights burn for the lost, and the living are free to decide when it is time to leave."], ["TOMORROW HAS PERMISSION", "A small light. A whole world.", "Vell remembers your name. Beyond the lantern, someone entirely new takes their first breath."]],
+    chorus: [["THE CRADLE OPENS", "A voice is not a thing to keep.", "The stored voices find the window. This time, their song leaves room for the living."], ["THE DROWNED CHOIR", "Every goodbye becomes a road.", "Paper boats fill the sky. Some return as rain. Some as roots. Some become a name no one has heard."], ["TOMORROW HAS PERMISSION", "Listen between the notes.", "Your companions answer the first unfamiliar song. The world has room for another voice."]],
+    unwritten: [["THE CRADLE OPENS", "The next page belongs to the living.", "The perfect child uncurls its hand. A future does not need to be certain to deserve a chance."], ["THE UNWRITTEN", "A world it cannot remember.", "The old constellations leave a space. No prophecy waits there. Only the next step you choose."], ["TOMORROW HAS PERMISSION", "Every beginning is a bond.", "From the open cradle comes a tiny, entirely unfamiliar sound. Your companions step closer."]]
+  };
+  function endingKey(ending, faction) {
+    return Object.hasOwn(ENDINGS, ending) ? ending : ending === "true" ? Object.hasOwn(ENDINGS, faction) ? faction : "unwritten" : "restore";
+  }
+  function definition(id, faction) {
+    const b = Object.hasOwn(DEFINITIONS, id) ? DEFINITIONS[id] : DEFINITIONS.briar;
+    return id === "nullheart" && b.variants && Object.hasOwn(b.variants, faction) ? { ...b, ...b.variants[faction] } : b;
+  }
+  function bossCinematicBeat(bossId, elapsed = 0, { mode = "intro", ending = "restore", faction = null } = {}) {
+    const duration = mode === "ending" ? FINALE_CINEMATIC_DURATION : BOSS_CINEMATIC_DURATION, count = mode === "ending" ? 3 : 2, act = duration / count, ms = clamp17(finite9(elapsed), 0, duration), index = Math.min(count - 1, Math.floor(ms / act));
+    const b = definition(bossId, faction), copy = Object.hasOwn(GATES, bossId) ? GATES[bossId] : GATES.briar;
+    const [kicker, title2, line14] = mode === "ending" ? ENDINGS[endingKey(ending, faction)][index] : index === 0 ? [copy[0], copy[1], b.epithet] : [b.epithet, b.name, copy[2]];
+    return { index, kicker, title: title2, line: line14, progress: clamp17((ms - index * act) / act), duration };
+  }
+  function line13(c, pts, col, width = 1) {
+    c.beginPath();
+    pts.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y));
+    c.strokeStyle = col;
+    c.lineWidth = width;
+    c.lineCap = "round";
+    c.lineJoin = "round";
+    c.stroke();
+  }
+  function curve7(c, pts, col, width = 1) {
+    c.beginPath();
+    c.moveTo(pts[0], pts[1]);
+    c.bezierCurveTo(...pts.slice(2));
+    c.strokeStyle = col;
+    c.lineWidth = width;
+    c.lineCap = "round";
+    c.stroke();
+  }
+  function poly12(c, pts, col, edge, width = 1) {
+    c.beginPath();
+    pts.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y));
+    c.closePath();
+    if (col) {
+      c.fillStyle = col;
+      c.fill();
+    }
+    if (edge) {
+      c.strokeStyle = edge;
+      c.lineWidth = width;
+      c.lineJoin = "round";
+      c.stroke();
+    }
+  }
+  function oval13(c, x, y, rx, ry, col, edge, width = 1) {
+    c.beginPath();
+    c.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), 0, 0, TAU17);
+    if (col) {
+      c.fillStyle = col;
+      c.fill();
+    }
+    if (edge) {
+      c.strokeStyle = edge;
+      c.lineWidth = width;
+      c.stroke();
+    }
+  }
+  function gradient2(c, x, y, x2, y2, ...colors) {
+    const g = c.createLinearGradient(x, y, x2, y2);
+    colors.forEach((col, i) => g.addColorStop(i / (colors.length - 1), col));
+    return g;
+  }
+  function glow13(c, x, y, r, col, power = 0.15) {
+    c.save();
+    c.globalAlpha *= clamp17(power);
+    const g = c.createRadialGradient(x, y, 0, x, y, Math.max(1, r));
+    g.addColorStop(0, col);
+    g.addColorStop(1, "transparent");
+    oval13(c, x, y, r, r, g);
+    c.restore();
+  }
+  function ring3(c, x, y, r, col, width = 1, a = 0, b = TAU17) {
+    c.beginPath();
+    c.arc(x, y, Math.max(1, r), a, b);
+    c.strokeStyle = col;
+    c.lineWidth = width;
+    c.stroke();
+  }
+  function gem2(c, x, y, r, col, edge) {
+    poly12(c, [[x, y - r], [x + r * 0.55, y], [x, y + r], [x - r * 0.55, y]], col, edge);
+  }
+  function arch2(c, x, y, rx, ry, col, width = 22) {
+    c.beginPath();
+    c.moveTo(x - rx, y + 80);
+    c.lineTo(x - rx, y);
+    c.bezierCurveTo(x - rx, y - ry * 0.72, x - rx * 0.45, y - ry, x, y - ry);
+    c.bezierCurveTo(x + rx * 0.45, y - ry, x + rx, y - ry * 0.72, x + rx, y);
+    c.lineTo(x + rx, y + 80);
+    c.strokeStyle = col;
+    c.lineWidth = width;
+    c.stroke();
+  }
+  function dust2(c, w, t, col, kind = "dust") {
+    for (let i = 0; i < 48; i++) {
+      const x = (noise6(i + 17) * w + t * (kind === "snow" ? 8 : kind === "ember" ? 4 : 2) + w * 3) % (w + 30) - 15, y = (noise6(i + 100) * 580 + (kind === "ember" ? -t * 22 : kind === "bubble" ? -t * 12 : t * 5) + 5800) % 580 + 100;
+      if (kind === "bubble") oval13(c, x, y, 2 + noise6(i + 10) * 5, 2 + noise6(i + 10) * 5, null, col + "35");
+      else if (kind === "paper") {
+        c.save();
+        c.translate(x, y);
+        c.rotate(noise6(i) * 3 + t * 0.12);
+        poly12(c, [[-4, -7], [5, -6], [4, 7], [-5, 5]], col + "44");
+        c.restore();
+      } else oval13(c, x, y, 1 + noise6(i) * 1.2, kind === "ember" ? 3 : 1 + noise6(i) * 1.2, col + (i % 3 ? "55" : "a0"));
+    }
+  }
+  function roots(c, x, y, side, col, t = 0) {
+    for (let i = 0; i < 3; i++) curve7(c, [x + side * i * 15, y, x + side * (90 + i * 14), y - 130, x - side * (70 + i * 19) + Math.sin(t * 0.4) * 3, y - 350, x + side * (130 + i * 40), y - 520], col, 24 - i * 5);
+  }
+  function chamber(c, w, id, b, t) {
+    const x = w * 0.65, color = b.color;
+    const sky = { briar: "#112a2a", bell: "#281c2a", leviathan: "#102c3c", conductor: "#222842", hourglass: "#183644", crown: "#21172e", belltwin: "#282a28", palimpsest: "#172832", nullheart: "#201f36" }[id] || "#112a2a";
+    c.fillStyle = gradient2(c, 0, 0, 0, 900, "#071019", sky, "#06131b");
+    c.fillRect(0, 0, w, 900);
+    glow13(c, x, 330, 500, color, 0.15);
+    if (id === "briar") {
+      for (let i = -1; i < 5; i++) {
+        const xx = x - 760 + i * 330;
+        arch2(c, xx, 610, 210, 420, "#365347", 37);
+        arch2(c, xx, 610, 188, 391, "#88a67a33", 2);
+        roots(c, xx - 205, 705, 1, "#2b463e", t);
+      }
+      oval13(c, x, 380, 138, 185, "#172e2b", "#8ea67955", 9);
+      for (let i = 0; i < 12; i++) {
+        const a = i * TAU17 / 12;
+        gem2(c, x + Math.cos(a) * 150, 380 + Math.sin(a) * 195, 12, "#8ca67455");
+      }
+      glow13(c, x, 390, 190, color, 0.13);
+      for (const side of [-1, 1]) roots(c, x + side * 260, 690, -side, "#59714c", t);
+      dust2(c, w, t, color);
+    } else if (id === "bell") {
+      for (let i = -1; i < 6; i++) {
+        const xx = x - 850 + i * 320;
+        arch2(c, xx, 650, 150, 460, "#523b40", 38);
+        line13(c, [[xx - 143, 650], [xx - 143, 170]], "#b08a6644", 2);
+      }
+      for (let i = 0; i < 7; i++) {
+        const xx = x - 280 + i * 93;
+        line13(c, [[xx, 75], [xx, 412]], "#8c806a55", 3);
+        for (let n2 = 0; n2 < 8; n2++) oval13(c, xx, 120 + n2 * 34, 6, 11, null, "#b29c6a44");
+      }
+      glow13(c, x, 500, 310, "#ffac60", 0.25);
+      poly12(c, [[x - 210, 620], [x - 173, 300], [x - 80, 210], [x + 80, 210], [x + 173, 300], [x + 210, 620]], "#241f2b", "#9e755555", 4);
+      for (let i = 0; i < 7; i++) {
+        const xx = x - 150 + i * 50;
+        line13(c, [[xx, 360], [xx, 600]], "#ffb16d44", 8);
+      }
+      dust2(c, w, t, color, "ember");
+    } else if (id === "leviathan") {
+      for (let i = -1; i < 8; i++) {
+        const xx = x - 900 + i * 220;
+        c.save();
+        c.translate(xx, 600);
+        c.rotate(i % 2 ? 0.07 : -0.08);
+        c.fillStyle = "#234552";
+        c.fillRect(-22, -400, 44, 480);
+        for (let n2 = 0; n2 < 6; n2++) line13(c, [[-55, -80 - n2 * 53], [70, -80 - n2 * 53]], "#5b878c44", 5);
+        c.restore();
+      }
+      for (let i = 0; i < 5; i++) {
+        const yy = 240 + i * 80;
+        curve7(c, [-80, yy, w * 0.3, yy - 110, w * 0.75, yy + 60, w + 80, yy - 30], "#a0eee922", 2);
+      }
+      for (let i = 0; i < 7; i++) {
+        const xx = x - 370 + i * 120, yy = 220 + Math.sin(t * 0.3 + i) * 24;
+        oval13(c, xx, yy, 23, 9, "#c4ede218");
+        for (let n2 = 0; n2 < 3; n2++) curve7(c, [xx - 13 + n2 * 13, yy, xx - 22 + n2 * 19, yy + 34, xx - 8 + n2 * 9, yy + 60, xx - 13 + n2 * 13, yy + 90], "#b4ece222", 1);
+      }
+      c.fillStyle = "#65b6bd18";
+      c.fillRect(0, 604, w, 130);
+      dust2(c, w, t, color, "bubble");
+    } else if (id === "conductor") {
+      for (let i = -1; i < 6; i++) {
+        const xx = x - 850 + i * 330, yy = 420 + noise6(i + 5) * 100;
+        poly12(c, [[xx - 130, yy], [xx + 140, yy - 18], [xx + 64, yy + 83], [xx, yy + 140], [xx - 52, yy + 62]], "#353b58", "#8b8eaa44", 2);
+        line13(c, [[xx, yy], [xx, yy - 220]], "#515c7a", 17);
+        gem2(c, xx, yy - 234, 26, "#a9a0bf44", "#d0bcea55");
+      }
+      const forks = [x - 330, x + 140, x + 420];
+      for (const xx of forks) {
+        line13(c, [[xx, 72], [xx - 35, 190], [xx + 7, 179], [xx - 45, 350]], "#ceb8fb55", 3);
+        glow13(c, xx - 15, 185, 90, color, 0.08);
+      }
+      for (let i = 0; i < 8; i++) {
+        const yy = 170 + i * 65;
+        line13(c, [[0, yy], [w, yy - 60]], "#b5abd715", 1);
+      }
+      dust2(c, w, t, color);
+    } else if (id === "hourglass") {
+      ring3(c, x, 315, 207, "#bbdbe533", 4);
+      ring3(c, x, 315, 180, "#d3e9e944", 1);
+      for (let i = 0; i < 12; i++) {
+        const a = i * TAU17 / 12;
+        line13(c, [[x + Math.cos(a) * 183, 315 + Math.sin(a) * 183], [x + Math.cos(a) * 199, 315 + Math.sin(a) * 199]], "#d9ece266", 2);
+      }
+      line13(c, [[x, 315], [x - 16, 180]], "#d6f0eb88", 4);
+      line13(c, [[x, 315], [x + 91, 350]], "#d6f0eb66", 3);
+      for (let i = -1; i < 7; i++) {
+        const xx = x - 850 + i * 270;
+        poly12(c, [[xx - 50, 690], [xx - 25, 215 - noise6(i) * 100], [xx + 20, 170 - noise6(i) * 80], [xx + 52, 690]], "#3b6573", "#b7dce348", 2);
+        poly12(c, [[xx + 8, 205], [xx + 20, 180], [xx + 31, 650]], "#bcdfe422");
+      }
+      dust2(c, w, t, color, "snow");
+    } else if (id === "crown") {
+      oval13(c, x, 330, 183, 183, "#0e1624");
+      ring3(c, x, 330, 202, color + "55", 3);
+      ring3(c, x, 330, 221, color + "22");
+      for (let i = 0; i < 10; i++) {
+        const a = i * TAU17 / 10 + t * 0.025, xx = x + Math.cos(a) * 265, yy = 330 + Math.sin(a) * 228;
+        c.save();
+        c.translate(xx, yy);
+        c.rotate(a);
+        poly12(c, [[-19, -33], [21, -36], [33, 7], [4, 35], [-23, 11]], "#55415a", "#c793b266", 2);
+        c.restore();
+      }
+      for (const side of [-1, 1]) poly12(c, [[x + side * 320, 699], [x + side * 285, 403], [x + side * 230, 371], [x + side * 203, 489], [x + side * 170, 700]], "#352f43", "#91718a44", 2);
+      dust2(c, w, t, color);
+    } else if (id === "palimpsest") {
+      for (let i = 0; i < 9; i++) {
+        const xx = x - 620 + i * 145, yy = 160 + i % 3 * 95;
+        c.save();
+        c.translate(xx, yy);
+        c.rotate(Math.sin(i + t * 0.16) * 0.18);
+        poly12(c, [[-36, -47], [36, -42], [31, 47], [-32, 44]], "#b6c8b244", "#d1e1c755", 1);
+        for (let n2 = 0; n2 < 5; n2++) line13(c, [[-21, -22 + n2 * 12], [17 - noise6(n2 + i) * 13, -20 + n2 * 12]], "#729f9b66", 1.5);
+        c.restore();
+      }
+      for (const side of [-1, 1]) curve7(c, [x + side * 50, 620, x + side * 330, 560, x + side * 390, 386, x + side * 330, 170], "#5d858566", 8);
+      oval13(c, x, 677, 390, 35, "#152c3e", "#8dd9ce33", 2);
+      dust2(c, w, t, color, "paper");
+    } else if (id === "belltwin") {
+      for (const side of [-1, 1]) {
+        const xx = x + side * 190;
+        glow13(c, xx, 272, 198, "#f6d798", 0.2);
+        oval13(c, xx, 272, 75, 75, "#e9ce9666", "#eddbb477", 2);
+        ring3(c, xx, 272, 93, "#beaa6e66", 3);
+        arch2(c, xx, 540, 145, 365, "#6c7053", 16);
+        for (let n2 = 0; n2 < 5; n2++) curve7(c, [xx - 110 + n2 * 55, 570, xx - 123 + n2 * 53, 396, xx - 42 + n2 * 21, 260, xx, 132], "#a7ad7444", 2);
+      }
+      for (let i = 0; i < 6; i++) {
+        const xx = x - 450 + i * 180;
+        line13(c, [[xx, 100], [xx, 370]], "#bea36d55", 2);
+        oval13(c, xx, 394, 29, 12, "#978153", "#d5bf8555");
+        poly12(c, [[xx - 29, 394], [xx - 23, 359], [xx, 343], [xx + 24, 360], [xx + 29, 394]], "#756748", "#d2bc8f66");
+      }
+      dust2(c, w, t, color, "ember");
+    } else {
+      for (let i = 0; i < 3; i++) {
+        const a = 0.1 + i * 0.45;
+        c.save();
+        c.translate(x, 340);
+        c.rotate(a);
+        oval13(c, 0, 0, 270 - i * 33, 151 - i * 16, null, color + (i ? "44" : "77"), 2);
+        c.restore();
+      }
+      for (let i = 0; i < 6; i++) {
+        const a = i * TAU17 / 6 + t * 0.04, xx = x + Math.cos(a) * 300, yy = 340 + Math.sin(a) * 170;
+        arch2(c, xx, yy + 35, 38, 66, "#a8b3b877", 7);
+        oval13(c, xx, yy + 35, 36, 9, "#5b637c88", color + "66");
+        gem2(c, xx, yy + 4, 10, color + "77");
+      }
+      glow13(c, x, 365, 240, color, 0.15);
+      for (const side of [-1, 1]) curve7(c, [x + side * 55, 670, x + side * 170, 570, x + side * 230, 190, x + side * 100, 90], "#5f6a8755", 13);
+      dust2(c, w, t, color);
+    }
+    c.fillStyle = gradient2(c, 0, 672, 0, 800, sky, "#07151d");
+    c.fillRect(0, 683, w, 175);
+    line13(c, [[0, 683], [w, 683]], color + "55", 2);
+  }
+  function companions(c, party2, x, y, t, reduced, scale = 0.48, spread = 125, face = 1) {
+    for (const i of [2, 0, 1]) {
+      const xx = x + (i - 1) * spread, yy = y + (i === 1 ? 0 : -4);
+      drawCreature(c, party2[i], xx, yy, scale * (i === 1 ? 1.02 : 0.92), face, { state: "idle" }, t, { reducedMotion: reduced, shadow: true, aura: false });
+    }
+  }
+  function intro(c, w, id, b, beat, t, reduced, party2) {
+    chamber(c, w, id, b, t);
+    const p = reduced ? 1 : smooth4(beat.progress), focus = beat.index === 0 ? 0.92 : 1.04, appear = reduced ? 1 : beat.index === 0 ? 0.58 + 0.25 * p : 1;
+    const bx = w * 0.66, by = 680, bossScale = (id === "leviathan" ? 1.75 : id === "conductor" ? 1.75 : 1.83) * focus;
+    c.save();
+    c.globalAlpha *= appear;
+    c.translate(bx, by);
+    c.scale(bossScale, bossScale);
+    drawArenaBoss(c, { boss: id, id: 7, x: 0, y: 0, face: -1, state: beat.index === 0 ? "sealed" : "windup", phase: beat.index === 0 ? 1 : 2, timer: beat.index === 0 ? 50 : 25, windupFrames: 65, attackFrame: 0, reducedMotion: reduced }, b, t);
+    c.restore();
+    if (beat.index === 1) {
+      const enter = reduced ? 0 : (1 - smooth4(beat.progress / 0.45)) * 35;
+      companions(c, party2, w * 0.23 - enter, 690, t, reduced, 0.49, 120, 1);
+    } else {
+      for (const side of [-1, 1]) {
+        const xx = w * 0.19 + side * 45;
+        line13(c, [[xx, 690], [xx + 18, 674]], b.color + "35", 1);
+      }
+    }
+  }
+  function lantern3(c, x, y, col, t, size = 16) {
+    line13(c, [[x, y - 45], [x, y - 25]], "#b3b58977", 2);
+    glow13(c, x, y, size * 6, col, 0.2);
+    poly12(c, [[x - size * 0.7, y - 20], [x - size * 0.6, y + 18], [x, y + 28], [x + size * 0.6, y + 18], [x + size * 0.7, y - 20], [x, y - 31]], "#28413a", "#a9b58a", 2);
+    oval13(c, x, y, size * 0.3, 17 + Math.sin(t * 2) * 2, col);
+    line13(c, [[x, y - 23], [x, y + 22]], "#bfbb8a", 1.2);
+  }
+  function worldheart(c, x, y, size, t, col, open = 0) {
+    c.save();
+    c.translate(x, y);
+    c.scale(size, size);
+    glow13(c, 0, 0, 190, col, 0.19);
+    ring3(c, 0, 0, 137, col + "44", 1.5);
+    for (let i = 0; i < 6; i++) {
+      const a = i * TAU17 / 6 + t * 0.06;
+      gem2(c, Math.cos(a) * 156, Math.sin(a) * 130, 8, col + "99");
+    }
+    const gap = 12 + open * 43;
+    for (const side of [-1, 1]) poly12(c, [[side * gap, -108], [side * (gap + 68), -34], [side * (gap + 51), 45], [side * gap, 111], [side * (gap + 15), 9]], side > 0 ? "#9eb4a4" : "#547a77", "#d8dfbf", 2);
+    poly12(c, [[-29, -30], [0, -74], [30, -30], [0, 74]], col + "99", "#f5edc5", 1.5);
+    c.restore();
+  }
+  function finale(c, w, key, beat, t, reduced, party2) {
+    const cx = w * 0.5, p = reduced ? 1 : smooth4(beat.progress), release = key === "release", chorus = key === "chorus", wild = key === "unwritten", col = release ? "#c1c7f4" : chorus ? "#a5e6d9" : wild ? "#d8c4f4" : "#e4dbad";
+    c.fillStyle = gradient2(c, 0, 0, 0, 900, beat.index === 0 ? "#101b2a" : "#17333a", beat.index === 0 ? "#28373f" : "#466458", "#0b1d25");
+    c.fillRect(0, 0, w, 900);
+    if (beat.index === 0) {
+      glow13(c, cx, 340, 450, col, 0.15);
+      for (let i = 0; i < 6; i++) {
+        const a = i * TAU17 / 6, spread = (reduced ? 1 : p) * 35, x = cx + Math.cos(a) * (280 + spread), y = 350 + Math.sin(a) * (220 + spread);
+        line13(c, [[cx + Math.cos(a) * 148, 350 + Math.sin(a) * 123], [x, y]], col + "35", 2);
+        gem2(c, x, y, 20, ["#bddaa2", "#f1bb88", "#9cddd9", "#cfb2ec", "#c7e6e9", "#ecb2cb"][i] + "aa");
+      }
+      worldheart(c, cx, 340, 1.3, t, col, p);
+      companions(c, party2, cx, 686, t, reduced, 0.57, 190, 1);
+    } else if (beat.index === 1) {
+      const sunX = cx + 240, sunY = 235;
+      glow13(c, sunX, sunY, 400, col, 0.22);
+      oval13(c, sunX, sunY, 80, 80, col + "44");
+      if (release || chorus) {
+        for (let i = 0; i < 22; i++) {
+          const x = noise6(i + 88) * w, yy = 80 + noise6(i + 77) * 520 - t * 4;
+          c.save();
+          c.translate(x, yy);
+          c.rotate(Math.sin(i) * 0.4);
+          if (chorus) poly12(c, [[-20, 0], [24, 0], [7, 16], [-6, 15]], "#cfe9d466", "#dcebd677");
+          else {
+            gem2(c, 0, 0, 3 + noise6(i) * 4, col + "aa");
+            ring3(c, 0, 0, 9, col + "22");
+          }
+          c.restore();
+        }
+        for (let i = 0; i < 5; i++) curve7(c, [-60, 600 - i * 83, w * 0.3, 650 - i * 97, w * 0.6, 240 - i * 20, w + 70, 200 + i * 25], col + "25", 2);
+      } else {
+        for (let i = -1; i < 6; i++) {
+          const x = cx - 680 + i * 270;
+          arch2(c, x, 650, 138, 290, "#54735a", 18);
+          roots(c, x - 135, 720, 1, "#294c40", t);
+          lantern3(c, x, 350 + Math.sin(i) * 30, col, t, 12);
+        }
+        if (wild) for (let i = 0; i < 12; i++) {
+          const a = i * TAU17 / 12;
+          gem2(c, sunX + Math.cos(a) * 122, sunY + Math.sin(a) * 122, 8, col + "55");
+        }
+      }
+      c.fillStyle = gradient2(c, 0, 655, 0, 850, "#435c47", "#19382f", "#0c222b");
+      c.fillRect(0, 680, w, 170);
+      line13(c, [[0, 680], [w, 680]], "#c5d6a777", 2);
+      companions(c, party2, cx, 686, t, reduced, 0.62, 210, release ? -1 : 1);
+    } else {
+      const warm = release ? "#bac9ef" : chorus ? "#b3e9db" : wild ? "#dcc6f1" : "#e8dbad";
+      glow13(c, cx, 270, 440, warm, 0.2);
+      oval13(c, cx, 248, 99, 99, warm + "22");
+      for (const side of [-1, 1]) {
+        roots(c, cx + side * 640, 760, -side, "#2a4b3f", t);
+        arch2(c, cx + side * 470, 650, 135, 320, "#355345", 22);
+        lantern3(c, cx + side * 470, 366, warm, t, 15);
+      }
+      for (let i = 0; i < 9; i++) {
+        const a = i * TAU17 / 9;
+        gem2(c, cx + Math.cos(a) * 195, 265 + Math.sin(a) * 115, 3, warm + "66");
+      }
+      c.fillStyle = gradient2(c, 0, 662, 0, 840, "#5a6f51", "#274638", "#0c2328");
+      poly12(c, [[0, 700], [cx - 380, 669], [cx, 683], [cx + 340, 670], [w, 704], [w, 870], [0, 870]], c.fillStyle);
+      line13(c, [[0, 700], [cx - 380, 669], [cx, 683], [cx + 340, 670], [w, 704]], "#c5d4a977", 2);
+      companions(c, party2, cx, 682, t, reduced, 0.74, 230, 1);
+      if (!release) {
+        lantern3(c, cx, 385, warm, t, 19);
+        if (wild || chorus || key === "wardens") {
+          oval13(c, cx, 622, 23, 30, warm + "44", warm + "55");
+          glow13(c, cx, 622, 60, warm, 0.2);
+        }
+      } else {
+        worldheart(c, cx, 276, 0.33, t, warm, 1);
+        for (let i = 0; i < 15; i++) gem2(c, cx + (noise6(i + 93) - 0.5) * 800, 140 + noise6(i + 12) * 340, 2 + noise6(i) * 3, warm + "99");
+      }
+    }
+    dust2(c, w, t, col, chorus ? "paper" : "dust");
+  }
+  function drawBossCinematic(c, width, height, { bossId = "briar", elapsed = 0, partyIds = [], reducedMotion: reducedMotion2 = false, mode = "intro", ending = "restore", faction = null } = {}) {
+    if (!c || !Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return;
+    const id = ESSENTIAL_BOSSES.includes(bossId) ? bossId : "briar", beat = bossCinematicBeat(id, elapsed, { mode, ending, faction }), time = reducedMotion2 ? 0 : clamp17(finite9(elapsed), 0, beat.duration) / 1e3;
+    const ids = Array.isArray(partyIds) ? partyIds : [], party2 = [0, 1, 2].map((i) => findFighter(ids[i] || ["pyrojaw", "voltantis", "zephyrix"][i])), scale = height / 900, w = width / scale;
+    c.save();
+    try {
+      c.beginPath();
+      c.rect(0, 0, width, height);
+      c.clip();
+      c.scale(scale, scale);
+      c.fillStyle = "#07141c";
+      c.fillRect(0, 0, w, 900);
+      const composition = Math.min(1, w / 1450);
+      c.save();
+      c.translate(0, 680 * (1 - composition));
+      c.scale(composition, composition);
+      if (mode === "ending") finale(c, w / composition, endingKey(ending, faction), beat, time, reducedMotion2, party2);
+      else intro(c, w / composition, id, definition(id, faction), beat, time, reducedMotion2, party2);
+      c.restore();
+      c.fillStyle = gradient2(c, 0, 630, 0, 900, "#06131a00", "#06131adc", "#06131a");
+      c.fillRect(0, 630, w, 270);
+      c.fillStyle = "#050e16";
+      c.fillRect(0, 0, w, 47);
+      c.fillRect(0, 844, w, 56);
+      line13(c, [[0, 47], [w, 47]], "#c6d3a51c");
+      line13(c, [[0, 844], [w, 844]], "#c6d3a51c");
+      for (const x of [28, w - 28]) {
+        line13(c, [[x, 70], [x, 87]], "#c9d4b244");
+        line13(c, [[x - 5, 78], [x + 5, 78]], "#c9d4b244");
+      }
+    } finally {
+      c.restore();
+    }
+  }
+
   // src/world-dialogue.js
-  var finite9 = (value, fallback = 0) => Number.isFinite(value) ? value : fallback;
-  var clamp17 = (value, min, max) => Math.max(min, Math.min(max, value));
+  var finite10 = (value, fallback = 0) => Number.isFinite(value) ? value : fallback;
+  var clamp18 = (value, min, max) => Math.max(min, Math.min(max, value));
   function initWorldDialogue({ parent = document.getElementById("game-screen"), onAdvance = () => {
   }, onDismiss = () => {
   } } = {}) {
@@ -12737,7 +13546,7 @@
     }
     function place({ x, y, width = parent.clientWidth, height = parent.clientHeight, mobile = false } = {}) {
       if (!shown || element.hidden) return;
-      const w = Math.max(1, finite9(width, 1)), h = Math.max(1, finite9(height, 1)), ax = finite9(x, w * 0.5), ay = finite9(y, h * 0.55);
+      const w = Math.max(1, finite10(width, 1)), h = Math.max(1, finite10(height, 1)), ax = finite10(x, w * 0.5), ay = finite10(y, h * 0.55);
       const margin = w < 600 ? 18 : 24, copyWidth = Math.max(120, Math.min(mobile ? w < 700 ? 300 : 350 : 430, w - margin * 2));
       const safeTop = mobile ? h < 360 ? 75 : 88 : Math.min(106, h * 0.2), safeBottom = mobile ? h < 360 ? 94 : 110 : 74;
       const available = Math.max(110, h - safeTop - safeBottom), manual = element.dataset.manual === "true", textMax = Math.max(52, available - (manual ? 74 : 28));
@@ -12751,11 +13560,11 @@
       }
       const boxHeight = measuredHeight || 120;
       const preferredLeft = ax < w * 0.55 ? ax + 25 : ax - copyWidth - 25;
-      const left = clamp17(preferredLeft, margin, Math.max(margin, w - copyWidth - margin));
-      const top = clamp17(ay - boxHeight * 0.78, safeTop, Math.max(safeTop, h - safeBottom - boxHeight));
+      const left = clamp18(preferredLeft, margin, Math.max(margin, w - copyWidth - margin));
+      const top = clamp18(ay - boxHeight * 0.78, safeTop, Math.max(safeTop, h - safeBottom - boxHeight));
       element.style.transform = `translate3d(${left.toFixed(2)}px,${top.toFixed(2)}px,0)`;
-      const targetX = clamp17(ax - left, 8 - margin, copyWidth + margin - 8), targetY = clamp17(ay - top, 0, Math.max(boxHeight + 45, h - top - safeBottom));
-      const startX = clamp17(targetX, 12, copyWidth - 12), startY = boxHeight - 9, dx = targetX - startX, dy = targetY - startY, length = Math.hypot(dx, dy);
+      const targetX = clamp18(ax - left, 8 - margin, copyWidth + margin - 8), targetY = clamp18(ay - top, 0, Math.max(boxHeight + 45, h - top - safeBottom));
+      const startX = clamp18(targetX, 12, copyWidth - 12), startY = boxHeight - 9, dx = targetX - startX, dy = targetY - startY, length = Math.hypot(dx, dy);
       thread.style.left = startX + "px";
       thread.style.top = startY + "px";
       thread.style.width = Math.min(64, length) + "px";
@@ -12777,13 +13586,13 @@
   }
 
   // src/world-dialogue-state.js
-  var finite10 = (n2, fallback = 0) => Number.isFinite(n2) ? n2 : fallback;
+  var finite11 = (n2, fallback = 0) => Number.isFinite(n2) ? n2 : fallback;
   function paginateDialogue(lines, maxChars = 210) {
-    const limit = Math.max(80, Math.floor(finite10(maxChars, 210))), pages = [];
-    for (const line13 of Array.isArray(lines) ? lines : []) {
-      if (!Array.isArray(line13) || typeof line13[1] !== "string") continue;
-      const speaker = String(line13[0] || "A distant voice");
-      let rest = line13[1].replace(/\s+/g, " ").trim();
+    const limit = Math.max(80, Math.floor(finite11(maxChars, 210))), pages = [];
+    for (const line14 of Array.isArray(lines) ? lines : []) {
+      if (!Array.isArray(line14) || typeof line14[1] !== "string") continue;
+      const speaker = String(line14[0] || "A distant voice");
+      let rest = line14[1].replace(/\s+/g, " ").trim();
       while (rest) {
         if (rest.length <= limit) {
           pages.push([speaker, rest]);
@@ -12801,7 +13610,7 @@
   function resolveDialogueAnchor(source, g) {
     if (!source || !g) return null;
     const entity = source.boss ? g.enemies?.find((e) => e.boss === source.boss) : g.room?.objects?.find((o) => o.id === source.id);
-    return { x: finite10(entity?.x, finite10(source.x)), y: finite10(entity?.y, finite10(source.y, 520)) };
+    return { x: finite11(entity?.x, finite11(source.x)), y: finite11(entity?.y, finite11(source.y, 520)) };
   }
   var WorldDialogueState = class {
     constructor({ voices = {} } = {}) {
@@ -12821,7 +13630,7 @@
       const pages = paginateDialogue(lines);
       if (!pages.length || !source || typeof source.room !== "string") return false;
       if (!manual && this.active?.manual) return false;
-      const safeSource = { ...source, x: finite10(source.x), y: finite10(source.y, 520) };
+      const safeSource = { ...source, x: finite11(source.x), y: finite11(source.y, 520) };
       this.active = { lines: pages, index: 0, source: safeSource, room: source.room, manual, kind, elapsed: 0, duration: duration ?? Math.max(6e3, Math.min(14e3, pages[0][1].length * 55)) };
       this.revision++;
       return true;
@@ -12847,7 +13656,7 @@
       }
       if (this.active && this.active.room !== g.roomId) this.dismiss({ cooldown: 900 });
       if (suspended || g.paused || g.hitstop || g.player?.respawning) return;
-      const elapsed = Math.max(0, Math.min(100, finite10(deltaMs)));
+      const elapsed = Math.max(0, Math.min(100, finite11(deltaMs)));
       this.quiet = Math.max(0, this.quiet - elapsed);
       if (this.active) {
         const a = this.active, anchor = resolveDialogueAnchor(a.source, g), range = a.kind === "boss" ? 1400 : a.manual ? 350 : (a.source.range || 190) + 140;
@@ -12965,6 +13774,7 @@
   var rpgTab = "quests";
   var orientationBlocked = false;
   var opening = null;
+  var encounterCinematic = null;
   var landing = null;
   var landingBiome = "moss";
   var saved = readSave();
@@ -12987,14 +13797,23 @@
   var renderer = new WorldRenderer(canvas);
   var heroRenderer = new WorldRenderer($("hero-scene"));
   var modal = $("overlay");
-  var intro = document.createElement("dialog");
-  intro.id = "intro-screen";
-  intro.hidden = true;
-  intro.setAttribute("aria-modal", "true");
-  intro.setAttribute("aria-labelledby", "intro-title");
-  intro.setAttribute("aria-describedby", "intro-line");
-  intro.innerHTML = '<canvas id="intro-canvas" aria-hidden="true"></canvas><button id="intro-skip" aria-label="Skip opening cinematic">SKIP STORY <span>\u2197</span></button><div class="intro-caption" aria-live="polite"><p id="intro-kicker"></p><h2 id="intro-title"></h2><p id="intro-line"></p><div class="intro-progress" aria-hidden="true"><i id="intro-progress-fill"></i></div></div>';
-  document.body.append(intro);
+  var intro2 = document.createElement("dialog");
+  intro2.id = "intro-screen";
+  intro2.hidden = true;
+  intro2.setAttribute("aria-modal", "true");
+  intro2.setAttribute("aria-labelledby", "intro-title");
+  intro2.setAttribute("aria-describedby", "intro-line");
+  intro2.innerHTML = '<canvas id="intro-canvas" aria-hidden="true"></canvas><button id="intro-skip" aria-label="Skip opening cinematic">SKIP STORY <span>\u2197</span></button><div class="intro-caption" aria-live="polite"><p id="intro-kicker"></p><h2 id="intro-title"></h2><p id="intro-line"></p><div class="intro-progress" aria-hidden="true"><i id="intro-progress-fill"></i></div></div>';
+  document.body.append(intro2);
+  var encounterScreen = document.createElement("dialog");
+  encounterScreen.id = "encounter-screen";
+  encounterScreen.hidden = true;
+  encounterScreen.setAttribute("aria-modal", "true");
+  encounterScreen.setAttribute("aria-labelledby", "encounter-title");
+  encounterScreen.setAttribute("aria-describedby", "encounter-line");
+  encounterScreen.innerHTML = '<canvas id="encounter-canvas" aria-hidden="true"></canvas><button id="encounter-skip" aria-label="Skip encounter cinematic">SKIP SCENE <span>\u2197</span></button><div class="intro-caption" aria-live="polite"><p id="encounter-kicker"></p><h2 id="encounter-title"></h2><p id="encounter-line"></p><div class="intro-progress" aria-hidden="true"><i id="encounter-progress-fill"></i></div></div>';
+  document.body.append(encounterScreen);
+  var encounterSeen = /* @__PURE__ */ new Set();
   var speech = new WorldDialogueState({ voices: WORLD_VOICES });
   var speechRevision = -1;
   var speechMotion = null;
@@ -13002,6 +13821,7 @@
   var preview = new RPGCampaign(DEFAULT_PARTY);
   var state = () => game || preview;
   var bossCounterLabel = (counter) => ({ "get-close": "GET CLOSE", behind: "GET BEHIND", platform: "TAKE HIGH GROUND", dodge: "DASH CLEAR", jump: "JUMP", retreat: "MOVE AWAY", minions: "DEFEAT SUMMONS", shield: "PARRY / SHIELD" })[counter] || "WATCH THE TELL";
+  var bossActionLabel = (b) => b.state === "heal" ? "MENDING \xB7 HEAVY TO INTERRUPT" : b.state === "countertell" ? "READING YOUR RHYTHM" : b.guarding ? "HEAVY READ \xB7 MIX YOUR STRIKES" : b.state === "evade" ? "REPOSITIONING" : b.state === "recover" ? "RECOVERING \xB7 PUNISH NOW" : (b.moveName ? b.moveName.toUpperCase() + " \xB7 " : "") + (b.counter ? bossCounterLabel(b.counter) : "WATCH THE TELL");
   var escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
   function store(s) {
     saved = s;
@@ -13056,15 +13876,16 @@
     $("home-screen").inert = blocked;
     document.querySelector(".topbar").inert = blocked;
     modal.inert = blocked;
-    intro.inert = blocked;
+    intro2.inert = blocked;
+    encounterScreen.inert = blocked;
     if (game) {
       if (changed) clearInputs();
-      game.paused = blocked || modal.open || !!opening || game.phase === "gameover";
+      game.paused = blocked || modal.open || !!opening || !!encounterCinematic || game.phase === "gameover";
     }
     if (changed) {
       accumulator = 0;
       if (blocked) $("landscape-button").focus({ preventScroll: true });
-      else (opening ? $("intro-skip") : modal.open ? overlayFocus() : active ? canvas : $("start-button")).focus({ preventScroll: true });
+      else (opening ? $("intro-skip") : encounterCinematic ? $("encounter-skip") : modal.open ? overlayFocus() : active ? canvas : $("start-button")).focus({ preventScroll: true });
     }
   }
   window.addEventListener("resize", syncMobileLayout);
@@ -13099,7 +13920,7 @@
     }
   }
   function renderWorldDialogue(delta = 0) {
-    const suspended = view !== "game" || !game || modal.open || orientationBlocked || !!opening;
+    const suspended = view !== "game" || !game || modal.open || orientationBlocked || !!opening || !!encounterCinematic;
     speech.update(game, delta, { suspended });
     const current = speech.current;
     if (!current) {
@@ -13120,7 +13941,7 @@
     worldDialogue.place({ ...point2, mobile: mobileLayout() });
   }
   function advanceWorldDialogue() {
-    if (orientationBlocked || modal.open || opening || !game || game.phase !== "playing" || !speech.current?.manual) return false;
+    if (orientationBlocked || modal.open || opening || encounterCinematic || !game || game.phase !== "playing" || !speech.current?.manual) return false;
     speech.advance();
     renderWorldDialogue();
     if (!speech.current) {
@@ -13130,7 +13951,7 @@
     return true;
   }
   function dismissWorldDialogue() {
-    if (orientationBlocked || modal.open || opening || !speech.current) return;
+    if (orientationBlocked || modal.open || opening || encounterCinematic || !speech.current) return;
     speech.dismiss();
     renderWorldDialogue();
     canvas.focus({ preventScroll: true });
@@ -13188,6 +14009,7 @@
       notice = b.epithet + " \xB7 " + b.name;
       noticeFrames = 160;
       bossVoice(e.boss, "intro");
+      if (ESSENTIAL_BOSSES.includes(e.boss) && !encounterSeen.has(e.boss)) beginEncounterCinematic(e.boss);
     }
     if (e.type === "bossdefeated") bossVoice(e.boss, "defeat");
     if (e.type === "bossdefeated" && (e.miniboss || BOSSES[e.boss]?.miniboss)) {
@@ -13196,13 +14018,14 @@
     } else if (e.type === "bossdefeated") {
       rewardQueue.push(e.boss);
       setTimeout(() => {
-        if (view === "game" && rewardQueue.length && !modal.open) openOverlay("reward");
+        if (view === "game" && rewardQueue.length && !modal.open && !opening && !encounterCinematic) openOverlay("reward");
       }, 700);
     }
-    if (e.type === "credits") openOverlay("credits");
+    if (e.type === "credits" && !beginEncounterCinematic("crown", { mode: "ending", after: "credits" })) openOverlay("credits");
   }
   function startCampaign(resume = false) {
     closeOverlay(true);
+    encounterSeen.clear();
     speech.reset();
     worldDialogue.hide();
     rewardQueue = [];
@@ -13227,6 +14050,7 @@
     syncMobileLayout();
   }
   function returnHome() {
+    if (encounterCinematic) finishEncounterCinematic(false);
     if (opening) finishOpening();
     if (game) game.save();
     speech.reset();
@@ -13244,16 +14068,16 @@
     $("start-button").focus({ preventScroll: true });
   }
   function beginOpening(mode = "replay") {
-    if (opening || orientationBlocked) return;
+    if (opening || encounterCinematic || orientationBlocked) return;
     closeOverlay(true);
     clearInputs();
     opening = { mode, elapsed: 0, beat: -1, suspended: document.hidden };
     if (game) game.paused = true;
     accumulator = 0;
     last = performance.now();
-    intro.hidden = false;
+    intro2.hidden = false;
     document.body.classList.add("intro-playing");
-    intro.showModal();
+    intro2.showModal();
     renderOpening();
     $("intro-skip").focus({ preventScroll: true });
   }
@@ -13274,8 +14098,8 @@
     if (!opening || orientationBlocked) return;
     const mode = opening.mode;
     opening = null;
-    intro.close();
-    intro.hidden = true;
+    intro2.close();
+    intro2.hidden = true;
     document.body.classList.remove("intro-playing");
     clearInputs();
     accumulator = 0;
@@ -13286,9 +14110,57 @@
     } else (mode === "replay" ? $("replay-intro") || $("start-button") : $("start-button")).focus({ preventScroll: true });
   }
   $("intro-skip").onclick = finishOpening;
-  intro.addEventListener("cancel", (e) => {
+  intro2.addEventListener("cancel", (e) => {
     e.preventDefault();
     finishOpening();
+  });
+  function beginEncounterCinematic(boss, { mode = "intro", after = null } = {}) {
+    if (!game || opening || encounterCinematic || orientationBlocked) return false;
+    closeOverlay(true);
+    clearInputs();
+    speech.dismiss();
+    worldDialogue.hide();
+    const beat = bossCinematicBeat(boss, 0, { mode, ending: boss === "nullheart" ? "true" : game.ending || "restore", faction: game.trueEnding || game.faction });
+    encounterCinematic = { boss, mode, after, elapsed: 0, duration: beat.duration, beat: -1, suspended: document.hidden };
+    if (mode === "intro") encounterSeen.add(boss);
+    game.paused = true;
+    accumulator = 0;
+    last = performance.now();
+    encounterScreen.hidden = false;
+    encounterScreen.showModal();
+    renderEncounterCinematic();
+    $("encounter-skip").focus({ preventScroll: true });
+    return true;
+  }
+  function renderEncounterCinematic() {
+    if (!encounterCinematic) return;
+    const movie = encounterCinematic, options = { mode: movie.mode, ending: movie.boss === "nullheart" ? "true" : game.ending || "restore", faction: game.trueEnding || game.faction }, beat = bossCinematicBeat(movie.boss, movie.elapsed, options), { c, w, h } = fitCanvas($("encounter-canvas"));
+    drawBossCinematic(c, w, h, { ...options, bossId: movie.boss, elapsed: movie.elapsed, partyIds: game.party.map((m) => m.data.id), reducedMotion: reducedMotion() });
+    if (beat.index !== movie.beat) {
+      movie.beat = beat.index;
+      $("encounter-kicker").textContent = beat.kicker;
+      $("encounter-title").textContent = beat.title;
+      $("encounter-line").textContent = beat.line;
+    }
+    $("encounter-progress-fill").style.width = Math.min(100, movie.elapsed / movie.duration * 100) + "%";
+  }
+  function finishEncounterCinematic(showAfter = true) {
+    if (!encounterCinematic || orientationBlocked) return;
+    const after = encounterCinematic.after;
+    encounterCinematic = null;
+    encounterScreen.close();
+    encounterScreen.hidden = true;
+    clearInputs();
+    accumulator = 0;
+    last = performance.now();
+    if (game) game.paused = modal.open || orientationBlocked || game.phase === "gameover";
+    if (showAfter && after) openOverlay(after);
+    else canvas.focus({ preventScroll: true });
+  }
+  $("encounter-skip").onclick = () => finishEncounterCinematic();
+  encounterScreen.addEventListener("cancel", (e) => {
+    e.preventDefault();
+    finishEncounterCinematic();
   });
   function reducedMotion() {
     return game?.combat?.settings?.reducedMotion ?? saved?.combat?.settings?.reducedMotion ?? window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -13343,7 +14215,7 @@
     if (modal.open) modal.close();
     overlayType = "";
     if (game) {
-      game.paused = orientationBlocked || !!opening || game.phase === "gameover";
+      game.paused = orientationBlocked || !!opening || !!encounterCinematic || game.phase === "gameover";
       if (!orientationBlocked) canvas.focus({ preventScroll: true });
     }
     clearInputs();
@@ -13416,7 +14288,7 @@
     const id = rewardQueue.shift();
     closeOverlay();
     if (id === "crown") openOverlay("ending");
-    else if (id === "nullheart") openOverlay("trueending");
+    else if (id === "nullheart") beginEncounterCinematic("nullheart", { mode: "ending", after: "trueending" });
   }
   function endingHTML() {
     return `<div class="reward-panel"><span class="reward-icon">\u25C8</span><p class="eyebrow">THE WORLDHEART SPEAKS</p><h2 id="overlay-title">\u201CWill you stay with me?\u201D</h2><p>The heart was a creature all along. Vell broke its cage, and the world broke with it. Now six memories are whole again. Your three companions step forward. The choice is yours.</p><div class="ending-options"><button data-ending="restore"><h3>Become its guardians.</h3><p>Restore the Worldheart. Keep the roads open, and make sure no kingdom ever cages it again.</p></button><button data-ending="release"><h3>Let the heart run free.</h3><p>Release it into the stars. The roads will change, but every creature will carry a piece of its light.</p></button></div></div>`;
@@ -13522,7 +14394,9 @@
       $("boss-name").textContent = g.bossInfo(boss.boss).name;
       $("boss-fill").style.width = boss.hp / boss.maxHp * 100 + "%";
       $("boss-fill").style.background = BOSSES[boss.boss].color;
-      $("boss-phase").textContent = (boss.phase >= 3 ? "PHASE III" : boss.phase === 2 ? "PHASE II" : "PHASE I") + (boss.moveName ? " \xB7 " + boss.moveName.toUpperCase() : "") + (boss.state === "recover" ? " \xB7 RECOVERING" : boss.counter ? " \xB7 " + bossCounterLabel(boss.counter) : "");
+      $("boss-hud").classList.toggle("boss-frenzy", !!boss.berserk);
+      $("boss-hud").classList.toggle("boss-healing", boss.state === "heal");
+      $("boss-phase").textContent = "RANK " + bossRank(boss.boss) + " \xB7 " + (boss.berserk ? "FRENZY \xB7 " : "") + (boss.phase >= 3 ? "III" : boss.phase === 2 ? "II" : "I") + " \xB7 " + bossActionLabel(boss);
       $("boss-phase").title = boss.hint || "Watch the windup";
     }
     $("region-title").hidden = !!speech.current || g.transition < 20 || g.transition > 95;
@@ -13535,11 +14409,14 @@
     game?.setInputs({ left: held.has("KeyA") || held.has("ArrowLeft"), right: held.has("KeyD") || held.has("ArrowRight"), up: held.has("KeyW") || held.has("ArrowUp"), down: held.has("KeyS") || held.has("ArrowDown") });
   }
   window.addEventListener("keydown", (e) => {
-    if (opening) {
+    if (opening || encounterCinematic) {
       if (orientationBlocked) return;
       if (["Space", "Enter", "Escape", "KeyE"].includes(e.code)) {
         e.preventDefault();
-        if (!e.repeat) finishOpening();
+        if (!e.repeat) {
+          if (opening) finishOpening();
+          else finishEncounterCinematic();
+        }
       } else if (keyAction[e.code] || /^(Key[WASD]|Arrow(Left|Right|Up|Down))$/.test(e.code)) e.preventDefault();
       return;
     }
@@ -13592,14 +14469,15 @@
     if (e.code === "KeyG") game?.releaseShield();
   });
   window.addEventListener("focus", () => {
-    if (opening) {
-      opening.suspended = document.hidden;
+    const cinematic = opening || encounterCinematic;
+    if (cinematic) {
+      cinematic.suspended = document.hidden;
       last = performance.now();
     }
   });
   window.addEventListener("blur", () => {
-    if (opening) {
-      opening.suspended = true;
+    if (opening || encounterCinematic) {
+      (opening || encounterCinematic).suspended = true;
       clearInputs();
       return;
     }
@@ -13607,8 +14485,8 @@
     else clearInputs();
   });
   document.addEventListener("visibilitychange", () => {
-    if (opening) {
-      opening.suspended = document.hidden;
+    if (opening || encounterCinematic) {
+      (opening || encounterCinematic).suspended = document.hidden;
       last = performance.now();
       return;
     }
@@ -13782,7 +14660,7 @@
     };
     b.addEventListener("pointerdown", (e) => {
       e.preventDefault();
-      if (orientationBlocked || modal.open || opening || !game) return;
+      if (orientationBlocked || modal.open || opening || encounterCinematic || !game) return;
       b.setPointerCapture(e.pointerId);
       const h = b.dataset.hold;
       if (h === "heal") game?.input("heal");
@@ -13825,6 +14703,11 @@
       if (!orientationBlocked && !document.hidden && !opening.suspended) opening.elapsed = Math.min(OPENING_DURATION, opening.elapsed + delta);
       renderOpening();
       if (opening.elapsed >= OPENING_DURATION) finishOpening();
+    } else if (encounterCinematic) {
+      accumulator = 0;
+      if (!orientationBlocked && !document.hidden && !encounterCinematic.suspended) encounterCinematic.elapsed += delta;
+      renderEncounterCinematic();
+      if (encounterCinematic && encounterCinematic.elapsed >= encounterCinematic.duration) finishEncounterCinematic();
     } else if (view === "game" && game) {
       accumulator += delta;
       let steps = 0;
@@ -13846,7 +14729,7 @@
     animatePortraits(clock2);
     requestAnimationFrame(frame);
   }
-  window.kinetic = { snapshot: () => ({ ...game ? game.snapshot() : { phase: "selection", mode: "campaign", party: [...party], hasSave: !!saved }, dialogue: speech.snapshot(), intro: { active: !!opening, elapsed: opening?.elapsed || 0, beat: opening ? openingBeat(opening.elapsed).index : 0, mode: opening?.mode || null, paused: !!opening && (orientationBlocked || document.hidden || opening.suspended) }, home: { biome: landingBiome } }), version: "4.0.0" };
+  window.kinetic = { snapshot: () => ({ ...game ? game.snapshot() : { phase: "selection", mode: "campaign", party: [...party], hasSave: !!saved }, dialogue: speech.snapshot(), cinematic: { active: !!encounterCinematic, mode: encounterCinematic?.mode || null, boss: encounterCinematic?.boss || null, elapsed: encounterCinematic?.elapsed || 0, paused: !!encounterCinematic && (orientationBlocked || document.hidden || encounterCinematic.suspended) }, intro: { active: !!opening, elapsed: opening?.elapsed || 0, beat: opening ? openingBeat(opening.elapsed).index : 0, mode: opening?.mode || null, paused: !!opening && (orientationBlocked || document.hidden || opening.suspended) }, home: { biome: landingBiome } }), version: "4.0.0" };
   landing = initLanding({ onBiome: (biome) => {
     if (BIOMES[biome]) landingBiome = biome;
   }, onReplay: () => beginOpening("replay") });

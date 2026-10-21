@@ -68,6 +68,7 @@ Menus, reward summaries, and ending choices use the shared overlay dialog. NPC c
 | [src/boss-art.js](../src/boss-art.js) | Twenty-one main, forbidden and miniboss rigs, phase details and final-guardian variants |
 | [src/dungeon-art.js](../src/dungeon-art.js) | Dungeon attack telegraphs and legacy enemy fallback art |
 | [src/boss-encounters.js](../src/boss-encounters.js) | Boss profile registry, fixed-frame timelines, encounter hazards, summons and temporary terrain |
+| [src/boss-progression.js](../src/boss-progression.js) | Encounter progression tiers, health and pressure scaling, late-game desperation rules |
 | [src/boss-major-moves.js](../src/boss-major-moves.js) | Nine major/forbidden guardian move sets and phase sequences |
 | [src/boss-warden-moves.js](../src/boss-warden-moves.js) | Six distinct dimensional gatekeeper move sets |
 | [src/boss-reaver-moves.js](../src/boss-reaver-moves.js) | Six distinct optional vault encounter move sets |
@@ -76,6 +77,7 @@ Menus, reward summaries, and ending choices use the shared overlay dialog. NPC c
 | [src/tunnel-render.js](../src/tunnel-render.js) | Enclosed cave layers, geological shelves, lighting, camps and recovery basins |
 | [src/mourningwild-render.js](../src/mourningwild-render.js) | Dedicated sanctuary/first-gate backdrops, landmarks, landing surfaces and foreground layers |
 | [src/opening-cinematic.js](../src/opening-cinematic.js), [src/intro.css](../src/intro.css) | Pure three-act opening timeline, chosen-party Canvas compositions and cinematic dialog layout |
+| [src/boss-cinematic.js](../src/boss-cinematic.js) | Pure guardian introduction and choice-aware ending compositions and captions |
 | [src/landing.js](../src/landing.js), [src/landing.css](../src/landing.css) | Viewport-fitting title screen, dynamic panels and realm previews |
 | [src/world-dialogue-state.js](../src/world-dialogue-state.js) | Presentation-only conversation pages, proximity, ambient timing, and session voice history |
 | [src/world-dialogue.js](../src/world-dialogue.js), [src/world-dialogue.css](../src/world-dialogue.css) | Accessible floating scene speech, speaker labels, touch controls, and viewport placement |
@@ -106,6 +108,10 @@ The opening renderer accepts elapsed presentation time and party IDs. Its three 
 
 The sanctuary and first gate use dedicated scenery passes in `mourningwild-render.js`. Backdrops are screen-space; landmarks, attached platform art, and restrained foreground detail use world space and the scrolling camera. These passes replace overlapping generic cave decoration for handled rooms. Scenery is presentation-only: persistent room IDs, terrain collision, catch landings, boss encounters, and sparse recovery rules remain authoritative in the existing data and simulation.
 
+Guardian introductions and ending scenes use the pure `boss-cinematic.js` renderer. `main.js` owns their elapsed time, caption updates, focus, skip input, and return destination. Combat remains paused and the fixed-step accumulator stays empty throughout. The cinematic clock stops in portrait, on window blur, and in hidden tabs. Reduced motion holds complete scene compositions within each story act.
+
+The nine essential introductions are remembered in an ephemeral set for the current loaded expedition. A retry in that session bypasses an already seen introduction; a new expedition, Continue, or page reload reconstructs presentation state. No cinematic flags are added to a save. A main ending decision leads through the finale into credits; the Nullheart reward leads through the covenant finale into its summary. Continue resumes exploration after a main ending or opens a completed true-ending summary, without replaying its ending transaction.
+
 ## Voices in the world
 
 `CampaignEngine.showDialogue(lines, source)` emits copied speaker/text pairs with the source room, object ID, position, name, and kind. NPC interactions pass their real room object, including Vell’s first greeting and the optional chronicle conversations. Dialogue presentation never owns quest completion or reward claims.
@@ -128,11 +134,11 @@ World art is anchored at the actor’s feet in world coordinates. Facing and dra
 
 ## Boss encounter timelines
 
-The 21 boss identities each resolve to a profile with four named moves and three phase sequences. The profile modules describe movement preference, readable counterplay, startup, active duration, recovery, and event builders. The runtime owns attack selection, locked targets, movement scripts, and actual hazard collision. Sharing event primitives does not share a move set: encounters combine them into different spatial and timing problems.
+The 21 boss identities each resolve to a profile with four named moves and three phase sequences. The profile modules describe movement preference, readable counterplay, startup, active duration, recovery, and event builders. The runtime combines those authored patterns with distance, recent-move history, and player pressure when selecting an attack. It owns locked targets, movement scripts, defensive responses, and actual hazard collision. Sharing event primitives does not share a move set: encounters combine them into different spatial and timing problems.
 
 Encounter zones use world coordinates and centered bounds. Warning delay precedes damage; active geometry is also the geometry the renderer displays. Temporary platforms enter the normal collision list as one-way landings. Summoned minions carry an encounter owner and do not pass through ordinary reward/progression payouts. Phase changes, defeat, room changes, and death clear encounter-owned state. Shared room definitions and authored floors are never rewritten by an arena attack.
 
-Boss move state, hazard lifetimes, and temporary terrain are transient simulation state. They pause with gameplay and hitstop; renderer clocks do not advance attacks. Loading an existing save reconstructs the encounter from its room and persistent defeat/reward state. See [boss encounter reference](boss-encounters.md) and [content authoring](content-authoring.md#add-a-boss) for profile and event contracts.
+Boss move state, pressure history, defensive responses, healing attempts, hazard lifetimes, and temporary terrain are transient simulation state. They pause with gameplay and hitstop; renderer clocks do not advance attacks. Loading an existing save reconstructs the encounter from its room and persistent defeat/reward state. Progression scaling is defined separately from move geometry and does not follow player level; late desperation is separate from the three authored phase indices. See [boss encounter reference](boss-encounters.md) and [content authoring](content-authoring.md#add-a-boss) for profile and event contracts.
 
 ## Dimensional dungeon expansion
 

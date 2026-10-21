@@ -19,7 +19,8 @@
     "test:art": "node tests/art-browser.mjs",
     "test:bosses": "node tests/boss-browser.mjs",
     "test:arrival": "node tests/arrival-browser.mjs",
-    "test:dialogue": "node tests/world-dialogue-browser.mjs"
+    "test:dialogue": "node tests/world-dialogue-browser.mjs",
+    "test:boss-upgrade": "node tests/boss-upgrade-browser.mjs"
   },
   "engines": {
     "node": ">=20"

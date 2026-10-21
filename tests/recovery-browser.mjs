@@ -28,7 +28,7 @@ try{
   }
   async function load(value){
     await leave();await page.evaluate(({key,value})=>localStorage.setItem(key,JSON.stringify(value)),{key:SAVE_KEY,value});
-    await page.reload();await clock(100);await page.click('#continue-button');await clock(100);
+    await page.reload();await clock(100);await page.click('#continue-button');await clock(100);if(await page.locator('#encounter-skip').isVisible()){await page.click('#encounter-skip');await clock(100);}
   }
   // Narrow save fixtures isolate recovery behavior from combat. Movement,
   // collecting the spring, lethal damage, and retry below use ordinary UI.

@@ -1,5 +1,13 @@
 # Changelog
 
+## Guardian escalation and encounter cinematics
+
+- Added skippable chamber introductions for the nine main and forbidden guardians and ending cinematics that reflect the Worldheart’s fate or the chosen covenant.
+- Made attack selection respond to spacing, move history, and sustained pressure while retaining 21 distinct move sets and their readable counterplay.
+- Added visible defensive movement against repeated close-range heavies, posture-break recovery protection, and boss knockback through heavy startup armor.
+- Scaled encounter strength with progression and added late-game desperation below 40% health plus limited, interruptible boss healing.
+- Kept progression and rewards separate from transient encounter/cinematic state, with focused checks for pressure, counterplay, and presentation lifecycle.
+
 ## Voices inside the world
 
 - Replaced NPC dialogue pop-ups with floating scene speech beside the actual speaker. Conversations allow movement, jumping, companion switching, and combat; E/Enter or touch continues, and walking away leaves.

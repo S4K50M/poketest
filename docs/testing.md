@@ -21,6 +21,7 @@ npm run test:art
 npm run test:bosses
 npm run test:arrival
 npm run test:dialogue
+npm run test:boss-upgrade
 ```
 
 | Command | What it verifies |
@@ -39,6 +40,7 @@ npm run test:dialogue
 | `npm run test:bosses` | Distinct encounter mechanics, warning geometry and live desktop/mobile boss presentation |
 | `npm run test:arrival` | Viewport-fitting title screen, cinematic lifecycle, first-area art and desktop/mobile presentation |
 | `npm run test:dialogue` | Nonmodal NPC conversation, progression inputs, landmark/boss voices, and mobile scene placement |
+| `npm run test:boss-upgrade` | Essential encounter cinematics, reactive boss pressure, escalation, and mobile lifecycle |
 
 Test totals grow with concrete regressions; use the current command output as the result for a change. Documentation-only edits need link/path checks and command review; they do not require rebuilding or rerunning combat routes.
 
@@ -63,6 +65,7 @@ npx playwright install chromium
 | Boss encounters | 3200 | `BOSS_TEST_PORT` |
 | Landing and arrival | 3210 | `ARRIVAL_TEST_PORT` |
 | World dialogue | 3220 | `DIALOGUE_TEST_PORT` |
+| Boss upgrade | 3230 | `BOSS_UPGRADE_TEST_PORT` |
 
 Each suite starts and stops its own server. Choose a free override port if another task uses the default. Screenshots are written to ignored test-results/. Inspect screenshots after rendering or layout changes; a passing input test cannot prove visual quality by itself.
 
@@ -88,7 +91,7 @@ Also inspect readable attack telegraphs, foreground occlusion, particle density,
 | --- | --- |
 | Markdown only | Local links/anchors, referenced commands/files, git diff --check |
 | Move data / defense / party | Build/check, Node combat/party tests, live combat suite |
-| Boss moves / arena mechanics | Build/check, Node encounter tests, test:bosses, complete campaign routes and relevant combat/recovery checks |
+| Boss moves / arena mechanics | Build/check, Node encounter/pressure tests, test:bosses, test:boss-upgrade, complete campaign routes and relevant combat/recovery checks |
 | Rooms / gates / quests / saves | Build/check, Node routes/migrations, campaign or RPG browser suite |
 | Rigs / effects / HUD / CSS | Build/check, Node art checks, test:art, relevant browser suites, desktop/mobile screenshot review |
 | Asset paths / bundle / hosting | Asset tests, check, campaign nested-hosting suite |
@@ -120,6 +123,10 @@ Encounter tests cover all 21 profiles and their four named moves, rather than ex
 Mechanic checks cover real collision on temporary ledges, damaging areas, beam and ring safe spaces, summons without farmable rewards, and cleanup on phase changes, boss death, full-party death, retry, and room changes. Pause, hitstop, and frozen actors must not advance their attack timelines. Verify parry and posture interruption without retaining stale active scripts.
 
 The boss browser suite renders signature telegraphs and active mechanics and checks actual desktop/mobile play. Inspect warning versus active geometry, safe lanes, execution labels, actor/weapon animation, HUD hints, and landscape touch access. Keep a route controller that responds with normal movement, jumps, dash, shield, healing, and earned attacks. End-to-end boss victories must not rely on direct HP edits, teleportation, or invented unlocks.
+
+Pressure regressions should distinguish an unchanging point-blank heavy loop from reactive play. Verify the guard appears only after its read warning, chips only the recognized grounded frontal heavy, and permits light/alternate-route/rear/aerial/riposte damage and ordinary recovery punishes. Check real knockback, parry/posture cancellation, no perpetual posture-break chain, and the warned phase breakaway. Check all progression tiers, early-boss healing exclusion, late 40% desperation, capped/interrupted healing, and cleanup on death, retry, room changes, and nonlethal falls. Test locked attack targets and minimum reaction/recovery windows after tempo scaling.
+
+The boss-upgrade browser suite checks essential encounter introductions and finale destinations. Verify that simulation, attack/hazard timers, and held input stay stopped during the scene, including portrait rotation, blur, and hidden tabs. Exercise natural completion and keyboard/touch skip; retry should not repeat a boss introduction already seen in the loaded session. Continue and reload must preserve ending decisions, resume exploration after a main ending, and show the summary for a completed true ending. Review chosen-party compositions, readable captions, distinct chambers, all ending branches, and reduced-motion stills on desktop and mobile.
 
 ## Landing, opening and first-area checks
 

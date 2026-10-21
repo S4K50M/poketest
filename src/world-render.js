@@ -1,4 +1,5 @@
 import { drawEntityAnimated, drawBossAura, drawNPCAnimation } from './entity-animation.js';
+import { drawBossAdaptation } from './boss-adaptation-render.js';
 import { CombatFX } from './combat-fx.js';
 import { drawEnemyMinion } from './enemy-art.js';
 import { drawBossEncounterWorld, drawBossMoveTelegraph, drawBossPlatform, drawBossProjectile, drawBossWeapon } from './boss-encounter-render.js';
@@ -59,7 +60,7 @@ export class WorldRenderer{
         this.actorHistory.set(key,actor);continue;
       }
       if(e.hp>0)this.corpses.delete(key);this.actorHistory.set(key,actor);
-      if(e.boss&&e.hp>0)drawBossAura(c,actor,actorTime,BOSSES[e.boss].color);
+      if(e.boss&&e.hp>0){drawBossAura(c,actor,actorTime,BOSSES[e.boss].color);drawBossAdaptation(c,actor,actorTime,BOSSES[e.boss].color);}
       drawEntityAnimated(c,actor,actorTime,()=>e.boss?this.boss(c,actor,actorTime,g):this.minion(c,actor,actorTime));
       if(e.hp>0&&e.hp<e.maxHp){c.fillStyle='#0c1729';c.fillRect(e.x-24,e.y-(e.boss?180:70),48,3);c.fillStyle=e.boss?BOSSES[e.boss].color:MINIONS[e.kind].color;c.fillRect(e.x-24,e.y-(e.boss?180:70),48*e.hp/e.maxHp,3);}
     }

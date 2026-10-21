@@ -45,6 +45,8 @@ Story voices belong to places and creatures. Every room has a brief authored whi
 
 Travelers speak beside their own figures. E/Enter or the Continue touch button advances their conversation; moving away leaves it. The 21 bosses each have their own arrival and defeat words tied to their encounter. Authored whispers and boss lines supply local context; major revelations still follow earned NPC quests, history records, and ending choices.
 
+The six fragment guardians and three forbidden guardians have short chamber introductions before combat. The main ending choice and the optional final covenant each lead into a party-centered finale. These scenes can be skipped and do not change a saved decision or the requirements for reaching an ending.
+
 ## Optional chronicle
 
 The sanctuary has seen ninety-nine expeditions. Iona’s living map knows every traveler. It does not know you. Investigate a century of unfinished promises through **eight quest lines**, four new story characters, ten gradually revealed history records, and three optional dungeons. Read inscriptions with E, speak to the quest giver to accept and turn in objectives, and pin a story in **N → Chronicles**. Completed field notes can be reread in World History. The six-fragment progression remains intact; optional bosses and dimensional minibosses do not open main portals early.

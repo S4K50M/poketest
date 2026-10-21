@@ -123,14 +123,33 @@ export class CombatDirector{
       if(a.dir==='down')g.pogo();
     }
   }
+  noteBossPressure(e,options){
+    if(!e.boss||options.dot||e.hp<=0)return;
+    const g=this.g,p=g.player,move=options.move||(options.heavy?'heavy':'light'),previous=e.pressure;
+    const close=Math.abs(e.x-p.x)<205&&Math.abs(e.y-p.y)<135,groundedHeavy=options.heavy&&move!=='riposte'&&p.grounded&&close;
+    const repeated=previous&&g.tick-previous.lastTick<=150&&previous.lastMove===move;
+    e.pressure={lastMove:groundedHeavy?move:null,chain:groundedHeavy?(repeated?previous.chain+1:1):0,lastTick:g.tick,closeHits:close?(previous?.closeHits||0)+1:0};
+    // The AI reads a demonstrated pattern, never the player's next input.
+    // Mixed strings, aerial routes and a parried riposte reset this read.
+    if(!groundedHeavy)e.pressureReady=false;
+    else if(e.pressure.chain>=3&&!e.postureLock&&e.state!=='heal')e.pressureReady=true;
+  }
+  bossReadsStrike(e,options){
+    const p=this.g.player;
+    if(!e.boss||!e.guarding||options.dot||!options.heavy||typeof options.move!=='string'||options.move==='riposte'||!p.grounded||['recover','heal','enrage'].includes(e.state))return false;
+    const read=e.guardReadMove||e.pressure?.lastMove;
+    return !!read&&Math.abs(e.x-p.x)<205&&Math.abs(e.y-p.y)<135&&Math.sign(p.x-e.x)===e.face&&read===(options.move||'heavy');
+  }
   onStrike(e,before,direction,options){
     if(e.hp>=before)return;
     const g=this.g,p=g.player;
     if(!options.dot){this.flow=clamp(this.flow+5+(options.heavy?3:0),0,100);this.flowGrace=140;
       g.emit('impact',{x:e.x,y:e.y-(e.boss?80:30),element:options.element||g.data.types[0],heavy:options.heavy,move:options.move});
-      e.recoil=12;e.recoilDir=direction;e.stun=Math.max(e.stun||0,e.boss?3:options.stun||12);
+      e.recoil=12;e.recoilDir=direction;e.stun=e.boss&&['countertell','evade','enrage'].includes(e.state)?0:Math.max(e.stun||0,e.boss?3:options.stun||12);
+      this.noteBossPressure(e,options);
+      if(e.boss&&e.state==='heal'&&e.healChannel&&(options.heavy||options.move==='riposte')){e.healChannel.interrupted=true;e.pressureReady=false;}
       if(options.launch&&!e.boss&&e.hp>0){e.juggle=32;e.launchVy=typeof options.launch==='number'?options.launch:-10.5;e.baseY=e.baseY||520;this.stats.launches++;g.emit('launch',{x:e.x,y:e.y-30});}
-      if(e.boss){e.poise=(e.poise||0)+(options.heavy?17:6);if(e.poise>=100){e.poise=0;e.stun=65;e.state='recover';e.timer=80;g.emit('bossbreak',{x:e.x,y:e.y-70});g.say('POSTURE BROKEN · UNLEASH YOUR COMBO');}}
+      if(e.boss&&e.hp>0&&!e.postureLock){e.poise=(e.poise||0)+(options.guarded?3:options.heavy?17:6);if(e.poise>=100){e.poise=0;e.postureLock=180;e.pressureReady=false;e.guarding=false;e.stun=65;e.state='recover';e.timer=80;g.emit('bossbreak',{x:e.x,y:e.y-70});g.say('POSTURE BROKEN · UNLEASH YOUR COMBO');}}
       if(options.element==='Fire'&&options.heavy)g.zones.push({type:'fire',x:e.x,y:e.baseY||520,radius:60,life:90,owner:options.source??g.activeSlot});
     }
     if(!e.hp){e.deathTimer=32;e.state='dying';g.emit('shatter',{x:e.x,y:e.y-40,color:e.boss?undefined:g.data.accent});}
@@ -140,6 +159,10 @@ export class CombatDirector{
     if(e.recoil>0)e.recoil--;
     if(e.timeSlowUntil>=this.g.tick&&this.g.tick%10>=Math.round(e.timeScale*10))return true;
     if(e.frozen>0){e.encounterFrozenTick=this.g.tick;e.frozen--;if(e.flash)e.flash--;return true;}
+    if(e.boss){
+      if(e.postureLock>0)e.postureLock--;
+      if(e.pressure&&this.g.tick-e.pressure.lastTick>180){e.pressure=null;e.pressureReady=false;}
+    }
     if(e.juggle>0&&e.hp>0){e.juggle=Math.max(1,e.juggle-1);e.launchVy+=.7;e.y+=e.launchVy;e.x=clamp(e.x+(e.vx||0)*.5,40,this.g.worldWidth-40);if(e.y>=(e.baseY||520)){e.y=e.baseY||520;e.juggle=0;e.stun=18;}return true;}
     return false;
   }
@@ -157,7 +180,7 @@ export class CombatDirector{
     p.invul=10;p.vx=direction*3;return false;
   }
   breakGuard(){const g=this.g,p=g.player;p.shield=0;p.guardBroken=COMBAT.guardBreakFrames;p.stagger=22;this.releaseShield();p.attack=null;this.flow*=.5;this.stats.guardBreaks++;g.emit('guardbreak',{x:p.x,y:p.y-30});g.say('SHIELD SHATTERED · EVADE UNTIL IT REFORMS');}
-  onHurt(){const p=this.g.player;p.invul=Math.min(p.invul,COMBAT.hitInvul);p.stagger=Math.max(p.stagger,9);this.flow=Math.max(0,this.flow-28);this.releaseShield();this.buffer=null;}
+  onHurt(status={}){const p=this.g.player;p.invul=Math.min(p.invul,COMBAT.hitInvul);p.stagger=Math.max(p.stagger,(status.knockback||1)>=1.4?16:9);this.flow=Math.max(0,this.flow-28);this.releaseShield();this.buffer=null;}
   evade(direction){
     const g=this.g,p=g.player;if(!g.abilities.has('blink')||!p.dash||p.dashElapsed>4||p.evadeTick&&g.tick-p.evadeTick<24)return;
     p.evadeTick=g.tick;this.stats.perfectDodges++;this.flow=Math.min(100,this.flow+12);this.flowGrace=150;p.spirit=Math.min(100,p.spirit+6);g.emit('perfectdodge',{x:p.x,y:p.y-30,direction});

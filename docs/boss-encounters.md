@@ -8,13 +8,37 @@ All **21 bosses have four named attacks**, individual phase sequences, and a dis
 
 Open the bestiary from the Chronicle to expand **Attack Field Notes** for any guardian. Each entry lists its four moves, counterplay, and combat identity.
 
-A move first displays its name, avoidance hint, and danger geometry. Warning areas do not damage you; the active shape does. Dashes commit to a position, leaving room to evade after the tell. Recovery is the opening to attack or commit to Focus healing. Phase II begins at two-thirds health and phase III at one-third; their sequences change pressure rather than removing every opening.
+A move first displays its name, avoidance hint, and danger geometry. Warning areas do not damage you; the active shape does. Dashes commit to a position, leaving room to evade after the tell. Recovery is the opening to attack or commit to Focus healing. Phase II begins at two-thirds health and phase III at one-third. The runtime also considers distance, recent attacks, and pressure, so memorizing one repeated sequence is insufficient.
 
 Temporary roots, ice, metal, water, and memory tiles are real one-way landings. Jump onto them from below when a floor attack calls for elevation. The existing tunnel floor remains beneath the fight. Summoned enemies add pressure but do not grant farmable XP, materials, or story progress. Arena hazards, summons, and temporary terrain expire with the encounter.
 
 Use shield/parry against ordinary frontal hits. A marked unblockable attack requires movement or dash timing. Late optional/final execution moves use a long explicit warning and an escape route; connecting can defeat the active companion outright. Early moss encounters require only the starting jump, dash, and shield, not double jump.
 
-## Main guardians
+## Pressure and punish windows
+
+Three repeated, identical grounded heavies at close range can teach a boss to reposition. A 30–36-frame warning announces the response. After its first 12 frames, the readied guard reduces that recognized frontal heavy to 30% damage and little posture gain. Light attacks, another attack route, aerial hits, rear hits, and ripostes retain their normal damage. Recovery, healing, and phase-change states are also open to damage.
+
+Read the warned shape before chasing the escape: anchored bodies use a low breakaway, weapon users cut their facing side, flyers mark a dive lane, and skirmishers threaten a crossing area. Ordinary flinches cannot repeatedly cancel that commitment; parries and posture breaks can interrupt it. Mixed strings, aerial attacks, and a parry riposte reset the repeated-heavy read.
+
+Posture breaks still earn a combo opening: 65 stun frames and an 80-frame recovery. A 180-active-frame posture lock prevents that opening from immediately rebuilding into another break; return to spacing and defense as the boss recovers. Strong knockback can separate the combatants and cancel a heavy even when a bulky companion has startup armor. Armor still halves the hit’s damage. Recover your position before committing to the next swing.
+
+## Escalation and desperation
+
+Boss progression follows the dimension and encounter role, independently of player level. The six main guardians occupy ranks one through six; the Saint of Two Dawns is rank four, Palimpsest rank five, and Nullheart rank seven. Each rank above one adds 4% to the health and damage multiplier and 1.8% to tempo. The health multiplier applies on top of the authored guardian/miniboss health rule. Later guardians therefore add pressure without scaling away the benefit of player preparation.
+
+Warnings and punish opportunities remain: actual move startup is at least 28 frames, execution startup at least 90, and ordinary move recovery at least 28. Phase changes also have a marked 24-frame breakaway warning. Early bosses establish this rhythm without a self-heal.
+
+Tier-four and later bosses enter an additional desperation state at or below 40% health. Its 60-frame announcement precedes an irreversible 18% damage and 12% tempo boost, separate from the three authored phase patterns. When given more than 190 world units of room below that threshold, the boss can attempt one 100-frame **Rekindle** channel that restores 9% of maximum health. A heavy strike or riposte interrupts it and grants a 70-frame recovery; an interrupted attempt is still spent. Watch the boss’s state and punish the channel rather than allowing a distant, uninterrupted recovery.
+
+## Guardian introductions and endings
+
+The six fragment guardians and three forbidden guardians have a 6.5-second, skippable introduction before control returns to the chamber. The 9-second ending cinematic reflects the main ending choice or covenant. **Skip Scene**, Space, Enter, E, or Escape skips the presentation; portrait rotation, window blur, and hidden tabs hold its clock. Reduced motion retains complete still compositions and story captions.
+
+An introduction plays once for that boss in the loaded expedition session. Retrying the same encounter during the session does not repeat it. Continue or a page reload begins a new session; defeated bosses do not trigger a fight introduction. The main finale follows the restore/release choice and precedes credits. The Nullheart finale follows its reward summary and precedes the true-ending summary. Continue resumes exploration after a main ending; a completed true ending opens its summary. The scenes do not replace or replay saved ending decisions.
+
+These presentations pause combat rather than leaving an enemy attack running behind the scene. Held inputs are cleared before control returns. Normal NPC speech and passing boss lines remain part of the live world.
+
+## Boss roster
 
 ### Main guardians
 

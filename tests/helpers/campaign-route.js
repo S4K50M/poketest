@@ -18,14 +18,75 @@ export function walkTo(g,x,max=1800){
   }
   return false;
 }
-export function fightGuardian(g,max=7000){
+const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
+const endangered=(h,p)=>{
+  const hw=(h.w||0)/2+18,hh=(h.h||0)/2,cy=p.y-36;
+  if(h.shape==='ring'&&Math.hypot(p.x-h.x,cy-h.y)+39<(h.inner||0))return false;
+  return Math.abs(p.x-h.x)<hw&&p.y>h.y-hh&&p.y-72<h.y+hh;
+};
+/** Read only visible tells and warned areas, then issue ordinary player inputs.
+ * Shared by simulation and Chromium routes so victories cannot rely on a
+ * hidden damage setter or a controller that ignores the game's new defense. */
+export function guardianPlan(g){
+  const p=g.player,e=g.enemies.find(e=>e.boss&&e.hp>0);
+  if(!e)return {inputs:{},actions:[],shield:false,jump:false,heal:false};
+  const dx=e.x-p.x,dist=Math.abs(dx),side=Math.sign(dx)||p.face||1,actions=[];
+  let target=e.x-side*76,jump=false,shield=false,danger=false,heal=false;
+  const windup=e.state==='windup',committed=['attack','charge','leap'].includes(e.state),counter=e.counter;
+  if(windup&&counter==='behind')target=e.x+side*115;
+  if((windup||committed)&&counter==='retreat')target=e.x-side*340;
+  if((windup||committed)&&counter==='get-close')target=e.x-side*40;
+  if(['countertell','evade','enrage'].includes(e.state)){target=e.x-side*210;danger=true;}
+  if(windup&&e.timer<=9&&['dodge','behind'].includes(counter)&&dist<190){jump=p.grounded;danger=true;if(!p.dash)actions.push('dash');}
+  const hazards=(g.bossHazards||[]).filter(h=>h.type!=='force'&&h.life>0&&h.delay<=17&&endangered(h,p)).sort((a,b)=>a.delay-b.delay);
+  const h=hazards[0];
+  if(h){
+    danger=true;
+    const low=(h.h||0)<105&&h.y>(e.baseY??520)-85;
+    if(low&&['beam','floor'].includes(h.shape)){
+      if(p.grounded&&h.delay<=15)jump=true;
+      target=p.x;
+    }else if(h.shape==='ring'&&h.inner>65&&Math.abs(p.x-h.x)<h.inner+100){target=h.x;}
+    else{
+      const margin=(h.w||120)/2+72,targetSide=Math.sign(p.x-h.x)||-side;
+      target=h.x+targetSide*margin;
+      if(h.delay<10&&Math.abs(target-p.x)>80&&!p.dash)actions.push('dash');
+    }
+    if(!h.unblockable&&!h.lethal&&h.damage!=='lethal'&&h.delay<7)shield=true;
+  }
+  if(committed&&dist<115&&['charge','leap'].includes(e.state)){danger=true;jump=p.grounded;if(!p.dash)actions.push('dash');}
+  if((windup&&counter==='shield'&&e.timer<10)||(committed&&counter==='shield')){danger=true;shield=true;}
+  const floor=520;
+  if((windup||committed)&&counter==='platform'&&p.grounded&&p.y===floor&&dist<350&&e.timer<20)jump=true;
+  if(p.hp<=Math.min(3,p.maxHp-3)&&g.inventory.flask)actions.push('potion');
+  if(p.hp<=1.5&&!g.inventory.flask){const members=g.party||[],slot=members.findIndex((m,i)=>i!==g.activeSlot&&m.hp>p.hp+1);if(slot>=0)actions.push('slot'+(slot+1));}
+  if(e.state==='heal')target=e.x-side*65;
+  const needsFocusHeal=!g.inventory.flask&&p.spirit>=40&&p.hp<=p.maxHp*.6;
+  if(needsFocusHeal&&!danger&&e.state!=='heal'){
+    target=e.x-side*460;
+    if(dist>350&&p.grounded&&!committed){target=p.x;heal=true;}
+  }
+  const inputs={right:p.x<target-14,left:p.x>target+14,down:!p.grounded&&dist<100};
+  // A two-light confirm into a heavy finisher changes the pressure read. Attack
+  // only while in range, and use committed recovery/heal as the best opening.
+  const opening=['recover','heal','patrol'].includes(e.state)||windup&&e.timer>22;
+  if(!heal&&!danger&&opening&&dist<150&&!p.attack){
+    const chain=g.combat?.chain??0,heavyWait=typeof g.combat?.remaining==='function'?g.combat.remaining('heavy'):g.combat?.actions?.heavy?.remaining||0;
+    actions.push(e.state==='heal'||chain>=2&&!heavyWait?'heavy':'light');
+    if(e.state==='recover'&&dist<125&&(g.tick||0)%110<5)actions.push('special');
+  }else if(!heal&&!danger&&dist>190&&dist<520&&(g.tick||0)%160<3)actions.push('power');
+  if((g.surge||0)>=100&&!danger&&dist<300)actions.push('surge');
+  return {inputs,actions:[...new Set(actions)],shield,jump,heal};
+}
+export function fightGuardian(g,max=16000){
   for(let t=0;t<max;t++){
-    const e=g.enemies.find(e=>e.boss&&e.hp>0);if(!e)return true;
-    const p=g.player,dx=e.x-p.x;g.setInputs({right:dx>60,left:dx< -60,down:!p.grounded&&Math.abs(dx)<90});
-    if(t%10===0)g.input('heavy');
-    if(t%65===0){g.setInputs({});g.input('special');g.releaseSpecial();}
-    if(p.grounded&&e.state==='windup'&&e.timer<20)g.input('jump');
-    if(p.hp<2&&g.inventory.flask)g.input('potion');
+    if(g.phase!=='playing')return false;
+    if(!g.enemies.some(e=>e.boss&&e.hp>0)){g.setInputs({});g.releaseShield();g.releaseJump();return true;}
+    const plan=guardianPlan(g);g.setInputs(plan.inputs);
+    if(plan.heal)g.input('heal');else g.releaseHeal();
+    if(plan.jump)g.input('jump');else if(g.player.vy>=0)g.releaseJump();
+    if(plan.shield)g.input('shield');else g.releaseShield();
+    for(const action of plan.actions){g.input(action);if(action==='special')g.releaseSpecial();}
     g.step();
   }
   return false;
@@ -36,6 +97,11 @@ export function playCampaign(g,{chapters=6,switchParty=true,onGuardian=()=>{}}={
     // The sanctuary spring restores companions by contact; camp interaction
     // is reserved for services and never supplies a repeatable heal.
     if(!walkTo(g,200))throw Error('Cannot return to the sanctuary spring');g.step();
+    // Spend only resources earned on the route. Later guardians are tuned for
+    // an adventurer who forges upgrades and supplies between expeditions.
+    while(g.upgrades<3&&g.input('upgrade')){}
+    if(!g.charms.has('fang'))g.craft('fang');
+    while(g.inventory.flask<3&&g.inventory.heartwood>=2)g.craft('flask');
     if(switchParty)g.input('slot'+(i%3+1));
     if(!walkTo(g,1050+i*180))throw Error('Cannot reach sanctuary portal '+i);g.input('interact');
     if(g.roomId!==ch.id+'-path')throw Error('Portal did not open '+i);

@@ -66,6 +66,12 @@ Use `bossOwner` to let the runtime expire summons, hazards, and platforms togeth
 
 Distinct encounter acceptance requires different executable patterns, not only names or colors. Vary movement, target geometry, timing, arena manipulation, and openings. Every phase needs a punish/recovery window. Execution attacks belong to late optional/final phases, require an explicit long warning and escape route, and must communicate shield bypass. Use [boss encounter reference](boss-encounters.md) for the current identities and run [boss verification](testing.md#boss-encounter-regressions) after a change.
 
+Keep progression tuning in [boss-progression.js](../src/boss-progression.js), separate from authored spatial patterns. A new boss needs a sensible dimension/role rank; avoid scaling against the player’s level or collected rewards, which would erase the benefit of preparation. Preserve visible minimum tells, committed targets, and a punish window as tempo increases. Late desperation is a separate flag, so it cannot accidentally select a lethal phase-III event early.
+
+Pressure defense must respond to repeated behavior through a readable state, not invisible damage rejection. Preserve genuine recovery, parry, and posture openings; avoid refilling posture during an existing break. Healing needs a clear channel, a bounded attempt/amount, and a usable interruption. Reset pressure, local healing state, and defensive motions with the encounter lifecycle.
+
+For an essential guardian, add its chamber composition and captions to [boss-cinematic.js](../src/boss-cinematic.js). Keep the renderer pure and honor reduced motion; `main.js` owns pause, skipping, focus, session introduction history, and ending destinations. A cinematic must not award progression or replay a saved ending decision.
+
 ## Add a quest or history record
 
 QUESTS records in chronicle.js use stable IDs, giver IDs, prerequisites, optional fragment requirements, objectives, and reward records. Objective kinds include talk, visit, kill, memory, tool, craft, event, and faction. Fully qualified object targets use roomID:objectID. Giver IDs must match NPC talk IDs so interaction can accept and turn in the quest.

@@ -7,13 +7,14 @@ The playable prototype includes:
 - Conversations woven into the scene: floating NPC speech, landmark whispers across all 42 rooms, and distinct lines from all 21 bosses, with movement and combat continuing.
 - An animated title screen that fits the viewport, with companion and realm controls in one responsive interface.
 - A skippable opening cinematic starring your chosen party, followed by a rebuilt Last Lantern and Mourningwild with distinct landmarks, living root vaults, local lighting, and layered forest scenery.
-- **Twenty-one distinct boss encounters and 84 named attacks**, with individual phase sequences, arena hazards, summons, temporary landings, heavy weapon strikes, aerial movement, and execution attacks. Learn their tells and escape routes in the [boss encounter guide](docs/boss-encounters.md).
+- **Twenty-one distinct boss encounters and 84 named attacks**, with reactive movement and attack selection, pressure counters, escalating tiers, arena hazards, summons, and late execution attacks. Learn their tells and escape routes in the [boss encounter guide](docs/boss-encounters.md).
+- Skippable introductions for the nine major and forbidden guardians, plus ending cinematics that follow the Worldheart’s fate and your covenant.
 - A fully redrawn bestiary: **eleven companions, nineteen wild species, and twenty-one bosses**, with distinct anatomy, inked silhouettes, layered materials, and articulated action animation.
 - Anticipation, impact, recovery, shield, recoil, and death animation; elemental trails, phase effects, and responsive NPC details finish the combat presentation.
 - A redesigned first gate with branching climbs, shared landings, and recovery platforms that lead back into the route after missed jumps.
 - **42 rooms across six dimensions**, nine major bosses, twelve minibosses, eleven companions, and nineteen wild species.
 - Branching tunnel dungeons with continuous lower floors, optional upper climbs and vaults, looping shortcuts, and a discovered-room atlas without route arrows.
-- Three-phase guardians, stronger knockback, scarce automatic Wellsprings, and committed Focus healing make expeditions dangerous.
+- Three-phase guardians, stronger knockback, late-game desperation and interruptible healing, scarce automatic Wellsprings, and committed Focus healing make expeditions dangerous.
 - Three active companions that switch mid-fight, healing, crafting, equipment, and exploration tools.
 - Launchers, aerial combos, dash cancels, directional shields, timed parries, boss posture breaks, and visible attack cooldowns.
 - **Twelve combat arts**, with ten unlocked through progression, optional bosses, and companion mastery.

@@ -39,6 +39,7 @@ The PORT prefix shown here uses POSIX shell syntax; use your shell’s equivalen
 | `npm run test:recovery` | Check automatic recovery, death penalties, Game Over, and Retry |
 | `npm run test:arrival` | Check the title screen, opening cinematic, and first-area presentation |
 | `npm run test:dialogue` | Check scene conversations, environmental voices, input, and mobile placement |
+| `npm run test:boss-upgrade` | Check guardian cinematics, escalation, and reactive encounter behavior |
 
 npm start does not build first. After editing JavaScript without a watcher, run npm run build before starting or refreshing the game. CSS and HTML are served directly; changing them does not require a JavaScript rebuild.
 
@@ -52,6 +53,8 @@ npm start does not build first. After editing JavaScript without a watcher, run 
 6. If all three companions fall, Game Over explains the gate-wide enemy revival and 10% Lumen loss. Retry returns to your last activated spring; Save & Title keeps the pending death in your save.
 
 Continue bypasses the opening and resumes your checkpoint. **Watch the Prologue** on the title screen shows the cinematic without starting a new expedition or replacing your save.
+
+Major and forbidden guardians have skippable introductions before combat. The main ending choice and optional final guardian lead into their own ending cinematics. **Skip Scene**, Space, Enter, E, or Escape returns control; rotating to portrait or hiding the tab pauses the presentation. Learn a boss’s tell and punish its recovery rather than repeating heavy attacks at point-blank range.
 
 The [gameplay guide](gameplay.md) lists all controls and resources. The [combat guide](combat.md) explains unlocks and defensive timing. Sound starts muted; use the sound button to enable it. Reduced motion is available in the Arsenal.
 

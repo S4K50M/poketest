@@ -1,11 +1,12 @@
 import { BOSSES } from './world.js';
 import { MINIONS } from './designs.js';
+import {bossProgression} from './boss-progression.js';
 
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 export const DUNGEON_HEAL=Object.freeze({frames:72,cost:40,amount:1});
 export const DUNGEON_MINIONS=['glassmarauder','veilwasp','graveburrower','chaincaster'];
-export const bossHealth=boss=>Math.round(boss.hp*(boss.miniboss?1:2.2));
-export const bossPhase=enemy=>enemy.hp<=enemy.maxHp/3?3:enemy.hp<=enemy.maxHp*2/3?2:1;
+export const bossHealth=boss=>Math.round(boss.hp*(boss.miniboss?1:2.2)*bossProgression(boss).health);
+export {bossPhase} from './boss-progression.js';
 
 const shot=(g,e,angle,speed,damage,status={})=>g.enemyShots.push({x:e.x,y:e.y-70,vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed,life:145,color:BOSSES[e.boss]?.color||MINIONS[e.kind].color,damage,status});
 

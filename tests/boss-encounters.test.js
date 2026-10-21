@@ -4,6 +4,7 @@ import { RPGCampaign } from '../src/rpg.js';
 import { BOSSES, ROOMS } from '../src/world.js';
 import { MINIONS } from '../src/designs.js';
 import { BOSS_ENCOUNTERS, beginBossMove, updateBossEncounter, updateBossHazards, clearBossEncounter } from '../src/boss-encounters.js';
+import {bossRank} from '../src/boss-progression.js';
 
 const context=(phase=1,mechanic)=>({x:1200,y:520,floor:520,tx:1000,ty:520,left:600,right:1800,center:1200,phase,face:-1,mechanic,clampX:n=>Math.max(600,Math.min(1800,n))});
 const finite=(value,path='event')=>{
@@ -15,7 +16,7 @@ const fingerprint=events=>JSON.stringify(events,(key,value)=>['color','name','la
 const fixture=(id,phase=1)=>{
   const g=new RPGCampaign(undefined,{worldSeed:1}),room=Object.values(ROOMS).find(r=>r.enemies.some(e=>e.boss===id));
   g.loadRoom(room.id,Math.max(100,room.enemies.find(e=>e.boss===id).x-240),false);
-  const e=g.enemies.find(e=>e.boss===id);e.introduced=true;e.phase=phase;e.hp=e.maxHp*(phase===1?1:phase===2?.6:.3);e.stun=0;e.timer=1;g.transition=0;
+  const e=g.enemies.find(e=>e.boss===id);e.introduced=true;e.phase=phase;e.hp=e.maxHp*(phase===1?1:phase===2?.6:.3);e.berserk=bossRank(id)>=4&&phase===3;e.healUsed=true;e.stun=0;e.timer=1;g.transition=0;
   return {g,e};
 };
 
@@ -136,7 +137,7 @@ test('real phase transitions remove old arena terrain, including during an awake
  for(const blink of[false,true]){
   const {g,e}=fixture('leviathan');if(blink){g.abilities.add('blink');g.player.dash=5;}
   beginBossMove(g,e,0);e.timer=1;g.step();assert(g.platforms.some(p=>p.bossOwner),'the real step retains newly spawned tiles');
-  e.hp=e.maxHp*.6;g.step();assert.equal(e.phase,2);assert(!g.platforms.some(p=>p.bossOwner),'phase cleanup must survive the shared motor step');assert.equal(g.bossHazards.length,0);
+  const oldHazards=new Set(g.bossHazards);e.hp=e.maxHp*.6;g.step();assert.equal(e.phase,2);assert(!g.platforms.some(p=>p.bossOwner),'phase cleanup must survive the shared motor step');assert(!g.bossHazards.some(h=>oldHazards.has(h)),'only the new announced phase breakaway may remain');assert(g.bossHazards.every(h=>h.name==='PHASE BREAKAWAY'&&h.delay>0));
  }
 });
 

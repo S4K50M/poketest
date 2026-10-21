@@ -5,11 +5,13 @@ import {EQUIPMENT,BOND_RANKS} from './rpg-data.js';
 import { arsenalHTML } from './combat-ui.js';
 import { POWERS } from './combat-data.js';
 import { BOSS_ENCOUNTERS } from './boss-encounters.js';
+import { bossRank } from './boss-progression.js';
 import { WorldRenderer } from './world-render.js';
 import {regionAtlas} from './exploration-ui.js';
 import { paintPortrait, fitCanvas } from './render.js';
 import { OPENING_DURATION, openingBeat, drawOpeningCinematic } from './opening-cinematic.js';
 import { initLanding } from './landing.js';
+import { ESSENTIAL_BOSSES, bossCinematicBeat, drawBossCinematic } from './boss-cinematic.js';
 import { initWorldDialogue } from './world-dialogue.js';
 import { WorldDialogueState, resolveDialogueAnchor } from './world-dialogue-state.js';
 import { WORLD_VOICES, BOSS_VOICES } from './world-voices.js';
@@ -18,17 +20,21 @@ import { MINIONS } from './designs.js';
 import { ROOMS, BIOMES, BOSSES, CHAPTERS, ABILITIES, ITEMS, CHARMS, DEFAULT_PARTY, SAVE_KEY } from './world.js';
 const $=id=>document.getElementById(id);
 const readSave=()=>{try{const s=JSON.parse(localStorage.getItem(SAVE_KEY));return [2,3,4].includes(s?.version)&&Object.hasOwn(ROOMS,s.room)?s:null;}catch{return null;}};
-let rpgTab='quests',orientationBlocked=false,opening=null,landing=null,landingBiome='moss';
+let rpgTab='quests',orientationBlocked=false,opening=null,encounterCinematic=null,landing=null,landingBiome='moss';
 let saved=readSave(),party=[...DEFAULT_PARTY],game=null,view='home',overlayType='',mapRegion='sanctuary',mapRoom='',rewardQueue=[],last=0,accumulator=0,lastHud=0,notice='',noticeFrames=0,sound=false,audioContext=null;
 const held=new Set(),canvas=$('world-canvas'),renderer=new WorldRenderer(canvas),heroRenderer=new WorldRenderer($('hero-scene')),modal=$('overlay');
 const intro=document.createElement('dialog');intro.id='intro-screen';intro.hidden=true;intro.setAttribute('aria-modal','true');intro.setAttribute('aria-labelledby','intro-title');intro.setAttribute('aria-describedby','intro-line');
 intro.innerHTML='<canvas id="intro-canvas" aria-hidden="true"></canvas><button id="intro-skip" aria-label="Skip opening cinematic">SKIP STORY <span>↗</span></button><div class="intro-caption" aria-live="polite"><p id="intro-kicker"></p><h2 id="intro-title"></h2><p id="intro-line"></p><div class="intro-progress" aria-hidden="true"><i id="intro-progress-fill"></i></div></div>';
 document.body.append(intro);
+const encounterScreen=document.createElement('dialog');encounterScreen.id='encounter-screen';encounterScreen.hidden=true;encounterScreen.setAttribute('aria-modal','true');encounterScreen.setAttribute('aria-labelledby','encounter-title');encounterScreen.setAttribute('aria-describedby','encounter-line');
+encounterScreen.innerHTML='<canvas id="encounter-canvas" aria-hidden="true"></canvas><button id="encounter-skip" aria-label="Skip encounter cinematic">SKIP SCENE <span>↗</span></button><div class="intro-caption" aria-live="polite"><p id="encounter-kicker"></p><h2 id="encounter-title"></h2><p id="encounter-line"></p><div class="intro-progress" aria-hidden="true"><i id="encounter-progress-fill"></i></div></div>';
+document.body.append(encounterScreen);const encounterSeen=new Set();
 const speech=new WorldDialogueState({voices:WORLD_VOICES});let speechRevision=-1,speechMotion=null;
 const worldDialogue=initWorldDialogue({parent:$('game-screen'),onAdvance:advanceWorldDialogue,onDismiss:dismissWorldDialogue});
 const preview=new CampaignEngine(DEFAULT_PARTY);
 const state=()=>game||preview;
 const bossCounterLabel=counter=>({'get-close':'GET CLOSE',behind:'GET BEHIND',platform:'TAKE HIGH GROUND',dodge:'DASH CLEAR',jump:'JUMP',retreat:'MOVE AWAY',minions:'DEFEAT SUMMONS',shield:'PARRY / SHIELD'}[counter]||'WATCH THE TELL');
+const bossActionLabel=b=>b.state==='heal'?'MENDING · HEAVY TO INTERRUPT':b.state==='countertell'?'READING YOUR RHYTHM':b.guarding?'HEAVY READ · MIX YOUR STRIKES':b.state==='evade'?'REPOSITIONING':b.state==='recover'?'RECOVERING · PUNISH NOW':(b.moveName?b.moveName.toUpperCase()+' · ':'')+(b.counter?bossCounterLabel(b.counter):'WATCH THE TELL');
 const escapeHtml=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function store(s){saved=s;try{localStorage.setItem(SAVE_KEY,JSON.stringify(s));notice='';}catch{notice='Browser storage is unavailable. Keep this tab open to preserve the journey.';noticeFrames=300;}updateContinue();}
 function updateContinue(){saved=readSave()||saved;landing?.update({saved,party,reducedMotion:reducedMotion()});$('continue-button').hidden=!saved;if(saved){$('continue-button').textContent='CONTINUE JOURNEY →';$('save-caption').textContent=`${BIOMES[ROOMS[saved.room]?.biome||'sanctuary'].name} · ${saved.fragments?.length||0}/6 heart fragments · journey saved`;}}
@@ -37,9 +43,9 @@ function mobileLayout(){return window.matchMedia('(any-pointer: coarse)').matche
 function syncMobileLayout(){
   const active=view==='game'&&!!game,mobile=mobileLayout(),viewport=window.visualViewport,portrait=(viewport?.height||innerHeight)>(viewport?.width||innerWidth),blocked=mobile&&portrait,changed=blocked!==orientationBlocked;
   orientationBlocked=blocked;document.body.classList.toggle('mobile-game',active&&mobile);document.body.classList.toggle('orientation-blocked',blocked);
-  const rotate=$('rotate-prompt');rotate.hidden=!blocked;if(blocked&&!rotate.open)rotate.showModal();else if(!blocked&&rotate.open)rotate.close();$('game-screen').inert=blocked;$('home-screen').inert=blocked;document.querySelector('.topbar').inert=blocked;modal.inert=blocked;intro.inert=blocked;
-  if(game){if(changed)clearInputs();game.paused=blocked||modal.open||!!opening||game.phase==='gameover';}
-  if(changed){accumulator=0;if(blocked)$('landscape-button').focus({preventScroll:true});else (opening?$('intro-skip'):modal.open?overlayFocus():active?canvas:$('start-button')).focus({preventScroll:true});}
+  const rotate=$('rotate-prompt');rotate.hidden=!blocked;if(blocked&&!rotate.open)rotate.showModal();else if(!blocked&&rotate.open)rotate.close();$('game-screen').inert=blocked;$('home-screen').inert=blocked;document.querySelector('.topbar').inert=blocked;modal.inert=blocked;intro.inert=blocked;encounterScreen.inert=blocked;
+  if(game){if(changed)clearInputs();game.paused=blocked||modal.open||!!opening||!!encounterCinematic||game.phase==='gameover';}
+  if(changed){accumulator=0;if(blocked)$('landscape-button').focus({preventScroll:true});else (opening?$('intro-skip'):encounterCinematic?$('encounter-skip'):modal.open?overlayFocus():active?canvas:$('start-button')).focus({preventScroll:true});}
 }
 window.addEventListener('resize',syncMobileLayout);window.addEventListener('orientationchange',syncMobileLayout);window.visualViewport?.addEventListener('resize',syncMobileLayout);screen.orientation?.addEventListener('change',syncMobileLayout);window.matchMedia('(any-pointer: coarse)').addEventListener('change',syncMobileLayout);
 $('rotate-prompt').addEventListener('cancel',e=>e.preventDefault());
@@ -51,7 +57,7 @@ $('landscape-button').onclick=async()=>{
 function quickMenuHTML(){return heading('Your next <em>move.</em>','Combat stays under your thumbs. Everything else is one tap away.')+`<div class="quick-menu"><button class="primary" data-resume>RESUME ADVENTURE →</button><div class="quick-section"><p class="eyebrow">01 · RECOVER & PREPARE</p><div class="quick-grid"><button data-quick-action="potion">✚<strong>Drink flask</strong><small>${game?.inventory.flask||0} available · +3 hearts</small></button><button data-quick-action="powerCycle">⇄<strong>Cycle power</strong><small>Change your selected art</small></button><button data-overlay="arsenal">ϟ<strong>Combat arsenal</strong><small>Equip powers & motion options</small></button><button data-overlay="inventory">◇<strong>Inventory</strong><small>Equipment, items & crafting</small></button></div></div><div class="quick-section"><p class="eyebrow">02 · EXPLORE & PROGRESS</p><div class="quick-grid"><button data-overlay="map">⌁<strong>World map</strong><small>Tunnels & wellsprings</small></button><button data-overlay="chronicle">≋<strong>Chronicle</strong><small>Quests, talents & story</small></button><button data-quick-action="tool">⚒<strong>Use tool</strong><small>Current: ${escapeHtml(game?.tools[game.toolIndex]||'pickaxe')}</small></button><button data-overlay="party">⋈<strong>Companions</strong><small>Change roster at a camp station</small></button></div></div><div class="quick-footer"><button data-overlay="guide">CONTROLS & HELP</button><button data-toggle-sound aria-pressed="${sound}">SOUND · ${sound?'ON':'OFF'}</button><button data-return-home>SAVE & RETURN TO CAMP</button></div></div>`;}
 function clearInputs(){held.clear();if(game){game.setInputs({});game.releaseJump();game.releaseHeal();game.releaseSpecial();game.releaseShield();}}
 function renderWorldDialogue(delta=0){
-  const suspended=view!=='game'||!game||modal.open||orientationBlocked||!!opening;
+  const suspended=view!=='game'||!game||modal.open||orientationBlocked||!!opening||!!encounterCinematic;
   speech.update(game,delta,{suspended});
   const current=speech.current;
   if(!current){worldDialogue.hide();speechRevision=speech.revision;return;}
@@ -64,11 +70,11 @@ function renderWorldDialogue(delta=0){
   worldDialogue.place({...point,mobile:mobileLayout()});
 }
 function advanceWorldDialogue(){
-  if(orientationBlocked||modal.open||opening||!game||game.phase!=='playing'||!speech.current?.manual)return false;
+  if(orientationBlocked||modal.open||opening||encounterCinematic||!game||game.phase!=='playing'||!speech.current?.manual)return false;
   speech.advance();renderWorldDialogue();if(!speech.current){game.save();canvas.focus({preventScroll:true});}return true;
 }
 function dismissWorldDialogue(){
-  if(orientationBlocked||modal.open||opening||!speech.current)return;
+  if(orientationBlocked||modal.open||opening||encounterCinematic||!speech.current)return;
   speech.dismiss();renderWorldDialogue();canvas.focus({preventScroll:true});
 }
 function worldInteract(){if(!advanceWorldDialogue())return game?.input('interact');return true;}
@@ -88,18 +94,18 @@ function events(e){
   if(e.type==='workbench')openOverlay('inventory');
   if(e.type==='merchant')openOverlay('merchant');
   if(e.type==='factionchoice'){rpgTab='factions';openOverlay('chronicle');}
-  if(e.type==='bossintro'){const b=game?.bossInfo?.(e.boss)||BOSSES[e.boss];notice=b.epithet+' · '+b.name;noticeFrames=160;bossVoice(e.boss,'intro');}
+  if(e.type==='bossintro'){const b=game?.bossInfo?.(e.boss)||BOSSES[e.boss];notice=b.epithet+' · '+b.name;noticeFrames=160;bossVoice(e.boss,'intro');if(ESSENTIAL_BOSSES.includes(e.boss)&&!encounterSeen.has(e.boss))beginEncounterCinematic(e.boss);}
   if(e.type==='bossdefeated')bossVoice(e.boss,'defeat');
   if(e.type==='bossdefeated'&&(e.miniboss||BOSSES[e.boss]?.miniboss)){notice='GATE CHAMPION DEFEATED · A NEW PASSAGE OPENS';noticeFrames=180;}
-  else if(e.type==='bossdefeated'){rewardQueue.push(e.boss);setTimeout(()=>{if(view==='game'&&rewardQueue.length&&!modal.open)openOverlay('reward');},700);}
-  if(e.type==='credits')openOverlay('credits');
+  else if(e.type==='bossdefeated'){rewardQueue.push(e.boss);setTimeout(()=>{if(view==='game'&&rewardQueue.length&&!modal.open&&!opening&&!encounterCinematic)openOverlay('reward');},700);}
+  if(e.type==='credits'&&!beginEncounterCinematic('crown',{mode:'ending',after:'credits'}))openOverlay('credits');
 }
 function startCampaign(resume=false){
-  closeOverlay(true);speech.reset();worldDialogue.hide();rewardQueue=[];game=new CampaignEngine(resume?DEFAULT_PARTY:party,{save:resume?saved:null,onEvent:events,onSave:store});view='game';$('home-screen').hidden=true;$('game-screen').hidden=false;document.body.classList.add('playing');accumulator=0;last=performance.now();lastHud=0;noticeFrames=0;if(!resume||!saved?.combat)game.combat.settings.reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)').matches;game.save();renderHud();canvas.focus({preventScroll:true});window.scrollTo(0,0);if(game.phase==='gameover')openOverlay('gameover');else if(game.trueEnding)openOverlay('trueending');else if(game.finished&&!game.ending)openOverlay('ending');if(!resume)beginOpening('expedition');syncMobileLayout();
+  closeOverlay(true);encounterSeen.clear();speech.reset();worldDialogue.hide();rewardQueue=[];game=new CampaignEngine(resume?DEFAULT_PARTY:party,{save:resume?saved:null,onEvent:events,onSave:store});view='game';$('home-screen').hidden=true;$('game-screen').hidden=false;document.body.classList.add('playing');accumulator=0;last=performance.now();lastHud=0;noticeFrames=0;if(!resume||!saved?.combat)game.combat.settings.reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)').matches;game.save();renderHud();canvas.focus({preventScroll:true});window.scrollTo(0,0);if(game.phase==='gameover')openOverlay('gameover');else if(game.trueEnding)openOverlay('trueending');else if(game.finished&&!game.ending)openOverlay('ending');if(!resume)beginOpening('expedition');syncMobileLayout();
 }
-function returnHome(){if(opening)finishOpening();if(game)game.save();speech.reset();worldDialogue.hide();clearInputs();closeOverlay(true);view='home';$('home-screen').hidden=false;$('game-screen').hidden=true;document.body.classList.remove('playing','game-over','recovery-flash');game=null;syncMobileLayout();renderHomeParty();updateContinue();$('start-button').focus({preventScroll:true});}
+function returnHome(){if(encounterCinematic)finishEncounterCinematic(false);if(opening)finishOpening();if(game)game.save();speech.reset();worldDialogue.hide();clearInputs();closeOverlay(true);view='home';$('home-screen').hidden=false;$('game-screen').hidden=true;document.body.classList.remove('playing','game-over','recovery-flash');game=null;syncMobileLayout();renderHomeParty();updateContinue();$('start-button').focus({preventScroll:true});}
 function beginOpening(mode='replay'){
-  if(opening||orientationBlocked)return;
+  if(opening||encounterCinematic||orientationBlocked)return;
   closeOverlay(true);clearInputs();opening={mode,elapsed:0,beat:-1,suspended:document.hidden};if(game)game.paused=true;accumulator=0;last=performance.now();
   intro.hidden=false;document.body.classList.add('intro-playing');intro.showModal();renderOpening();$('intro-skip').focus({preventScroll:true});
 }
@@ -114,6 +120,28 @@ function finishOpening(){
   if(game){game.paused=modal.open||orientationBlocked||game.phase==='gameover';canvas.focus({preventScroll:true});}else (mode==='replay'?$('replay-intro')||$('start-button'):$('start-button')).focus({preventScroll:true});
 }
 $('intro-skip').onclick=finishOpening;intro.addEventListener('cancel',e=>{e.preventDefault();finishOpening();});
+function beginEncounterCinematic(boss,{mode='intro',after=null}={}){
+  if(!game||opening||encounterCinematic||orientationBlocked)return false;
+  closeOverlay(true);clearInputs();speech.dismiss();worldDialogue.hide();
+  const beat=bossCinematicBeat(boss,0,{mode,ending:boss==='nullheart'?'true':game.ending||'restore',faction:game.trueEnding||game.faction});
+  encounterCinematic={boss,mode,after,elapsed:0,duration:beat.duration,beat:-1,suspended:document.hidden};
+  if(mode==='intro')encounterSeen.add(boss);
+  game.paused=true;accumulator=0;last=performance.now();encounterScreen.hidden=false;encounterScreen.showModal();renderEncounterCinematic();$('encounter-skip').focus({preventScroll:true});return true;
+}
+function renderEncounterCinematic(){
+  if(!encounterCinematic)return;
+  const movie=encounterCinematic,options={mode:movie.mode,ending:movie.boss==='nullheart'?'true':game.ending||'restore',faction:game.trueEnding||game.faction},beat=bossCinematicBeat(movie.boss,movie.elapsed,options),{c,w,h}=fitCanvas($('encounter-canvas'));
+  drawBossCinematic(c,w,h,{...options,bossId:movie.boss,elapsed:movie.elapsed,partyIds:game.party.map(m=>m.data.id),reducedMotion:reducedMotion()});
+  if(beat.index!==movie.beat){movie.beat=beat.index;$('encounter-kicker').textContent=beat.kicker;$('encounter-title').textContent=beat.title;$('encounter-line').textContent=beat.line;}
+  $('encounter-progress-fill').style.width=Math.min(100,movie.elapsed/movie.duration*100)+'%';
+}
+function finishEncounterCinematic(showAfter=true){
+  if(!encounterCinematic||orientationBlocked)return;
+  const after=encounterCinematic.after;encounterCinematic=null;encounterScreen.close();encounterScreen.hidden=true;clearInputs();accumulator=0;last=performance.now();
+  if(game)game.paused=modal.open||orientationBlocked||game.phase==='gameover';
+  if(showAfter&&after)openOverlay(after);else canvas.focus({preventScroll:true});
+}
+$('encounter-skip').onclick=()=>finishEncounterCinematic();encounterScreen.addEventListener('cancel',e=>{e.preventDefault();finishEncounterCinematic();});
 function reducedMotion(){return game?.combat?.settings?.reducedMotion??saved?.combat?.settings?.reducedMotion??window.matchMedia('(prefers-reduced-motion: reduce)').matches;}
 function renderPortraits(){document.querySelectorAll('[data-portrait]').forEach(c=>paintPortrait(c,findFighter(c.dataset.portrait),{hero:c.dataset.hero==='true',reducedMotion:reducedMotion()}));}
 let lastPortraitClock=0;
@@ -136,7 +164,7 @@ function openOverlay(type){
   if(type==='map'&&game){mapRegion=game.room.biome;mapRoom=game.roomId;}
   clearInputs();worldDialogue.setVisible(false);overlayType=type;modal.dataset.view=type;if(game)game.paused=true;renderOverlay();modal.scrollTop=0;if(!modal.open)modal.showModal();overlayFocus().focus({preventScroll:true});
 }
-function closeOverlay(force=false){if(game?.phase==='gameover'&&!force)return;if(modal.open)modal.close();overlayType='';if(game){game.paused=orientationBlocked||!!opening||game.phase==='gameover';if(!orientationBlocked)canvas.focus({preventScroll:true});}clearInputs();}
+function closeOverlay(force=false){if(game?.phase==='gameover'&&!force)return;if(modal.open)modal.close();overlayType='';if(game){game.paused=orientationBlocked||!!opening||!!encounterCinematic||game.phase==='gameover';if(!orientationBlocked)canvas.focus({preventScroll:true});}clearInputs();}
 modal.addEventListener('cancel',e=>{e.preventDefault();if(orientationBlocked||overlayType==='gameover')return;if(overlayType==='reward')dismissReward();else closeOverlay();});
 $('close-overlay').onclick=()=>{if(overlayType==='gameover')return;if(overlayType==='reward')dismissReward();else closeOverlay();};
 function heading(title,description=''){return `<div class="modal-heading"><h2 id="overlay-title">${title}</h2><p>${description}</p></div>`;}
@@ -177,7 +205,7 @@ function codexHTML(g){
 }
 function guideHTML(){const rows=[['Shield / timed parry','HOLD G · 7-frame deflect'],['Power / cycle / arsenal','X / Z / H'],['Uppercut launcher','W + K · J J K branches'],['Aerial plunge','AIR S + K · unlock Claw'],['Run / aim','A D / W S'],['Variable-height jump','SPACE · release for short hop'],['Dash / recovery cancel','SHIFT'],['Fast three-hit chain','J · buffer your next strike'],['Armor breaker','K'],['Directional elemental skill','W A S D + L / neutral L'],['Pogo bounce','Air S + J'],['Focus heal · hold still','HOLD F · costs 40 FOCUS · 1.2s channel'],['Drink a flask','V · restores 3 hearts'],['Switch companions','1 / 2 / 3 · Q cycles'],['Interact / craft / enter','E'],['Conversation · continue / leave','E or ENTER / ESCAPE'],['Automatic full recovery','WALK THROUGH A WELLSPRING'],['Use / cycle tools','T / C'],['Grapple to golden anchor','U · requires Ember Thread'],['Map / inventory / journal','M / I / N'],['Threefold Resonance Surge','R · full gauge required'],['Chronicle / talents / equipment','N'],['Pause','ESCAPE']];return heading('Learn the <em>rhythm.</em>','J: 0.2s · K: 0.6s · L: 1.5s. Time your follow-ups; each power has its own cooldown. Every hit refills Focus; every quiet moment can restore a heart.')+`<div class="controls-grid">${rows.map(([a,b])=>`<div class="control-row"><span>${a}</span><kbd>${b}</kbd></div>`).join('')}</div><p class="modal-note">Defeat the Briar Matron for wall jumps, Saint Bellows for grappling, the Leviathan for the Tideglass Seal, the Conductor for a double jump, and the Hourglass Stag for Rift Step. Return with new abilities to reach high chambers, buried vaults, and looping shortcuts. The map records explored passages; navigation is yours.</p><button class="secondary" data-overlay="arsenal">KINETIC ARSENAL · ALL POWERS & COMBAT ROUTES ↗</button>`;}
 function rewardHTML(){const id=rewardQueue[0],b=game?.bossInfo?.(id)||BOSSES[id],art=Object.values(POWERS).find(d=>d.unlock.id===id||d.unlock.id===b?.reward);if(!b)return '';return `<div class="reward-panel"><span class="reward-icon">✧</span><p class="eyebrow">${CHRONICLE_BOSSES[id]?'FORBIDDEN MEMORY RESTORED':'HEART FRAGMENT RESTORED'} · ${BIOMES[b.biome].name.toUpperCase()}</p><h2 id="overlay-title">${b.name}</h2><p>${b.lore}</p><p class="reward-unlock">${b.reward?'ABILITY AWAKENED · '+ABILITIES[b.reward].name.toUpperCase():CHRONICLE_BOSSES[id]?'MYTHIC RELIC & TALENT POINT EARNED':'THE WORLDHEART OPENS ITS EYES'}${b.creature?'<br><br>NEW COMPANION · '+findFighter(b.creature).name.toUpperCase():''}</p>${b.reward?`<p class="modal-note">${ABILITIES[b.reward].description}</p>`:''}${art?`<p class="reward-unlock">COMBAT ART · ${art.name.toUpperCase()}<br><small>Open H · Arsenal to equip it in either power slot.</small></p>`:''}<div class="modal-actions"><button class="primary" data-dismiss-reward>CARRY THE MEMORY <span>→</span></button></div></div>`;}
-function dismissReward(){const id=rewardQueue.shift();closeOverlay();if(id==='crown')openOverlay('ending');else if(id==='nullheart')openOverlay('trueending');}
+function dismissReward(){const id=rewardQueue.shift();closeOverlay();if(id==='crown')openOverlay('ending');else if(id==='nullheart')beginEncounterCinematic('nullheart',{mode:'ending',after:'trueending'});}
 function endingHTML(){return `<div class="reward-panel"><span class="reward-icon">◈</span><p class="eyebrow">THE WORLDHEART SPEAKS</p><h2 id="overlay-title">“Will you stay with me?”</h2><p>The heart was a creature all along. Vell broke its cage, and the world broke with it. Now six memories are whole again. Your three companions step forward. The choice is yours.</p><div class="ending-options"><button data-ending="restore"><h3>Become its guardians.</h3><p>Restore the Worldheart. Keep the roads open, and make sure no kingdom ever cages it again.</p></button><button data-ending="release"><h3>Let the heart run free.</h3><p>Release it into the stars. The roads will change, but every creature will carry a piece of its light.</p></button></div></div>`;}
 function creditsHTML(g){return `<div class="reward-panel"><span class="reward-icon">✧</span><p class="eyebrow">${g.ending==='release'?'ENDING · A SKY FULL OF HEARTBEATS':'ENDING · THE LAST LANTERN BECOMES A DAWN'}</p><h2 id="overlay-title">The world remembers you.</h2><p>${g.ending==='release'?'The heart unfurls into a thousand constellations. For the first time, the creatures look up and hear their own names in the stars.':'The sanctuary fills with travelers. New roads wind through the forest. The Worldheart rests beneath the lantern, surrounded by creatures who chose to stay.'}<br><br>Professor Vell smiles. “I think we can stop running now.”</p><div class="inline-stats"><span><b>${g.fragments.size}/6</b>HEARTS RESTORED</span><span><b>${g.visited.size}/${Object.keys(ROOMS).length}</b>PLACES FOUND</span><span><b>${g.unlocked.size}/11</b>COMPANIONS</span><span><b>${Math.floor(g.playtime/3600)}</b>MINUTES TRAVELED</span></div><div class="modal-actions"><button class="secondary" data-return-home>SAVE & RETURN HOME</button><button class="primary" data-resume>KEEP EXPLORING →</button></div></div>`;}
 function gameOverHTML(g){
@@ -212,13 +240,13 @@ function renderHud(){
   const event=g.worldEvent;$('world-event-hud').hidden=!event;if(event)$('world-event-hud').textContent=event.type.toUpperCase()+' FRACTURE · CLEAR THE ECHOES';
   $('combo-hud').hidden=g.combo<2;$('combo-number').textContent=g.combo;$('heal-indicator').hidden=!p.healing;$('heal-progress').style.width=p.healProgress/(g.healConfig?.frames||72)*100+'%';
   $('game-toast').hidden=!(g.messageTime||noticeFrames);$('game-toast').textContent=g.messageTime?g.message:notice;
-  const boss=g.enemies.find(e=>e.boss&&e.hp>0&&e.introduced);$('boss-hud').hidden=!boss;if(boss){$('boss-name').textContent=g.bossInfo(boss.boss).name;$('boss-fill').style.width=boss.hp/boss.maxHp*100+'%';$('boss-fill').style.background=BOSSES[boss.boss].color;$('boss-phase').textContent=(boss.phase>=3?'PHASE III':boss.phase===2?'PHASE II':'PHASE I')+(boss.moveName?' · '+boss.moveName.toUpperCase():'')+(boss.state==='recover'?' · RECOVERING':boss.counter?' · '+bossCounterLabel(boss.counter):'');$('boss-phase').title=boss.hint||'Watch the windup';}
+  const boss=g.enemies.find(e=>e.boss&&e.hp>0&&e.introduced);$('boss-hud').hidden=!boss;if(boss){$('boss-name').textContent=g.bossInfo(boss.boss).name;$('boss-fill').style.width=boss.hp/boss.maxHp*100+'%';$('boss-fill').style.background=BOSSES[boss.boss].color;$('boss-hud').classList.toggle('boss-frenzy',!!boss.berserk);$('boss-hud').classList.toggle('boss-healing',boss.state==='heal');$('boss-phase').textContent='RANK '+bossRank(boss.boss)+' · '+(boss.berserk?'FRENZY · ':'')+(boss.phase>=3?'III':boss.phase===2?'II':'I')+' · '+bossActionLabel(boss);$('boss-phase').title=boss.hint||'Watch the windup';}
   $('region-title').hidden=!!speech.current||g.transition<20||g.transition>95;$('region-kicker').textContent=BIOMES[g.room.biome].subtitle.toUpperCase();$('region-name').textContent=g.room.name;$('region-title').style.opacity=String(Math.min(1,(g.transition-20)/18,(100-g.transition)/18));
 }
 const keyAction={KeyG:'shield',KeyX:'power',KeyZ:'powerCycle',KeyR:'surge',Space:'jump',ShiftLeft:'dash',ShiftRight:'dash',KeyJ:'light',KeyK:'heavy',KeyL:'special',KeyF:'heal',KeyE:'interact',KeyQ:'switch',Digit1:'slot1',Digit2:'slot2',Digit3:'slot3',KeyV:'potion',KeyT:'tool',KeyC:'toolCycle',KeyU:'grapple',KeyB:'upgrade'};
 function syncMovement(){game?.setInputs({left:held.has('KeyA')||held.has('ArrowLeft'),right:held.has('KeyD')||held.has('ArrowRight'),up:held.has('KeyW')||held.has('ArrowUp'),down:held.has('KeyS')||held.has('ArrowDown')});}
 window.addEventListener('keydown',e=>{
-  if(opening){if(orientationBlocked)return;if(['Space','Enter','Escape','KeyE'].includes(e.code)){e.preventDefault();if(!e.repeat)finishOpening();}else if(keyAction[e.code]||/^(Key[WASD]|Arrow(Left|Right|Up|Down))$/.test(e.code))e.preventDefault();return;}
+  if(opening||encounterCinematic){if(orientationBlocked)return;if(['Space','Enter','Escape','KeyE'].includes(e.code)){e.preventDefault();if(!e.repeat){if(opening)finishOpening();else finishEncounterCinematic();}}else if(keyAction[e.code]||/^(Key[WASD]|Arrow(Left|Right|Up|Down))$/.test(e.code))e.preventDefault();return;}
   if(orientationBlocked){if(keyAction[e.code])e.preventDefault();return;}
   if(modal.open){if(overlayType==='gameover'){if(e.code==='KeyR'&&!e.repeat){e.preventDefault();retryDeath();}return;}if((overlayType==='map'&&e.code==='KeyM'||overlayType==='inventory'&&e.code==='KeyI'||overlayType==='chronicle'&&e.code==='KeyN'||overlayType==='arsenal'&&e.code==='KeyH')&&!e.repeat){e.preventDefault();closeOverlay();}return;}
   if(view!=='game')return;
@@ -228,8 +256,8 @@ window.addEventListener('keydown',e=>{
   if(keyAction[e.code]||/^(Key[WASD]|Arrow(Left|Right|Up|Down))$/.test(e.code)){e.preventDefault();held.add(e.code);syncMovement();if(!e.repeat&&keyAction[e.code])game.input(keyAction[e.code]);}
 });
 window.addEventListener('keyup',e=>{held.delete(e.code);syncMovement();if(e.code==='Space')game?.releaseJump();if(e.code==='KeyF')game?.releaseHeal();if(e.code==='KeyL')game?.releaseSpecial();if(e.code==='KeyG')game?.releaseShield();});
-window.addEventListener('focus',()=>{if(opening){opening.suspended=document.hidden;last=performance.now();}});
-window.addEventListener('blur',()=>{if(opening){opening.suspended=true;clearInputs();return;}if(game&&!modal.open)openOverlay('pause');else clearInputs();});document.addEventListener('visibilitychange',()=>{if(opening){opening.suspended=document.hidden;last=performance.now();return;}if(document.hidden&&game&&!modal.open)openOverlay('pause');});
+window.addEventListener('focus',()=>{const cinematic=opening||encounterCinematic;if(cinematic){cinematic.suspended=document.hidden;last=performance.now();}});
+window.addEventListener('blur',()=>{if(opening||encounterCinematic){(opening||encounterCinematic).suspended=true;clearInputs();return;}if(game&&!modal.open)openOverlay('pause');else clearInputs();});document.addEventListener('visibilitychange',()=>{if(opening||encounterCinematic){(opening||encounterCinematic).suspended=document.hidden;last=performance.now();return;}if(document.hidden&&game&&!modal.open)openOverlay('pause');});
 window.addEventListener('beforeunload',()=>game?.save());
 document.addEventListener('click',e=>{
   const b=e.target.closest('button');if(!b)return;
@@ -273,12 +301,13 @@ document.addEventListener('click',e=>{
 document.addEventListener('change',e=>{const slot=e.target.dataset.partySlot;if(slot===undefined)return;const i=Number(slot),id=e.target.value;if(game)game.replaceParty(i,id);else{const other=party.indexOf(id),old=party[i];party[i]=id;if(other>=0&&other!==i)party[other]=old;renderHomeParty();}renderOverlay();});
 for(const b of document.querySelectorAll('.touch-controls button')){
   const end=e=>{e.preventDefault();const h=b.dataset.hold;if(h==='heal')game?.releaseHeal();else if(h==='shield')game?.releaseShield();else if(h){held.delete({left:'KeyA',right:'KeyD',up:'KeyW',down:'KeyS'}[h]);syncMovement();}if(b.dataset.action==='jump')game?.releaseJump();if(b.dataset.action==='special')game?.releaseSpecial();};
-  b.addEventListener('pointerdown',e=>{e.preventDefault();if(orientationBlocked||modal.open||opening||!game)return;b.setPointerCapture(e.pointerId);const h=b.dataset.hold;if(h==='heal')game?.input('heal');else if(h==='shield')game?.input('shield');else if(h){held.add({left:'KeyA',right:'KeyD',up:'KeyW',down:'KeyS'}[h]);syncMovement();}else if(b.dataset.action==='interact')worldInteract();else game?.input(b.dataset.action);});b.addEventListener('pointerup',end);b.addEventListener('pointercancel',end);
+  b.addEventListener('pointerdown',e=>{e.preventDefault();if(orientationBlocked||modal.open||opening||encounterCinematic||!game)return;b.setPointerCapture(e.pointerId);const h=b.dataset.hold;if(h==='heal')game?.input('heal');else if(h==='shield')game?.input('shield');else if(h){held.add({left:'KeyA',right:'KeyD',up:'KeyW',down:'KeyS'}[h]);syncMovement();}else if(b.dataset.action==='interact')worldInteract();else game?.input(b.dataset.action);});b.addEventListener('pointerup',end);b.addEventListener('pointercancel',end);
 }
 $('start-button').onclick=()=>openOverlay('party');$('party-button').onclick=()=>openOverlay('party');$('continue-button').onclick=()=>startCampaign(true);$('home-button').onclick=()=>{if(game)openOverlay('pause');else window.scrollTo({top:0,behavior:'smooth'});};$('nav-campaign').onclick=()=>{if(game)closeOverlay();else window.scrollTo({top:0,behavior:'smooth'});};$('nav-map').onclick=$('atlas-button').onclick=()=>openOverlay('map');$('nav-codex').onclick=()=>openOverlay('chronicle');$('guide-button').onclick=$('footer-guide').onclick=()=>openOverlay('guide');$('sound-button').onclick=()=>{sound=!sound;$('sound-button').setAttribute('aria-pressed',String(sound));$('sound-button').style.color=sound?'#e6dcac':'';tone('relic');canvas.focus({preventScroll:true});};
 function frame(clock){
   const delta=Math.min(100,clock-(last||clock));last=clock;
   if(opening){accumulator=0;if(!orientationBlocked&&!document.hidden&&!opening.suspended)opening.elapsed=Math.min(OPENING_DURATION,opening.elapsed+delta);renderOpening();if(opening.elapsed>=OPENING_DURATION)finishOpening();}
+  else if(encounterCinematic){accumulator=0;if(!orientationBlocked&&!document.hidden&&!encounterCinematic.suspended)encounterCinematic.elapsed+=delta;renderEncounterCinematic();if(encounterCinematic&&encounterCinematic.elapsed>=encounterCinematic.duration)finishEncounterCinematic();}
   else if(view==='game'&&game){accumulator+=delta;let steps=0;while(accumulator>=1000/60&&steps++<6){game.step();if(noticeFrames>0)noticeFrames--;accumulator-=1000/60;}renderer.render(game,clock,{speakerId:speech.current?.source.id});if(clock-lastHud>80){renderHud();lastHud=clock;}if(game.tick&&game.tick%600===0&&!game.paused)game.save();
     if(game.phase==='gameover'&&overlayType!=='gameover')openOverlay('gameover');
     if(game.phase==='playing'&&rewardQueue.length&&!modal.open&&game.enemies.every(e=>!e.boss||e.hp<=0))openOverlay('reward');
@@ -287,6 +316,6 @@ function frame(clock){
   animatePortraits(clock);
   requestAnimationFrame(frame);
 }
-window.kinetic={snapshot:()=>({...(game?game.snapshot():{phase:'selection',mode:'campaign',party:[...party],hasSave:!!saved}),dialogue:speech.snapshot(),intro:{active:!!opening,elapsed:opening?.elapsed||0,beat:opening?openingBeat(opening.elapsed).index:0,mode:opening?.mode||null,paused:!!opening&&(orientationBlocked||document.hidden||opening.suspended)},home:{biome:landingBiome}}),version:'4.0.0'};
+window.kinetic={snapshot:()=>({...(game?game.snapshot():{phase:'selection',mode:'campaign',party:[...party],hasSave:!!saved}),dialogue:speech.snapshot(),cinematic:{active:!!encounterCinematic,mode:encounterCinematic?.mode||null,boss:encounterCinematic?.boss||null,elapsed:encounterCinematic?.elapsed||0,paused:!!encounterCinematic&&(orientationBlocked||document.hidden||encounterCinematic.suspended)},intro:{active:!!opening,elapsed:opening?.elapsed||0,beat:opening?openingBeat(opening.elapsed).index:0,mode:opening?.mode||null,paused:!!opening&&(orientationBlocked||document.hidden||opening.suspended)},home:{biome:landingBiome}}),version:'4.0.0'};
 landing=initLanding({onBiome:biome=>{if(BIOMES[biome])landingBiome=biome;},onReplay:()=>beginOpening('replay')});
 renderHomeParty();updateContinue();syncMobileLayout();requestAnimationFrame(frame);

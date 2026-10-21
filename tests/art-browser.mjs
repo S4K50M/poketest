@@ -114,7 +114,7 @@ try{
   await page.goto(base);await page.evaluate(()=>document.fonts.ready);await page.clock.install({time:new Date('2026-01-01T00:00:00Z')});await page.clock.pauseAt(new Date('2026-01-01T00:00:01Z'));
   const clock=ms=>page.clock.runFor(ms),snapshot=()=>page.evaluate(()=>window.kinetic.snapshot());
   const fixture=new RPGCampaign(undefined,{worldSeed:1});fixture.storyStage=1;fixture.loadRoom('moss-heart',850,false);fixture.transition=0;
-  await page.evaluate(({key,save})=>localStorage.setItem(key,JSON.stringify(save)),{key:SAVE_KEY,save:fixture.save()});await page.reload();await clock(50);await page.click('#continue-button');await clock(120);
+  await page.evaluate(({key,save})=>localStorage.setItem(key,JSON.stringify(save)),{key:SAVE_KEY,save:fixture.save()});await page.reload();await clock(50);await page.click('#continue-button');await clock(120);if(await page.locator('#encounter-skip').isVisible()){await page.click('#encounter-skip');await clock(120);}
   assert.equal((await snapshot()).room,'moss-heart');assert((await snapshot()).enemies.some(e=>e.boss==='briar'&&e.hp>0));
   await page.keyboard.down('KeyD');await clock(150);await page.keyboard.up('KeyD');await page.keyboard.press('KeyJ');await clock(70);
   let state=await snapshot();assert(state.player.hp>0&&state.phase==='playing','a live boss battle renders during real movement and attacks');

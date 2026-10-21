@@ -1,15 +1,17 @@
 /* A full-screen scene must not inherit the scaled menu entrance animation. */
-dialog#intro-screen{position:fixed;inset:0;margin:0;padding:0;width:100vw;width:100dvw;height:100vh;height:100dvh;max-width:none;max-height:none;border:0;overflow:hidden;background:#061116;color:#e9e9ce;overscroll-behavior:none;box-shadow:none;animation:none;transform:none}
-#intro-screen::backdrop{background:#061116}
-#intro-canvas{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none}
-#intro-skip{position:absolute;right:max(24px,env(safe-area-inset-right));top:max(22px,env(safe-area-inset-top));min-height:44px;padding:10px 17px;display:flex;align-items:center;gap:17px;border:1px solid #e6dfb34d;background:#10262cce;color:#f2e8bd;font:600 10px var(--body);letter-spacing:1.6px;cursor:pointer;z-index:2}
-#intro-skip:hover,#intro-skip:focus-visible{background:#d9d9ab;color:#102225;outline:2px solid #f2e8bd;outline-offset:4px}
-#intro-skip span{font-size:16px;letter-spacing:0}
+dialog:is(#intro-screen,#encounter-screen){position:fixed;inset:0;margin:0;padding:0;width:100vw;width:100dvw;height:100vh;height:100dvh;max-width:none;max-height:none;border:0;overflow:hidden;background:#061116;color:#e9e9ce;overscroll-behavior:none;box-shadow:none;animation:none;transform:none}
+:is(#intro-screen,#encounter-screen)::backdrop{background:#061116}
+:is(#intro-canvas,#encounter-canvas){position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none}
+:is(#intro-skip,#encounter-skip){position:absolute;right:max(24px,env(safe-area-inset-right));top:max(22px,env(safe-area-inset-top));min-height:44px;padding:10px 17px;display:flex;align-items:center;gap:17px;border:1px solid #e6dfb34d;background:#10262cce;color:#f2e8bd;font:600 10px var(--body);letter-spacing:1.6px;cursor:pointer;z-index:2}
+:is(#intro-skip,#encounter-skip):hover,:is(#intro-skip,#encounter-skip):focus-visible{background:#d9d9ab;color:#102225;outline:2px solid #f2e8bd;outline-offset:4px}
+:is(#intro-skip,#encounter-skip) span{font-size:16px;letter-spacing:0}
 .intro-caption{position:absolute;left:10%;right:10%;bottom:max(36px,env(safe-area-inset-bottom));text-align:center;pointer-events:none;text-shadow:0 2px 18px #001015}
-#intro-kicker{font:500 9px var(--body);letter-spacing:3px;color:#c7d6b1;margin:0 0 10px}
-#intro-title{font:500 clamp(26px,3.5vw,48px)/1 var(--head);letter-spacing:.5px;margin:0;color:#f3edce}
-#intro-line{font:400 clamp(11px,1.2vw,15px)/1.6 var(--body);color:#c4d5cc;margin:10px auto 0;max-width:650px}
+:is(#intro-kicker,#encounter-kicker){font:500 9px var(--body);letter-spacing:3px;color:#c7d6b1;margin:0 0 10px}
+:is(#intro-title,#encounter-title){font:500 clamp(26px,3.5vw,48px)/1 var(--head);letter-spacing:.5px;margin:0;color:#f3edce}
+:is(#intro-line,#encounter-line){font:400 clamp(11px,1.2vw,15px)/1.6 var(--body);color:#c4d5cc;margin:10px auto 0;max-width:650px}
 .intro-progress{height:2px;background:#e4dfb21b;width:min(240px,40vw);margin:19px auto 0;overflow:hidden}
-#intro-progress-fill{display:block;height:100%;width:0;background:#dfdca9;box-shadow:0 0 12px #dbedac77}
-@media(max-height:500px){.intro-caption{bottom:max(16px,env(safe-area-inset-bottom));left:9%;right:9%}#intro-title{font-size:27px}#intro-line{font-size:11px;margin-top:7px;line-height:1.4}#intro-kicker{font-size:8px;margin-bottom:7px;letter-spacing:2px}.intro-progress{margin-top:11px}#intro-skip{right:max(15px,env(safe-area-inset-right));top:max(12px,env(safe-area-inset-top));font-size:9px;padding:8px 14px}}
-@media(prefers-reduced-motion:reduce){#intro-screen *{transition:none!important;animation:none!important}}
+:is(#intro-progress-fill,#encounter-progress-fill){display:block;height:100%;width:0;background:#dfdca9;box-shadow:0 0 12px #dbedac77}
+@media(max-height:500px){.intro-caption{bottom:max(16px,env(safe-area-inset-bottom));left:9%;right:9%}:is(#intro-title,#encounter-title){font-size:27px}:is(#intro-line,#encounter-line){font-size:11px;margin-top:7px;line-height:1.4}:is(#intro-kicker,#encounter-kicker){font-size:8px;margin-bottom:7px;letter-spacing:2px}.intro-progress{margin-top:11px}:is(#intro-skip,#encounter-skip){right:max(15px,env(safe-area-inset-right));top:max(12px,env(safe-area-inset-top));font-size:9px;padding:8px 14px}}
+@media(prefers-reduced-motion:reduce){:is(#intro-screen,#encounter-screen) *{transition:none!important;animation:none!important}}
+#boss-hud.boss-frenzy>div{border-color:#ffb088;box-shadow:0 0 15px #ff9b582b}
+#boss-hud.boss-healing>div{border-color:#bcf0cf;box-shadow:0 0 15px #a8edbd24}

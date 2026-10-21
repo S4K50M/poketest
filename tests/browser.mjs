@@ -4,7 +4,7 @@ import { existsSync, mkdirSync } from 'node:fs';
 import { chromium } from 'playwright';
 import http from 'node:http';
 import {RPGCampaign as CampaignEngine} from '../src/rpg.js';
-import {playCampaign,walkTo} from './helpers/campaign-route.js';
+import {playCampaign,walkTo,guardianPlan} from './helpers/campaign-route.js';
 import {SAVE_KEY,ROOMS,BOSSES} from '../src/world.js';
 import {ROSTER} from '../src/roster.js';
 import {MINIONS} from '../src/designs.js';
@@ -20,12 +20,14 @@ try{
   await page.goto(base);await page.evaluate(()=>document.fonts.ready);await page.clock.install({time:new Date('2026-01-01T00:00:00Z')});await page.clock.pauseAt(new Date('2026-01-01T00:00:01Z'));mkdirSync('test-results',{recursive:true});
   const snapshot=()=>page.evaluate(()=>window.kinetic.snapshot());
   const clock=ms=>page.clock.runFor(ms);
+  async function skipEncounter(){if(await page.locator('#encounter-skip').isVisible()){await keys();await page.click('#encounter-skip');await clock(34);}}
   async function finishConversation(){for(let i=0;i<30;i++){const d=(await snapshot()).dialogue;if(!d.active||d.kind!=='conversation')return;await page.keyboard.press('KeyE');}throw Error('Conversation did not finish');}
   const downKeys=new Set();
   async function keys(wanted=[]){for(const k of [...downKeys])if(!wanted.includes(k)){await page.keyboard.up(k);downKeys.delete(k);}for(const k of wanted)if(!downKeys.has(k)){await page.keyboard.down(k);downKeys.add(k);}}
   async function driveTo(x,max=500,{jump=true}={}){
     let jumpingUntil=0;
     for(let i=0;i<max;i++){
+      await skipEncounter();
       const s=await snapshot(),p=s.player;if(await page.locator('#overlay').isVisible())throw Error('Unexpected overlay while walking: '+await page.locator('#overlay-title').textContent());
       if(Math.abs(p.x-x)<25&&p.grounded){await keys();await clock(120);return s;}
       const moves=Math.abs(p.x-x)<20?[]:[p.x<x?'KeyD':'KeyA'];
@@ -62,11 +64,10 @@ try{
   // controller. Load that normal checkpoint to inspect the guardian live.
   let firstGuardian;const firstRun=new CampaignEngine();playCampaign(firstRun,{chapters:1,onGuardian:g=>firstGuardian=structuredClone(g.save())});
   await page.click('#home-button');await page.click('[data-return-home]');await page.evaluate(({key,s})=>localStorage.setItem(key,JSON.stringify(s)),{key:SAVE_KEY,s:firstGuardian});await page.reload();await clock(100);await page.click('#continue-button');await clock(100);assert.equal((await snapshot()).room,'moss-heart');await driveTo(850);
-  let jumpUntil=0;
-  for(let i=0;i<650;i++){
-    const s=await snapshot(),e=s.enemies.find(e=>e.boss&&e.hp>0);if(!e)break;const p=s.player,dx=e.x-p.x;
-    const moves=[];if(dx>60)moves.push('KeyD');if(dx< -60)moves.push('KeyA');if(!p.grounded&&Math.abs(dx)<90)moves.push('KeyS');if(p.grounded&&e.state==='windup')jumpUntil=s.tick+30;if(s.tick<jumpUntil)moves.push('Space');
-    await keys(moves);await page.keyboard.press('KeyK');if(i%12===0){await keys();await page.keyboard.press('KeyL');}if(p.hp<2)await page.keyboard.press('KeyV');await clock(85);
+  for(let i=0;i<1600;i++){
+    await skipEncounter();const s=await snapshot(),e=s.enemies.find(e=>e.boss&&e.hp>0);if(!e)break;
+    const plan=guardianPlan(s),moves=[];if(plan.inputs.right)moves.push('KeyD');if(plan.inputs.left)moves.push('KeyA');if(plan.inputs.down)moves.push('KeyS');if(plan.shield)moves.push('KeyG');if(plan.heal)moves.push('KeyF');if(plan.jump||!s.player.grounded&&s.player.vy<0)moves.push('Space');
+    await keys(moves);const actionKeys={light:'KeyJ',heavy:'KeyK',special:'KeyL',power:'KeyX',dash:'ShiftLeft',potion:'KeyV',surge:'KeyR',slot1:'Digit1',slot2:'Digit2',slot3:'Digit3'};for(const action of plan.actions)await page.keyboard.press(actionKeys[action]);await clock(50);
   }
   await keys();await clock(150);const won=await snapshot();assert(won.fragments.includes('briar'));assert(won.abilities.includes('claw'));assert(won.unlocked.includes('mycora'));assert(await page.locator('[data-dismiss-reward]').isVisible());await page.screenshot({path:'test-results/campaign-first-guardian.png'});await page.click('[data-dismiss-reward]');
   const persisted=await page.evaluate(key=>JSON.parse(localStorage.getItem(key)),SAVE_KEY);assert(persisted.fragments.includes('briar'));await page.reload();await clock(100);await page.click('#continue-button');await clock(100);assert((await snapshot()).fragments.includes('briar'));assert.equal((await snapshot()).enemies[0].hp,0);
@@ -82,7 +83,7 @@ try{
     await page.evaluate(({key,s})=>localStorage.setItem(key,JSON.stringify(s)),{key:SAVE_KEY,s:checkpoints[i]});await page.reload();await clock(100);await page.click('#continue-button');await clock(100);await driveTo(850);await clock(150);const s=await snapshot();assert.equal(s.biome,['moss','forge','reef','storm','frost','rift'][i]);assert(await page.locator('#boss-hud').isVisible());await page.screenshot({path:`test-results/campaign-${s.biome}.png`});await page.keyboard.press('KeyI');assert.equal(await page.locator('.ability-card:not(.locked)').count(),s.abilities.length);await page.keyboard.press('KeyI');
   }
   await page.keyboard.press('KeyN');await page.click('[data-overlay="codex"]');assert.equal(await page.locator('.codex-card').count(),ROSTER.length+Object.keys(BOSSES).length+Object.keys(MINIONS).length);await page.screenshot({path:'test-results/campaign-journal.png'});await page.click('#close-overlay');
-  await page.click('#home-button');await page.click('[data-return-home]');await page.evaluate(({key,s})=>localStorage.setItem(key,JSON.stringify(s)),{key:SAVE_KEY,s:earned.save()});await page.reload();await clock(100);await page.click('#continue-button');assert((await snapshot()).finished);assert(await page.locator('[data-ending="restore"]').isVisible());await page.click('[data-ending="restore"]');assert.equal((await snapshot()).ending,'restore');assert.match(await page.locator('#overlay-title').textContent(),/world remembers/);await page.click('[data-resume]');await page.keyboard.press('KeyM');assert.equal(await page.locator('.dimension-tab').count(),7);assert.equal(await page.locator('.atlas-room.current').count(),1);assert.equal(await page.locator('.map-node').count(),0);await page.click('#close-overlay');
+  await page.click('#home-button');await page.click('[data-return-home]');await page.evaluate(({key,s})=>localStorage.setItem(key,JSON.stringify(s)),{key:SAVE_KEY,s:earned.save()});await page.reload();await clock(100);await page.click('#continue-button');assert((await snapshot()).finished);assert(await page.locator('[data-ending="restore"]').isVisible());await page.click('[data-ending="restore"]');assert.equal((await snapshot()).ending,'restore');await skipEncounter();assert.match(await page.locator('#overlay-title').textContent(),/world remembers/);await page.click('[data-resume]');await page.keyboard.press('KeyM');assert.equal(await page.locator('.dimension-tab').count(),7);assert.equal(await page.locator('.atlas-room.current').count(),1);assert.equal(await page.locator('.map-node').count(),0);await page.click('#close-overlay');
   console.log('PASS: all six biome renderers, guardian rigs, progressive ability inventory, completed campaign reload, and full story bestiary.');
 
   await page.setViewportSize({width:844,height:390});await clock(180);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth),844);await page.screenshot({path:'test-results/campaign-mobile.png'});assert(await page.locator('.touch-controls').isVisible());const prior=(await snapshot()).player.x;const touchBox=await page.locator('[data-hold="right"]').boundingBox();await page.mouse.move(touchBox.x+20,touchBox.y+20);await page.mouse.down();await clock(200);await page.mouse.up();assert((await snapshot()).player.x>prior);await page.click('#mobile-menu-button');await page.click('.quick-menu [data-overlay="inventory"]');assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth),844);await page.screenshot({path:'test-results/campaign-mobile-pack.png'});await page.click('#close-overlay');await page.click('#mobile-menu-button');await page.click('[data-return-home]');await page.screenshot({path:'test-results/campaign-mobile-home.png',fullPage:true});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth),844);

@@ -14,11 +14,11 @@ try{
  const art=await browser.newPage({viewport:{width:1440,height:1000}});watch(art);
  await art.route('**/__boss-review',r=>r.fulfill({contentType:'text/html',body:'<!doctype html><title>Boss mechanics</title><style>body{margin:0;background:#08131c}canvas{display:block}</style>'}));await art.goto(base+'/__boss-review');
  const coverage=await art.evaluate(async()=>{
-  const [{RPGCampaign},{ROOMS,BOSSES},{BOSS_ENCOUNTERS,beginBossMove,updateBossEncounter,updateBossHazards},{drawArenaBoss},{drawBossEncounterWorld,drawBossMoveTelegraph,drawBossPlatform,drawBossProjectile,drawBossWeapon},{drawEnemyMinion},{MINIONS}]=await Promise.all([import('/src/rpg.js'),import('/src/world.js'),import('/src/boss-encounters.js'),import('/src/boss-art.js'),import('/src/boss-encounter-render.js'),import('/src/enemy-art.js'),import('/src/designs.js')]);
+  const [{RPGCampaign},{ROOMS,BOSSES},{BOSS_ENCOUNTERS,beginBossMove,updateBossEncounter,updateBossHazards},{drawArenaBoss},{drawBossEncounterWorld,drawBossMoveTelegraph,drawBossPlatform,drawBossProjectile,drawBossWeapon},{drawEnemyMinion},{MINIONS},{bossProgression}]=await Promise.all([import('/src/rpg.js'),import('/src/world.js'),import('/src/boss-encounters.js'),import('/src/boss-art.js'),import('/src/boss-encounter-render.js'),import('/src/enemy-art.js'),import('/src/designs.js'),import('/src/boss-progression.js')]);
   const records=[];let count=0;
   for(const[id,profile]of Object.entries(BOSS_ENCOUNTERS))for(let index=0;index<4;index++){
    const g=new RPGCampaign(undefined,{worldSeed:1}),room=Object.values(ROOMS).find(r=>r.enemies.some(e=>e.boss===id));g.loadRoom(room.id,room.enemies.find(e=>e.boss===id).x-170,false);
-   const e=g.enemies.find(e=>e.boss===id);Object.assign(e,{introduced:true,phase:3,hp:e.maxHp*.3});if(id==='nullheart')g.faction='wardens';beginBossMove(g,e,index,g.bossInfo(id));
+   const e=g.enemies.find(e=>e.boss===id);Object.assign(e,{introduced:true,phase:3,hp:e.maxHp*.3,berserk:bossProgression(id).late});if(id==='nullheart')g.faction='wardens';beginBossMove(g,e,index,g.bossInfo(id));
    const cue=structuredClone(e);g.player.x=30;e.timer=1;
    for(let f=0;f<42;f++){g.tick++;updateBossEncounter(g,e,g.bossInfo(id));updateBossHazards(g);}
    records.push({id,index,g,e,cue,profile,b:BOSSES[id]});count++;
@@ -40,7 +40,7 @@ try{
  }
  console.log('PASS: all 84 signatures execute in Chromium and render their real warning/active areas, weapons, projectiles, summons, and temporary tiles without mutation.');
  const page=await browser.newPage({viewport:{width:1440,height:1000}});watch(page);await page.goto(base);await page.evaluate(()=>document.fonts.ready);await page.clock.install({time:new Date('2026-01-01T00:00:00Z')});await page.clock.pauseAt(new Date('2026-01-01T00:00:01Z'));
- const fixture=new RPGCampaign(undefined,{worldSeed:1});fixture.storyStage=1;fixture.loadRoom('moss-heart',1000,false);await page.evaluate(({key,save})=>localStorage.setItem(key,JSON.stringify(save)),{key:SAVE_KEY,save:fixture.save()});await page.reload();await page.clock.runFor(50);await page.click('#continue-button');await page.clock.runFor(2200);
+ const fixture=new RPGCampaign(undefined,{worldSeed:1});fixture.storyStage=1;fixture.loadRoom('moss-heart',1000,false);await page.evaluate(({key,save})=>localStorage.setItem(key,JSON.stringify(save)),{key:SAVE_KEY,save:fixture.save()});await page.reload();await page.clock.runFor(50);await page.click('#continue-button');await page.clock.runFor(100);if(await page.locator('#encounter-skip').isVisible())await page.click('#encounter-skip');await page.clock.runFor(2200);
  let state=await page.evaluate(()=>window.kinetic.snapshot());let boss=state.enemies.find(e=>e.boss);assert(boss.moveId&&boss.moveName&&boss.counter&&boss.hint);assert((await page.locator('#boss-phase').textContent()).includes(boss.moveName.toUpperCase()));assert(state.phase==='playing');
  await page.screenshot({path:'test-results/boss-battle-desktop.png',animations:'disabled'});
  await page.keyboard.press('Escape');const paused=await page.evaluate(()=>window.kinetic.snapshot());await page.clock.runFor(300);const after=await page.evaluate(()=>window.kinetic.snapshot());assert.equal(after.tick,paused.tick);assert.deepEqual(after.bossHazards,paused.bossHazards);await page.click('[data-resume]');
