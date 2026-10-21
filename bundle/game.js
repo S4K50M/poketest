@@ -235,8 +235,8 @@
     room.climbNetwork = { title: title2, routes, drops };
     room.landingNetwork = room.climbNetwork;
   }
-  function applyMossLandings(rooms) {
-    install(rooms["moss-path"], "The Rootway Crossings", [
+  function applyMossLandings(rooms2) {
+    install(rooms2["moss-path"], "The Rootway Crossings", [
       shelf("rootway-west-step", 260, 425, 300),
       shelf("rootway-west-balcony", 180, 335, 330),
       shelf("rootway-east-balcony", 650, 335, 390),
@@ -252,7 +252,7 @@
       route("west", "The Moss Balconies", [[390, 425], [340, 335], [610, 245], [980, 145], [1370, 80], [1170, -40]]),
       route("east", "The Old Root Arches", [[510, 425], [900, 335], [1200, 245], [1600, 200], [1390, 80], [1170, -40]])
     ]);
-    install(rooms["moss-descent"], "Rootfall\u2019s Braided Galleries", [
+    install(rooms2["moss-descent"], "Rootfall\u2019s Braided Galleries", [
       // The western zigzag and the old eastern stair meet at a high crossway.
       shelf("rootfall-entry-gallery", 180, 400, 310),
       shelf("rootfall-west-low", 100, 270, 290),
@@ -276,7 +276,7 @@
       { id: "middle-root-catch", from: { x: 600, y: -120 }, direction: "right", untilX: 690, catchY: 10, return: waypoints([[460, -120]]) },
       { id: "canopy-root-catch", from: { x: 1210, y: -380 }, direction: "right", untilX: 1310, catchY: -250, return: waypoints([[1490, -380]]) }
     ]);
-    install(rooms["moss-nexus"], "The Court\u2019s Interwoven Roots", [
+    install(rooms2["moss-nexus"], "The Court\u2019s Interwoven Roots", [
       shelf("court-west-entry", 200, 400, 300),
       shelf("court-west-rest", 90, 275, 310),
       shelf("court-west-loop", 320, 150, 330),
@@ -293,7 +293,7 @@
       route("west", "The Warden\u2019s West Gallery", [[330, 400], [240, 275], [470, 150], [230, 25], [490, -100], [1040, -100], [1605, -100]]),
       route("east", "The Court Balcony", [[450, 400], [730, 275], [1010, 150], [1290, 25], [1605, -100]])
     ]);
-    install(rooms["moss-ascent"], "Canopy\u2019s Returning Paths", [
+    install(rooms2["moss-ascent"], "Canopy\u2019s Returning Paths", [
       shelf("canopy-west-entry", 120, 395, 300),
       shelf("canopy-west-low", 100, 270, 290),
       shelf("canopy-west-rest", 340, 145, 300),
@@ -4445,7 +4445,7 @@
       const p = this.player;
       if (this.roomId === "sanctuary" && this.storyStage === 0 && p.x > 330) {
         this.storyStage = 1;
-        this.showDialogue(DIALOGUES.vell);
+        this.showDialogue(DIALOGUES.vell, this.room.objects.find((o) => o.id === "vell"));
       }
       const boss = this.enemies.find((e) => e.boss && e.hp > 0);
       if (boss && p.x > (boss.introX ?? 760) && !boss.introduced) {
@@ -4679,13 +4679,13 @@
         return true;
       }
       if (near.kind === "npc" && near.talk !== "vell") {
-        this.showDialogue(DIALOGUES[near.talk]);
+        this.showDialogue(DIALOGUES[near.talk], near);
         return true;
       }
       if (near.kind === "npc") {
         const chapter = CHAPTERS[Math.min(this.fragments.size, 5)];
         this.storyStage = Math.max(1, this.storyStage);
-        this.showDialogue(this.fragments.size ? [["Professor Vell", chapter.story], ["Professor Vell", "The sanctuary remembers every companion you rescue. Change your party at a camp, craft at the workbench, and follow the new portal."]] : DIALOGUES.vell);
+        this.showDialogue(this.fragments.size ? [["Professor Vell", chapter.story], ["Professor Vell", "The sanctuary remembers every companion you rescue. Change your party at a camp, craft at the workbench, and follow the new portal."]] : DIALOGUES.vell, near);
         return true;
       }
       if (near.kind === "camp") {
@@ -4747,8 +4747,13 @@
       }
       return false;
     }
-    showDialogue(lines) {
-      this.emit("dialogue", { lines });
+    showDialogue(lines, source = null) {
+      if (!Array.isArray(lines)) return false;
+      const copy = lines.filter((line13) => Array.isArray(line13) && typeof line13[0] === "string" && typeof line13[1] === "string").map((line13) => [line13[0], line13[1]]);
+      if (!copy.length) return false;
+      const anchor = source || this.room.objects.find((o) => o.kind === "npc" && o.name === copy[0][0]) || this.player;
+      this.emit("dialogue", { lines: copy, source: { room: this.roomId, id: anchor.id || anchor.talk || "voice", x: Number.isFinite(anchor.x) ? anchor.x : this.player.x, y: Number.isFinite(anchor.y) ? anchor.y : 520, name: anchor.name || copy[0][0], kind: anchor.kind || "npc" } });
+      return true;
     }
     useFlask() {
       const p = this.player;
@@ -5625,7 +5630,7 @@
         if (near.talk === "vell" && truth && truth.state !== "complete" && truth.progress.slice(0, 3).every((n2) => n2 >= 1)) {
           this.questFlags.add("talk:vell-truth");
           this.recordObjective("talk", "vell-truth");
-          this.showDialogue(NPC_DIALOGUES["vell-truth"]);
+          this.showDialogue(NPC_DIALOGUES["vell-truth"], near);
           this.save();
           return true;
         }
@@ -5636,7 +5641,7 @@
           else if (!this.quests[id] && this.questAvailable(id)) this.acceptQuest(id);
         }
         if (NPC_DIALOGUES[near.talk]) {
-          this.showDialogue(NPC_DIALOGUES[near.talk]);
+          this.showDialogue(NPC_DIALOGUES[near.talk], near);
           return true;
         }
       }
@@ -11481,7 +11486,11 @@
     event(e, g) {
       if (e.type !== "hit") this.fx.event(e, g);
     }
-    render(g, clock2) {
+    project(x, y) {
+      const { width, height } = this.canvas.getBoundingClientRect(), scale = height / 660;
+      return { x: (x - this.camera) * scale, y: (y - this.cameraY) * scale, width, height };
+    }
+    render(g, clock2, { speakerId = null } = {}) {
       const { c, w, h } = fitCanvas(this.canvas);
       if (!w || !h) return;
       const scale = h / 660, view2 = w / scale, t = clock2 / 1e3, b = BIOMES[g.room.biome];
@@ -11671,7 +11680,7 @@
       }
       if (firstArea) drawMourningwildForeground(c, g, this.camera, this.cameraY, view2, 660, t);
       const near = g.room.objects.filter((o) => Math.abs(o.x - p.x) < 90 && Math.abs((o.y ?? 520) - p.y) < 95).sort((x, y) => Math.abs(x.x - p.x) - Math.abs(y.x - p.x))[0];
-      if (near) {
+      if (near && near.id !== speakerId) {
         const defeated = (id) => g.bossDefeated?.(id) || g.fragments.has(id) || g.defeatedBosses?.has(id), locked = near.need > g.fragments.size || near.ability && !g.abilities.has(near.ability) || near.boss && !defeated(near.boss) || near.requiresBoss && !defeated(near.requiresBoss);
         text2(c, "[ E ]  " + (locked ? "SEALED \xB7 " : "") + near.name, near.x, (near.y ?? 520) - 110, locked ? "#b6acbf" : "#f6e5bb", 11);
       }
@@ -12146,17 +12155,17 @@
   var springs = (g, room) => g.recoveryForRoom?.(room.id) || [];
   var exits = (room) => room.objects.filter((o) => o.to && ROOMS[o.to]);
   function regionAtlas(g, region, selectedId, live = false) {
-    const biome = BIOMES[region] || BIOMES.moss, rooms = Object.values(ROOMS).filter((r) => r.biome === region);
+    const biome = BIOMES[region] || BIOMES.moss, rooms2 = Object.values(ROOMS).filter((r) => r.biome === region);
     const visited = (id) => g.visited.has(id), frontier = /* @__PURE__ */ new Set();
     for (const room of Object.values(ROOMS)) if (visited(room.id)) for (const door2 of exits(room)) frontier.add(door2.to);
-    const plotted = rooms.map((r, i) => {
+    const plotted = rooms2.map((r, i) => {
       const point2 = r.map || r.mapPosition || (["clockwork-ossuary", "paper-moon", "cradle-zero"].includes(r.id) ? { x: 0, y: 3 } : {});
       return { room: r, x: Number.isFinite(point2.x) ? point2.x : Number.isFinite(r.mapX) ? r.mapX : 1 + i % 4, y: Number.isFinite(point2.y) ? point2.y : Number.isFinite(r.mapY) ? r.mapY : Math.floor(i / 4) };
     });
     const xs = plotted.map((p) => p.x), ys = plotted.map((p) => p.y), minX = Math.min(...xs, 0), maxX = Math.max(...xs, 1), minY = Math.min(...ys, 0), maxY = Math.max(...ys, 1);
-    const position = new Map(plotted.map((p) => [p.room.id, rooms.length === 1 ? { x: 50, y: 50 } : { x: 10 + (p.x - minX) / Math.max(1, maxX - minX) * 80, y: 16 + (p.y - minY) / Math.max(1, maxY - minY) * 68 }]));
+    const position = new Map(plotted.map((p) => [p.room.id, rooms2.length === 1 ? { x: 50, y: 50 } : { x: 10 + (p.x - minX) / Math.max(1, maxX - minX) * 80, y: 16 + (p.y - minY) / Math.max(1, maxY - minY) * 68 }]));
     const connections = [], seen = /* @__PURE__ */ new Set();
-    for (const room of rooms) for (const door2 of exits(room)) {
+    for (const room of rooms2) for (const door2 of exits(room)) {
       if (!position.has(door2.to) || !visited(room.id) && !visited(door2.to)) continue;
       const key = [room.id, door2.to].sort().join(":");
       if (seen.has(key)) continue;
@@ -12164,7 +12173,7 @@
       const a = position.get(room.id), b = position.get(door2.to), mx = (a.x + b.x) / 2;
       connections.push(`<path class="${visited(room.id) && visited(door2.to) ? "charted" : "frontier"}" d="M ${a.x} ${a.y} H ${mx} V ${b.y} H ${b.x}"/>`);
     }
-    const selected = rooms.find((r) => r.id === selectedId && (visited(r.id) || frontier.has(r.id))) || rooms.find((r) => r.id === g.roomId) || rooms.find((r) => visited(r.id)) || rooms.find((r) => frontier.has(r.id));
+    const selected = rooms2.find((r) => r.id === selectedId && (visited(r.id) || frontier.has(r.id))) || rooms2.find((r) => r.id === g.roomId) || rooms2.find((r) => visited(r.id)) || rooms2.find((r) => frontier.has(r.id));
     const nodes = plotted.map(({ room }) => {
       const known2 = visited(room.id), edge = frontier.has(room.id), here = g.roomId === room.id, pos = position.get(room.id), points2 = springs(g, room), safe = points2.some((p) => !p.used), station = camp(room), boss = room.enemies.some((e) => e.boss), icon = here ? "\u25CF" : known2 ? safe ? "\u2726" : station ? "\u2B1F" : boss ? "\u25C8" : "\u25AA" : edge ? "\u25C7" : "\xB7";
       return `<button class="atlas-room ${known2 ? "charted" : edge ? "frontier" : "uncharted"} ${here ? "current" : ""} ${selected?.id === room.id ? "selected" : ""}" data-inspect-room="${room.id}" style="left:${pos.x}%;top:${pos.y}%" ${!known2 && !edge ? "disabled" : ""} aria-label="${escape2(here ? "You are here: " + room.name : known2 ? room.name : edge ? "Uncharted passage" : "Uncharted room")}" ${here ? 'aria-current="location"' : ""}><span aria-hidden="true">${icon}</span><strong>${known2 ? escape2(room.name) : edge ? "Uncharted passage" : "???"}</strong><small>${here ? "YOU ARE HERE" : known2 ? safe ? "WELLSPRING" : station ? "CAMP \xB7 CRAFT & TRAVEL" : boss ? "GUARDIAN CHAMBER" : escape2(room.dungeon || "EXPLORED") : edge ? "PASSAGE DISCOVERED" : "UNKNOWN"}</small></button>`;
@@ -12180,7 +12189,7 @@
     }).join("");
     const chapter = CHAPTERS.find((ch) => ch.id === region), known = selected && visited(selected.id), points = selected ? springs(g, selected) : [], destination = selected && (camp(selected) || points.some((p) => g.discoveredRecovery?.has(p.id))), canTravel = live && known && destination;
     const detail = selected ? `<div class="atlas-room-detail"><div><p class="eyebrow">${known ? camp(selected) ? "CAMP \xB7 CRAFTING & TRAVEL" : points.some((p) => !p.used) ? "WELLSPRING \xB7 AUTOMATIC FULL RECOVERY" : selected.id === g.roomId ? "CURRENT LOCATION" : "CHARTED ROOM" : "BEYOND THE EDGE OF YOUR MAP"}</p><h3>${known ? escape2(selected.name) : "An unopened passage"}</h3><p>${known ? escape2(selected.story?.replace?.("|", " \u2014 ") || selected.story || selected.description || selected.subtitle || "Explore the platforms above and below. The doors connect this chamber to the surrounding dungeon.") : "Enter this room to record its name, history, and connecting passages."}</p>${known ? `<p class="atlas-room-meta">${escape2(selected.dungeon || biome.name)}${selected.depth !== void 0 ? " \xB7 DEPTH " + escape2(selected.depth) : ""} \xB7 ${exits(selected).length} passage${exits(selected).length === 1 ? "" : "s"}</p>` : ""}</div>${known && destination ? `<button class="secondary" data-travel="${selected.id}" ${canTravel ? "" : "disabled"}>${camp(selected) ? "TRAVEL TO CAMP" : "TRAVEL TO WELLSPRING"}</button>` : ""}</div>` : `<div class="atlas-room-detail"><p>This dimension has not been charted. Find its gate in the Last Lantern and step through.</p></div>`;
-    return `<div class="dimension-tabs" aria-label="Choose a dimension">${tabs}</div><div class="atlas-heading"><div><p class="eyebrow">${region === "sanctuary" ? "THE SIXFOLD NEXUS" : escape2(chapter?.title || "DIMENSIONAL DUNGEON")}</p><h3>${biome.name}</h3></div><span>${rooms.filter((r) => visited(r.id)).length} / ${rooms.length} ROOMS MAPPED</span></div><div class="dungeon-atlas" style="--dimension:${biome.color}" aria-label="${escape2(biome.name)} room map"><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">${connections.join("")}</svg>${nodes}${gateNodes}<span class="atlas-depth-label">HIGHER CHAMBERS<br>\u2502<br>DEEPER CHAMBERS</span></div><div class="atlas-legend"><span><b>\u25CF</b> Your location</span><span><b>\u2726</b> Wellspring</span><span><b>\u2B1F</b> Camp station</span><span><b>\u25C8</b> Guardian</span><span><b>\u25C7</b> Uncharted passage</span><span>Routes appear as you explore</span></div>${detail}${known && points.length ? `<p class="atlas-spring-note"><span>\u2726</span> ${points.filter((p) => !p.used).length} / ${points.length} wellsprings remain in this chamber. Walk through one for full-party recovery; it will become dormant until your next attempt.</p>` : ""}${chapter ? `<p class="atlas-story">${escape2(chapter.story)}</p>` : ""}`;
+    return `<div class="dimension-tabs" aria-label="Choose a dimension">${tabs}</div><div class="atlas-heading"><div><p class="eyebrow">${region === "sanctuary" ? "THE SIXFOLD NEXUS" : escape2(chapter?.title || "DIMENSIONAL DUNGEON")}</p><h3>${biome.name}</h3></div><span>${rooms2.filter((r) => visited(r.id)).length} / ${rooms2.length} ROOMS MAPPED</span></div><div class="dungeon-atlas" style="--dimension:${biome.color}" aria-label="${escape2(biome.name)} room map"><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">${connections.join("")}</svg>${nodes}${gateNodes}<span class="atlas-depth-label">HIGHER CHAMBERS<br>\u2502<br>DEEPER CHAMBERS</span></div><div class="atlas-legend"><span><b>\u25CF</b> Your location</span><span><b>\u2726</b> Wellspring</span><span><b>\u2B1F</b> Camp station</span><span><b>\u25C8</b> Guardian</span><span><b>\u25C7</b> Uncharted passage</span><span>Routes appear as you explore</span></div>${detail}${known && points.length ? `<p class="atlas-spring-note"><span>\u2726</span> ${points.filter((p) => !p.used).length} / ${points.length} wellsprings remain in this chamber. Walk through one for full-party recovery; it will become dormant until your next attempt.</p>` : ""}${chapter ? `<p class="atlas-story">${escape2(chapter.story)}</p>` : ""}`;
   }
 
   // src/opening-cinematic.js
@@ -12682,6 +12691,267 @@
     };
   }
 
+  // src/world-dialogue.js
+  var finite9 = (value, fallback = 0) => Number.isFinite(value) ? value : fallback;
+  var clamp17 = (value, min, max) => Math.max(min, Math.min(max, value));
+  function initWorldDialogue({ parent = document.getElementById("game-screen"), onAdvance = () => {
+  }, onDismiss = () => {
+  } } = {}) {
+    if (!parent) throw new Error("World dialogue requires a scene parent.");
+    const doc = parent.ownerDocument, element = doc.createElement("section");
+    element.id = "world-dialogue";
+    element.className = "world-dialogue";
+    element.hidden = true;
+    element.setAttribute("aria-label", "A voice in the world");
+    element.innerHTML = '<div class="world-dialogue-copy"><p class="world-dialogue-byline"><span class="world-dialogue-sigil" aria-hidden="true">\u2727</span><span id="world-dialogue-speaker"></span><small id="world-dialogue-count" aria-hidden="true"></small></p><p id="world-dialogue-text" aria-live="polite" aria-atomic="true"></p><div class="world-dialogue-actions"><button type="button" data-world-dialogue-next aria-label="Continue conversation"><span class="world-dialogue-key" aria-hidden="true">E</span><span class="world-dialogue-next-label">Continue</span><span aria-hidden="true">\u2192</span></button><button type="button" data-world-dialogue-close aria-label="Leave conversation"><span aria-hidden="true">\xD7</span><small>Leave</small></button></div></div><i class="world-dialogue-thread" aria-hidden="true"></i><i class="world-dialogue-mark" aria-hidden="true"></i>';
+    parent.append(element);
+    const speaker = element.querySelector("#world-dialogue-speaker"), text3 = element.querySelector("#world-dialogue-text"), count = element.querySelector("#world-dialogue-count"), actions = element.querySelector(".world-dialogue-actions"), next = element.querySelector("[data-world-dialogue-next]"), nextLabel = element.querySelector(".world-dialogue-next-label"), close = element.querySelector("[data-world-dialogue-close]"), thread = element.querySelector(".world-dialogue-thread"), mark2 = element.querySelector(".world-dialogue-mark");
+    let shown = false, signature = "", measureKey = "", measuredHeight = 0;
+    const advance = (e) => {
+      e.stopPropagation();
+      onAdvance();
+    }, dismiss = (e) => {
+      e.stopPropagation();
+      onDismiss();
+    };
+    next.addEventListener("click", advance);
+    close.addEventListener("click", dismiss);
+    function show({ speaker: voice = "The Worldheart", text: words = "", index = 0, total = 1, manual = false, color = "#dce4ba", kind = "voice", reducedMotion: reducedMotion2 = false } = {}) {
+      const current = JSON.stringify([voice, words, index, total, manual, color, kind, reducedMotion2]);
+      shown = true;
+      element.hidden = false;
+      if (current === signature) return;
+      signature = current;
+      measureKey = "";
+      speaker.textContent = String(voice);
+      text3.textContent = String(words);
+      text3.scrollTop = 0;
+      count.textContent = manual && total > 1 ? `${index + 1} / ${total}` : "";
+      actions.hidden = !manual;
+      nextLabel.textContent = index >= total - 1 ? "Finish" : "Continue";
+      next.setAttribute("aria-label", index >= total - 1 ? "Finish conversation" : "Continue conversation");
+      element.dataset.manual = String(!!manual);
+      element.dataset.kind = String(kind);
+      element.classList.toggle("world-dialogue-still", !!reducedMotion2);
+      element.style.setProperty("--dialogue-color", color);
+    }
+    function place({ x, y, width = parent.clientWidth, height = parent.clientHeight, mobile = false } = {}) {
+      if (!shown || element.hidden) return;
+      const w = Math.max(1, finite9(width, 1)), h = Math.max(1, finite9(height, 1)), ax = finite9(x, w * 0.5), ay = finite9(y, h * 0.55);
+      const margin = w < 600 ? 18 : 24, copyWidth = Math.max(120, Math.min(mobile ? w < 700 ? 300 : 350 : 430, w - margin * 2));
+      const safeTop = mobile ? h < 360 ? 75 : 88 : Math.min(106, h * 0.2), safeBottom = mobile ? h < 360 ? 94 : 110 : 74;
+      const available = Math.max(110, h - safeTop - safeBottom), manual = element.dataset.manual === "true", textMax = Math.max(52, available - (manual ? 74 : 28));
+      const key = [copyWidth, h, mobile, signature].join("|");
+      if (key !== measureKey) {
+        element.style.width = copyWidth + "px";
+        element.style.setProperty("--dialogue-text-max-height", textMax + "px");
+        element.classList.toggle("world-dialogue-mobile", !!mobile);
+        measuredHeight = element.offsetHeight;
+        measureKey = key;
+      }
+      const boxHeight = measuredHeight || 120;
+      const preferredLeft = ax < w * 0.55 ? ax + 25 : ax - copyWidth - 25;
+      const left = clamp17(preferredLeft, margin, Math.max(margin, w - copyWidth - margin));
+      const top = clamp17(ay - boxHeight * 0.78, safeTop, Math.max(safeTop, h - safeBottom - boxHeight));
+      element.style.transform = `translate3d(${left.toFixed(2)}px,${top.toFixed(2)}px,0)`;
+      const targetX = clamp17(ax - left, 8 - margin, copyWidth + margin - 8), targetY = clamp17(ay - top, 0, Math.max(boxHeight + 45, h - top - safeBottom));
+      const startX = clamp17(targetX, 12, copyWidth - 12), startY = boxHeight - 9, dx = targetX - startX, dy = targetY - startY, length = Math.hypot(dx, dy);
+      thread.style.left = startX + "px";
+      thread.style.top = startY + "px";
+      thread.style.width = Math.min(64, length) + "px";
+      thread.style.transform = `rotate(${Math.atan2(dy, dx)}rad)`;
+      thread.hidden = length < 10;
+      mark2.style.left = targetX + "px";
+      mark2.style.top = targetY + "px";
+    }
+    return { element, show, place, setVisible(visible) {
+      element.hidden = !shown || !visible;
+    }, hide() {
+      shown = false;
+      element.hidden = true;
+    }, destroy() {
+      next.removeEventListener("click", advance);
+      close.removeEventListener("click", dismiss);
+      element.remove();
+    } };
+  }
+
+  // src/world-dialogue-state.js
+  var finite10 = (n2, fallback = 0) => Number.isFinite(n2) ? n2 : fallback;
+  function paginateDialogue(lines, maxChars = 210) {
+    const limit = Math.max(80, Math.floor(finite10(maxChars, 210))), pages = [];
+    for (const line13 of Array.isArray(lines) ? lines : []) {
+      if (!Array.isArray(line13) || typeof line13[1] !== "string") continue;
+      const speaker = String(line13[0] || "A distant voice");
+      let rest = line13[1].replace(/\s+/g, " ").trim();
+      while (rest) {
+        if (rest.length <= limit) {
+          pages.push([speaker, rest]);
+          break;
+        }
+        const head = rest.slice(0, limit + 1), sentences = [...head.matchAll(/[.!?…][”"’']?(?=\s)/g)];
+        const sentence = sentences.at(-1), end = sentence && sentence.index >= limit * 0.4 ? sentence.index + sentence[0].length : head.lastIndexOf(" ");
+        const cut = end > 0 ? end : limit;
+        pages.push([speaker, rest.slice(0, cut).trim()]);
+        rest = rest.slice(cut).trim();
+      }
+    }
+    return pages;
+  }
+  function resolveDialogueAnchor(source, g) {
+    if (!source || !g) return null;
+    const entity = source.boss ? g.enemies?.find((e) => e.boss === source.boss) : g.room?.objects?.find((o) => o.id === source.id);
+    return { x: finite10(entity?.x, finite10(source.x)), y: finite10(entity?.y, finite10(source.y, 520)) };
+  }
+  var WorldDialogueState = class {
+    constructor({ voices = {} } = {}) {
+      this.voices = voices;
+      this.reset();
+    }
+    get current() {
+      return this.active;
+    }
+    reset() {
+      this.active = null;
+      this.seen = /* @__PURE__ */ new Set();
+      this.quiet = 1200;
+      this.revision = (this.revision || 0) + 1;
+    }
+    begin(lines, source, { manual = true, kind = "conversation", duration = null } = {}) {
+      const pages = paginateDialogue(lines);
+      if (!pages.length || !source || typeof source.room !== "string") return false;
+      if (!manual && this.active?.manual) return false;
+      const safeSource = { ...source, x: finite10(source.x), y: finite10(source.y, 520) };
+      this.active = { lines: pages, index: 0, source: safeSource, room: source.room, manual, kind, elapsed: 0, duration: duration ?? Math.max(6e3, Math.min(14e3, pages[0][1].length * 55)) };
+      this.revision++;
+      return true;
+    }
+    advance() {
+      if (!this.active?.manual) return false;
+      if (this.active.index + 1 < this.active.lines.length) {
+        this.active.index++;
+        this.active.elapsed = 0;
+        this.revision++;
+      } else this.dismiss();
+      return true;
+    }
+    dismiss({ cooldown = 3500 } = {}) {
+      this.active = null;
+      this.quiet = cooldown;
+      this.revision++;
+    }
+    update(g, deltaMs, { suspended = false } = {}) {
+      if (!g || g.phase !== "playing") {
+        if (this.active) this.dismiss();
+        return;
+      }
+      if (this.active && this.active.room !== g.roomId) this.dismiss({ cooldown: 900 });
+      if (suspended || g.paused || g.hitstop || g.player?.respawning) return;
+      const elapsed = Math.max(0, Math.min(100, finite10(deltaMs)));
+      this.quiet = Math.max(0, this.quiet - elapsed);
+      if (this.active) {
+        const a = this.active, anchor = resolveDialogueAnchor(a.source, g), range = a.kind === "boss" ? 1400 : a.manual ? 350 : (a.source.range || 190) + 140;
+        if (!anchor || Math.abs(g.player.x - anchor.x) > range || Math.abs(g.player.y - anchor.y) > (a.kind === "boss" ? 1e3 : 260)) {
+          this.dismiss();
+          return;
+        }
+        a.elapsed += elapsed;
+        if (!a.manual && a.elapsed >= a.duration) {
+          if (a.index + 1 < a.lines.length) {
+            a.index++;
+            a.elapsed = 0;
+            a.duration = Math.max(6e3, Math.min(14e3, a.lines[a.index][1].length * 55));
+            this.revision++;
+          } else this.dismiss();
+        }
+        return;
+      }
+      if (this.quiet || g.player.hp <= 0 || g.enemies?.some((e) => e.hp > 0 && Math.abs(e.x - g.player.x) < 280 && Math.abs(e.y - g.player.y) < 180)) return;
+      const candidates = (this.voices[g.roomId] || []).filter((v) => !this.seen.has(g.roomId + ":" + v.id) && Math.abs(v.x - g.player.x) < (v.range || 190) && Math.abs((v.y ?? 520) - g.player.y) < 150).sort((a, b) => Math.abs(a.x - g.player.x) - Math.abs(b.x - g.player.x));
+      const voice = candidates[0];
+      if (!voice) return;
+      if (this.begin([[voice.speaker, voice.text]], { ...voice, room: g.roomId, id: voice.anchorId || voice.id, kind: "landmark" }, { manual: false, kind: "whisper" })) this.seen.add(g.roomId + ":" + voice.id);
+    }
+    snapshot() {
+      const a = this.active;
+      return a ? { active: true, kind: a.kind, manual: a.manual, speaker: a.lines[a.index][0], text: a.lines[a.index][1], index: a.index, total: a.lines.length, source: { ...a.source }, room: a.room, elapsed: a.elapsed } : { active: false, kind: null, manual: false, speaker: "", text: "", index: 0, total: 0, source: null, room: null, elapsed: 0 };
+    }
+  };
+
+  // src/world-voices.js
+  var whispers = [
+    ["sanctuary", "bench", "A promise on the lantern", "Leave a light for anyone still finding their way home."],
+    ["moss-path", "lore", "Ink beneath the roots", "The first field note is still warm. The forest has been keeping it alive."],
+    ["moss-descent", "witness", "The cistern remembers", "We planted shelter here. We never meant the roots to learn the shape of a cage."],
+    ["moss-nexus", "keeper", "A child\u2019s handprint", "The little hand is pressed into the bark from the inside. Someone was being carried."],
+    ["moss-ascent", "unwritten", "A seed without a name", "Six seeds remember the old garden. This one is waiting to become something else."],
+    ["moss-vault", "buried", "A voice in the amber", "I saved everything the garden lost. I forgot that living things need room to leave."],
+    ["moss-heart", "return", "The living threshold", "Beyond this arch, every root bends toward the same heartbeat."],
+    ["forge-path", "lore", "A pilgrim\u2019s prayer", "First we gave the furnace broken machines. Then we started giving it names."],
+    ["forge-descent", "witness", "The last shift bell", "The workers went home a hundred years ago. The machines are still waiting to be relieved."],
+    ["forge-nexus", "keeper", "Ash in the censer", "Keep the fire, the order said. Nobody told us what to do when the people were gone."],
+    ["forge-ascent", "unwritten", "The silent bell", "This bell was cast to celebrate a dawn that never came. Its bronze is full of birdsong."],
+    ["forge-vault", "buried", "An account written in soot", "One small sun for every household. One borrowed memory for every sunrise."],
+    ["forge-heart", "return", "The altar breathes", "The sermon has no words left. Only the breath between the bells."],
+    ["reef-path", "lore", "A page that would not sink", "A living heart cannot belong to a kingdom. The sea has failed to wash those words away."],
+    ["reef-descent", "witness", "The missing index", "Every empty shelf has a name. Every name has someone still searching for it."],
+    ["reef-nexus", "keeper", "The librarian\u2019s whisper", "I returned every story but my own. If it calls for me, please do not answer in my voice."],
+    ["reef-ascent", "unwritten", "Words in the margin", "The page is upside down. The handwriting says: perhaps the world is."],
+    ["reef-vault", "buried", "A name inside a pearl", "They called it safekeeping. Listen closely: the names are asking for the door."],
+    ["reef-heart", "return", "The ink-dark threshold", "A thousand unfinished stories turn beneath the water. Something enormous is holding its breath."],
+    ["storm-path", "lore", "A song caught in stone", "Eight voices became thunder. The space between them is still waiting for a ninth."],
+    ["storm-descent", "witness", "Yesterday\u2019s weather", "Clear skies expected. The report repeats, beneath a century of thunder."],
+    ["storm-nexus", "keeper", "The choir\u2019s old oath", "No voice left unheard. No silence left unbroken. We should have asked which silences were kind."],
+    ["storm-ascent", "unwritten", "A prayer without words", "Up here, the bells move before the wind. Someone is listening for your answer."],
+    ["storm-vault", "buried", "The ninth rest", "There is no missing note on this page. There is a space for the singer to breathe."],
+    ["storm-heart", "return", "Before the first note", "The storm goes quiet for one heartbeat. It knows you are here."],
+    ["frost-path", "lore", "Ink beneath the ice", "I did not break the heart. I broke the lock. The final word has never finished freezing."],
+    ["frost-descent", "witness", "A stopped chronometer", "One second remains on the dial. The hand has worn a groove trying to move."],
+    ["frost-nexus", "keeper", "The relief that never came", "Hold until relieved. A simple order can become a very long winter."],
+    ["frost-ascent", "unwritten", "An unspent wish", "The candle is still lit. The child who made the wish would be a hundred years old."],
+    ["frost-vault", "buried", "A borrowed tomorrow", "They stored the hours they feared to lose. Outside, the world kept needing them."],
+    ["frost-heart", "return", "The last second", "Snow hangs motionless beyond the arch. Something is still trying to choose differently."],
+    ["rift-path", "lore", "The road answers", "You call this place hollow. I have kept a space for every voice that might come home."],
+    ["rift-descent", "witness", "The first architect", "We taught the walls to remember. We never asked what remembering would cost them."],
+    ["rift-nexus", "keeper", "The empty throne", "No ruler ever sat here. The throne was built to make a living heart look like a machine."],
+    ["rift-ascent", "unwritten", "A footstep before your own", "The stair remembers every traveler. This next step is the first it cannot predict."],
+    ["rift-vault", "buried", "A mark beneath the lock", "The oldest scratch is not an escape attempt. It is a hand reaching toward another hand."],
+    ["rift-heart", "return", "The heart below", "The pulse beyond the door is frightened. It sounds almost like yours."],
+    ["hidden-grove", "shrine", "The sleeping seed", "A gardener left one seed beyond the maps. Not every beautiful thing was made to be found."],
+    ["star-observatory", "shrine", "A voice beyond the stars", "The telescope points into empty sky. The music stand beside it has room for one more name."],
+    ["clockwork-ossuary", "death-certificate", "A lantern beside the record", "The paper says there was no survivor. The little lantern beside it has never gone out."],
+    ["paper-moon", "last-letter", "The unsent letter", "Someone folded this page a thousand times. The first words are still: Dear Worldheart."],
+    ["cradle-zero", "first-promise", "The first promise", "Nothing in this cradle has happened before. For once, the walls have no memory to offer."]
+  ];
+  var rooms = { ...ROOMS, ...CHRONICLE_ROOMS };
+  var WORLD_VOICES = Object.freeze(Object.fromEntries(whispers.map(([roomId, anchorId, speaker, text3]) => {
+    const room = rooms[roomId], anchor = room.objects.find((o) => o.id === anchorId);
+    return [roomId, Object.freeze([Object.freeze({ id: roomId + ":voice:" + anchorId, room: roomId, anchorId, x: anchor.x, y: anchor.y ?? 520, speaker, text: text3, range: 210 })])];
+  })));
+  var BOSS_VOICES = Object.freeze(Object.fromEntries(Object.entries({
+    briar: { intro: "Little heartbeats\u2026 stay behind my roots. I can keep you safe.", defeat: "Then grow beyond me. That is what a garden is for." },
+    bell: { intro: "Come closer, pilgrims. The city must not go cold.", defeat: "The fire may rest. Let the morning do its work." },
+    leviathan: { intro: "No more stories lost. No more names beneath the tide.", defeat: "Take them gently. They have waited so long to be heard." },
+    conductor: { intro: "One voice is missing. I will make the whole sky answer.", defeat: "There\u2026 between the notes. I can hear it now." },
+    hourglass: { intro: "Wait. Give me one more second. I can change what happens.", defeat: "You are still here. Then tomorrow did come." },
+    crown: { intro: "I kept the roads. I kept the voices. Why did nobody come home?", defeat: "You came back for me. Not the kingdom. Me." },
+    "moss-warden": { intro: "The roots gave me one command: nothing passes, nothing is lost.", defeat: "A gate can open. I had forgotten." },
+    "moss-reaver": { intro: "Everything that falls belongs to my garden.", defeat: "Some things were meant to fly away." },
+    "forge-warden": { intro: "The cathedral is owed its fire. Pay, or become the payment.", defeat: "Strike the debt from the ledger. All of it." },
+    "forge-reaver": { intro: "Confess to the furnace. It remembers every secret.", defeat: "My last confession: I wanted the fire to end." },
+    "reef-warden": { intro: "These stories were sentenced to silence. I guard the sentence.", defeat: "Open the cells. Let their names find the surface." },
+    "reef-reaver": { intro: "Such fresh voices. Such beautifully unwritten endings.", defeat: "Leave one page blank. Please." },
+    "storm-warden": { intro: "The verdict is thunder. You will hear it when it is too late.", defeat: "Let the next voice speak before the judgment." },
+    "storm-reaver": { intro: "Break every bell, and perhaps the screaming will stop.", defeat: "The ringing is gone. I can hear the wind." },
+    "frost-warden": { intro: "The sentence stands. The hour will not release you.", defeat: "A hundred winters\u2026 and still there is an afterward." },
+    "frost-reaver": { intro: "Do not bring another ending into my winter.", defeat: "I can put the flowers down now." },
+    "rift-warden": { intro: "I have watched this arrival ninety-nine times. You are not the one I remember.", defeat: "At last. Something I have never seen." },
+    "rift-reaver": { intro: "A blank future. Hold still while I cut it into something familiar.", defeat: "Keep your tomorrow. I have taken enough." },
+    belltwin: { intro: "One dawn for the city. One dawn for those it buried.", defeat: "Carry the warm seed home. It was never meant to stay with the dead." },
+    palimpsest: { intro: "Begin again. Sing it correctly this time, and nobody has to leave.", defeat: "The last note belongs to whoever sings next." },
+    nullheart: { intro: "Hush, little tomorrow. Nothing can hurt you if nothing ever changes.", defeat: "Wake gently. There is a whole world waiting to meet you." }
+  }).map(([id, voice]) => [id, Object.freeze(voice)])));
+
   // src/main.js
   var $ = (id) => document.getElementById(id);
   var readSave = () => {
@@ -12704,8 +12974,6 @@
   var overlayType = "";
   var mapRegion = "sanctuary";
   var mapRoom = "";
-  var dialogue = [];
-  var dialogueIndex = 0;
   var rewardQueue = [];
   var last = 0;
   var accumulator = 0;
@@ -12727,6 +12995,10 @@
   intro.setAttribute("aria-describedby", "intro-line");
   intro.innerHTML = '<canvas id="intro-canvas" aria-hidden="true"></canvas><button id="intro-skip" aria-label="Skip opening cinematic">SKIP STORY <span>\u2197</span></button><div class="intro-caption" aria-live="polite"><p id="intro-kicker"></p><h2 id="intro-title"></h2><p id="intro-line"></p><div class="intro-progress" aria-hidden="true"><i id="intro-progress-fill"></i></div></div>';
   document.body.append(intro);
+  var speech = new WorldDialogueState({ voices: WORLD_VOICES });
+  var speechRevision = -1;
+  var speechMotion = null;
+  var worldDialogue = initWorldDialogue({ parent: $("game-screen"), onAdvance: advanceWorldDialogue, onDismiss: dismissWorldDialogue });
   var preview = new RPGCampaign(DEFAULT_PARTY);
   var state = () => game || preview;
   var bossCounterLabel = (counter) => ({ "get-close": "GET CLOSE", behind: "GET BEHIND", platform: "TAKE HIGH GROUND", dodge: "DASH CLEAR", jump: "JUMP", retreat: "MOVE AWAY", minions: "DEFEAT SUMMONS", shield: "PARRY / SHIELD" })[counter] || "WATCH THE TELL";
@@ -12826,10 +13098,63 @@
       game.releaseShield();
     }
   }
+  function renderWorldDialogue(delta = 0) {
+    const suspended = view !== "game" || !game || modal.open || orientationBlocked || !!opening;
+    speech.update(game, delta, { suspended });
+    const current = speech.current;
+    if (!current) {
+      worldDialogue.hide();
+      speechRevision = speech.revision;
+      return;
+    }
+    const motion = reducedMotion();
+    if (speechRevision !== speech.revision || speechMotion !== motion) {
+      worldDialogue.show({ ...speech.snapshot(), color: BIOMES[game.room.biome].color, reducedMotion: motion });
+      speechRevision = speech.revision;
+      speechMotion = motion;
+    }
+    worldDialogue.setVisible(!suspended);
+    if (suspended) return;
+    $("region-title").hidden = true;
+    const anchor = resolveDialogueAnchor(current.source, game), head = current.source.boss ? 170 : current.source.kind === "npc" ? 115 : 55, point2 = renderer.project(anchor.x, anchor.y - head);
+    worldDialogue.place({ ...point2, mobile: mobileLayout() });
+  }
+  function advanceWorldDialogue() {
+    if (orientationBlocked || modal.open || opening || !game || game.phase !== "playing" || !speech.current?.manual) return false;
+    speech.advance();
+    renderWorldDialogue();
+    if (!speech.current) {
+      game.save();
+      canvas.focus({ preventScroll: true });
+    }
+    return true;
+  }
+  function dismissWorldDialogue() {
+    if (orientationBlocked || modal.open || opening || !speech.current) return;
+    speech.dismiss();
+    renderWorldDialogue();
+    canvas.focus({ preventScroll: true });
+  }
+  function worldInteract() {
+    if (!advanceWorldDialogue()) return game?.input("interact");
+    return true;
+  }
+  function bossVoice(id, beat) {
+    if (!game || view !== "game" || !BOSS_VOICES[id]?.[beat]) return;
+    const actor = game.enemies.find((e) => e.boss === id);
+    if (!actor) return;
+    speech.begin([[(game.bossInfo?.(id) || BOSSES[id]).name, BOSS_VOICES[id][beat]]], { room: game.roomId, id: actor.key || id, boss: id, x: actor.x, y: actor.y, kind: "boss" }, { manual: false, kind: "boss" });
+  }
   function events(e) {
     renderer.event(e, game);
     tone(e.type);
+    if (e.type === "room") {
+      speech.dismiss({ cooldown: 900 });
+      worldDialogue.hide();
+    }
     if (e.type === "gameover" && game && view === "game") {
+      speech.dismiss();
+      worldDialogue.hide();
       rewardQueue = [];
       openOverlay("gameover");
       return;
@@ -12848,10 +13173,9 @@
       notice = "COMBAT ART AWAKENED \xB7 " + e.name + " \xB7 H TO EQUIP";
       noticeFrames = 180;
     }
-    if (e.type === "dialogue") {
-      dialogue = e.lines;
-      dialogueIndex = 0;
-      openOverlay("dialogue");
+    if (e.type === "dialogue" && game && view === "game") {
+      speech.begin(e.lines, e.source || { room: game.roomId, x: game.player.x, y: game.player.y, kind: "npc" });
+      renderWorldDialogue();
     }
     if (e.type === "workbench") openOverlay("inventory");
     if (e.type === "merchant") openOverlay("merchant");
@@ -12863,7 +13187,9 @@
       const b = game?.bossInfo?.(e.boss) || BOSSES[e.boss];
       notice = b.epithet + " \xB7 " + b.name;
       noticeFrames = 160;
+      bossVoice(e.boss, "intro");
     }
+    if (e.type === "bossdefeated") bossVoice(e.boss, "defeat");
     if (e.type === "bossdefeated" && (e.miniboss || BOSSES[e.boss]?.miniboss)) {
       notice = "GATE CHAMPION DEFEATED \xB7 A NEW PASSAGE OPENS";
       noticeFrames = 180;
@@ -12877,6 +13203,8 @@
   }
   function startCampaign(resume = false) {
     closeOverlay(true);
+    speech.reset();
+    worldDialogue.hide();
     rewardQueue = [];
     game = new RPGCampaign(resume ? DEFAULT_PARTY : party, { save: resume ? saved : null, onEvent: events, onSave: store });
     view = "game";
@@ -12901,6 +13229,8 @@
   function returnHome() {
     if (opening) finishOpening();
     if (game) game.save();
+    speech.reset();
+    worldDialogue.hide();
     clearInputs();
     closeOverlay(true);
     view = "home";
@@ -12999,6 +13329,7 @@
       mapRoom = game.roomId;
     }
     clearInputs();
+    worldDialogue.setVisible(false);
     overlayType = type;
     modal.dataset.view = type;
     if (game) game.paused = true;
@@ -13020,8 +13351,7 @@
   modal.addEventListener("cancel", (e) => {
     e.preventDefault();
     if (orientationBlocked || overlayType === "gameover") return;
-    if (overlayType === "dialogue") nextDialogue();
-    else if (overlayType === "reward") dismissReward();
+    if (overlayType === "reward") dismissReward();
     else closeOverlay();
   });
   $("close-overlay").onclick = () => {
@@ -13050,7 +13380,6 @@
     else if (overlayType === "codex") content.innerHTML = codexHTML(g);
     else if (overlayType === "guide") content.innerHTML = guideHTML();
     else if (overlayType === "pause") content.innerHTML = `<div class="pause-menu"><p class="eyebrow">${g.room.name.toUpperCase()}</p><h2 id="overlay-title">A quiet moment.</h2><p>Your companions will wait.<br>${notice || "Progress saves at wellsprings, doors, discoveries, and victories."}</p><button class="primary" data-resume>RETURN TO THE WORLD \u2192</button><button data-overlay="arsenal">KINETIC ARSENAL \xB7 POWERS & TECHNIQUES</button><button data-overlay="map">WORLD ATLAS</button><button data-overlay="inventory">INVENTORY & CRAFTING</button><button data-overlay="party">YOUR COMPANIONS</button><button data-overlay="chronicle">CHRONICLES \xB7 TALENTS \xB7 EQUIPMENT</button><button data-overlay="codex">CREATURE BESTIARY</button><button data-overlay="guide">CONTROLS & TECHNIQUES</button><button data-return-home>SAVE & RETURN TO CAMP</button></div>`;
-    else if (overlayType === "dialogue") content.innerHTML = dialogueHTML();
     else if (overlayType === "reward") content.innerHTML = rewardHTML(g);
     else if (overlayType === "ending") content.innerHTML = endingHTML();
     else if (overlayType === "credits") content.innerHTML = creditsHTML(g);
@@ -13075,21 +13404,8 @@
     return heading("What the world <em>remembers.</em>", `${g.memories.size} field notes \xB7 ${g.shrines.size} lost echoes \xB7 ${g.discovered.size}/${Object.keys(MINIONS).length} wild species`) + `<div class="story-panel"><p class="eyebrow">${g.finished ? "EPILOGUE" : "CURRENT CHAPTER"}</p><h3>${g.finished ? "A family for the Worldheart" : chapter.title}</h3><p>${g.finished ? "The guardians were never your enemies. They were carrying something too heavy to put down. The Worldheart remembers what you did for them." : chapter.story}</p></div><h3 class="minor-heading">COMPANIONS \xB7 ${g.unlocked.size} / 11 FOUND</h3><div class="codex-grid">${ROSTER.map((d) => `<article class="codex-card"><canvas data-portrait="${d.id}" aria-label="${d.name}"></canvas><small>${g.unlocked.has(d.id) ? d.types.join(" / ").toUpperCase() : "RESCUE THIS COMPANION"}</small><h3>${d.name}</h3><p>${d.description}</p><p><em>${d.skill}</em> \xB7 ${d.passive}</p></article>`).join("")}</div><h3 class="minor-heading">GUARDIANS & THEIR MEMORIES</h3><div class="codex-grid">${Object.entries(BOSSES).map(([id, b]) => `<article class="codex-card"><small>${g.bossDefeated(id) ? "MEMORY RESTORED" : "A VOICE STILL LOST"}</small><h3>${b.name}</h3><p>${g.bossDefeated(id) ? b.lore : b.epithet.toLowerCase()}</p><details class="boss-field-notes"><summary>ATTACK FIELD NOTES</summary><p>${BOSS_ENCOUNTERS[id].identity}</p><ul class="boss-notes">${BOSS_ENCOUNTERS[id].moves.map((m) => `<li><strong>${m.name}</strong><small>${bossCounterLabel(m.counter)}</small><p>${m.hint}</p></li>`).join("")}</ul></details></article>`).join("")}</div><h3 class="minor-heading">FIELD BESTIARY</h3><div class="codex-grid">${Object.entries(MINIONS).map(([id, d]) => `<article class="codex-card"><small>${g.discovered.has(id) ? "DISCOVERED \xB7 " + d.types : "UNOBSERVED \xB7 " + d.types}</small><h3>${d.name}</h3><p>${d.hint}</p></article>`).join("")}</div>`;
   }
   function guideHTML() {
-    const rows = [["Shield / timed parry", "HOLD G \xB7 7-frame deflect"], ["Power / cycle / arsenal", "X / Z / H"], ["Uppercut launcher", "W + K \xB7 J J K branches"], ["Aerial plunge", "AIR S + K \xB7 unlock Claw"], ["Run / aim", "A D / W S"], ["Variable-height jump", "SPACE \xB7 release for short hop"], ["Dash / recovery cancel", "SHIFT"], ["Fast three-hit chain", "J \xB7 buffer your next strike"], ["Armor breaker", "K"], ["Directional elemental skill", "W A S D + L / neutral L"], ["Pogo bounce", "Air S + J"], ["Focus heal \xB7 hold still", "HOLD F \xB7 costs 40 FOCUS \xB7 1.2s channel"], ["Drink a flask", "V \xB7 restores 3 hearts"], ["Switch companions", "1 / 2 / 3 \xB7 Q cycles"], ["Interact / craft / enter", "E"], ["Automatic full recovery", "WALK THROUGH A WELLSPRING"], ["Use / cycle tools", "T / C"], ["Grapple to golden anchor", "U \xB7 requires Ember Thread"], ["Map / inventory / journal", "M / I / N"], ["Threefold Resonance Surge", "R \xB7 full gauge required"], ["Chronicle / talents / equipment", "N"], ["Pause", "ESCAPE"]];
+    const rows = [["Shield / timed parry", "HOLD G \xB7 7-frame deflect"], ["Power / cycle / arsenal", "X / Z / H"], ["Uppercut launcher", "W + K \xB7 J J K branches"], ["Aerial plunge", "AIR S + K \xB7 unlock Claw"], ["Run / aim", "A D / W S"], ["Variable-height jump", "SPACE \xB7 release for short hop"], ["Dash / recovery cancel", "SHIFT"], ["Fast three-hit chain", "J \xB7 buffer your next strike"], ["Armor breaker", "K"], ["Directional elemental skill", "W A S D + L / neutral L"], ["Pogo bounce", "Air S + J"], ["Focus heal \xB7 hold still", "HOLD F \xB7 costs 40 FOCUS \xB7 1.2s channel"], ["Drink a flask", "V \xB7 restores 3 hearts"], ["Switch companions", "1 / 2 / 3 \xB7 Q cycles"], ["Interact / craft / enter", "E"], ["Conversation \xB7 continue / leave", "E or ENTER / ESCAPE"], ["Automatic full recovery", "WALK THROUGH A WELLSPRING"], ["Use / cycle tools", "T / C"], ["Grapple to golden anchor", "U \xB7 requires Ember Thread"], ["Map / inventory / journal", "M / I / N"], ["Threefold Resonance Surge", "R \xB7 full gauge required"], ["Chronicle / talents / equipment", "N"], ["Pause", "ESCAPE"]];
     return heading("Learn the <em>rhythm.</em>", "J: 0.2s \xB7 K: 0.6s \xB7 L: 1.5s. Time your follow-ups; each power has its own cooldown. Every hit refills Focus; every quiet moment can restore a heart.") + `<div class="controls-grid">${rows.map(([a, b]) => `<div class="control-row"><span>${a}</span><kbd>${b}</kbd></div>`).join("")}</div><p class="modal-note">Defeat the Briar Matron for wall jumps, Saint Bellows for grappling, the Leviathan for the Tideglass Seal, the Conductor for a double jump, and the Hourglass Stag for Rift Step. Return with new abilities to reach high chambers, buried vaults, and looping shortcuts. The map records explored passages; navigation is yours.</p><button class="secondary" data-overlay="arsenal">KINETIC ARSENAL \xB7 ALL POWERS & COMBAT ROUTES \u2197</button>`;
-  }
-  function dialogueHTML() {
-    const line13 = dialogue[dialogueIndex] || ["The Worldheart", "Listen."];
-    return `<div class="dialogue-body"><div class="dialogue-sigil">\u2727</div><div><h2 id="overlay-title">${line13[0]}</h2><p>${line13[1]}</p></div></div><div class="dialogue-footer"><span>${String(dialogueIndex + 1).padStart(2, "0")} / ${String(dialogue.length).padStart(2, "0")} &nbsp; \xB7 &nbsp; E / SPACE TO CONTINUE</span><button class="primary" data-dialogue-next>${dialogueIndex === dialogue.length - 1 ? "FOLLOW THE PULSE" : "LISTEN"} <span>\u2192</span></button></div>`;
-  }
-  function nextDialogue() {
-    if (dialogueIndex < dialogue.length - 1) {
-      dialogueIndex++;
-      renderOverlay();
-    } else {
-      game?.save();
-      closeOverlay();
-    }
   }
   function rewardHTML() {
     const id = rewardQueue[0], b = game?.bossInfo?.(id) || BOSSES[id], art = Object.values(POWERS).find((d) => d.unlock.id === id || d.unlock.id === b?.reward);
@@ -13209,7 +13525,7 @@
       $("boss-phase").textContent = (boss.phase >= 3 ? "PHASE III" : boss.phase === 2 ? "PHASE II" : "PHASE I") + (boss.moveName ? " \xB7 " + boss.moveName.toUpperCase() : "") + (boss.state === "recover" ? " \xB7 RECOVERING" : boss.counter ? " \xB7 " + bossCounterLabel(boss.counter) : "");
       $("boss-phase").title = boss.hint || "Watch the windup";
     }
-    $("region-title").hidden = g.transition < 20 || g.transition > 95;
+    $("region-title").hidden = !!speech.current || g.transition < 20 || g.transition > 95;
     $("region-kicker").textContent = BIOMES[g.room.biome].subtitle.toUpperCase();
     $("region-name").textContent = g.room.name;
     $("region-title").style.opacity = String(Math.min(1, (g.transition - 20) / 18, (100 - g.transition) / 18));
@@ -13239,16 +13555,21 @@
         }
         return;
       }
-      if (overlayType === "dialogue" && ["Space", "Enter", "KeyE"].includes(e.code)) {
-        e.preventDefault();
-        if (!e.repeat) nextDialogue();
-      } else if ((overlayType === "map" && e.code === "KeyM" || overlayType === "inventory" && e.code === "KeyI" || overlayType === "chronicle" && e.code === "KeyN" || overlayType === "arsenal" && e.code === "KeyH") && !e.repeat) {
+      if ((overlayType === "map" && e.code === "KeyM" || overlayType === "inventory" && e.code === "KeyI" || overlayType === "chronicle" && e.code === "KeyN" || overlayType === "arsenal" && e.code === "KeyH") && !e.repeat) {
         e.preventDefault();
         closeOverlay();
       }
       return;
     }
     if (view !== "game") return;
+    if (speech.current?.manual && ["KeyE", "Enter", "Escape"].includes(e.code)) {
+      e.preventDefault();
+      if (!e.repeat) {
+        if (e.code === "Escape") dismissWorldDialogue();
+        else advanceWorldDialogue();
+      }
+      return;
+    }
     const overlays = { KeyH: "arsenal", KeyM: "map", KeyI: "inventory", KeyN: "chronicle", Escape: "pause" };
     if (overlays[e.code]) {
       e.preventDefault();
@@ -13403,7 +13724,6 @@
     }
     if (b.hasAttribute("data-resume")) closeOverlay();
     if (b.hasAttribute("data-return-home")) returnHome();
-    if (b.hasAttribute("data-dialogue-next")) nextDialogue();
     if (b.hasAttribute("data-dismiss-reward")) dismissReward();
     if (b.dataset.ending) game?.finishEnding(b.dataset.ending);
     if (b.dataset.switch !== void 0) {
@@ -13470,7 +13790,8 @@
       else if (h) {
         held.add({ left: "KeyA", right: "KeyD", up: "KeyW", down: "KeyS" }[h]);
         syncMovement();
-      } else game?.input(b.dataset.action);
+      } else if (b.dataset.action === "interact") worldInteract();
+      else game?.input(b.dataset.action);
     });
     b.addEventListener("pointerup", end);
     b.addEventListener("pointercancel", end);
@@ -13512,7 +13833,7 @@
         if (noticeFrames > 0) noticeFrames--;
         accumulator -= 1e3 / 60;
       }
-      renderer.render(game, clock2);
+      renderer.render(game, clock2, { speakerId: speech.current?.source.id });
       if (clock2 - lastHud > 80) {
         renderHud();
         lastHud = clock2;
@@ -13520,11 +13841,12 @@
       if (game.tick && game.tick % 600 === 0 && !game.paused) game.save();
       if (game.phase === "gameover" && overlayType !== "gameover") openOverlay("gameover");
       if (game.phase === "playing" && rewardQueue.length && !modal.open && game.enemies.every((e) => !e.boss || e.hp <= 0)) openOverlay("reward");
+      renderWorldDialogue(delta);
     } else heroRenderer.renderHome(clock2, party, { reducedMotion: reducedMotion(), biome: landingBiome });
     animatePortraits(clock2);
     requestAnimationFrame(frame);
   }
-  window.kinetic = { snapshot: () => ({ ...game ? game.snapshot() : { phase: "selection", mode: "campaign", party: [...party], hasSave: !!saved }, intro: { active: !!opening, elapsed: opening?.elapsed || 0, beat: opening ? openingBeat(opening.elapsed).index : 0, mode: opening?.mode || null, paused: !!opening && (orientationBlocked || document.hidden || opening.suspended) }, home: { biome: landingBiome } }), version: "4.0.0" };
+  window.kinetic = { snapshot: () => ({ ...game ? game.snapshot() : { phase: "selection", mode: "campaign", party: [...party], hasSave: !!saved }, dialogue: speech.snapshot(), intro: { active: !!opening, elapsed: opening?.elapsed || 0, beat: opening ? openingBeat(opening.elapsed).index : 0, mode: opening?.mode || null, paused: !!opening && (orientationBlocked || document.hidden || opening.suspended) }, home: { biome: landingBiome } }), version: "4.0.0" };
   landing = initLanding({ onBiome: (biome) => {
     if (BIOMES[biome]) landingBiome = biome;
   }, onReplay: () => beginOpening("replay") });

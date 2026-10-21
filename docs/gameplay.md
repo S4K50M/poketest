@@ -10,6 +10,14 @@ The title screen fits one viewport. Its companion and realm panels provide prepa
 
 The Last Lantern and Mourningwild use dedicated scenery: a warm lantern settlement, root-lined passages, deeper forest galleries, high canopy ruins, a forgotten vault, and the Matron’s living chamber. Bright platform edges still mark real landings, with the continuous lower floor and recovery shelves intact.
 
+## Conversations and environmental voices
+
+Conversations appear as floating words beside the traveler or professor in the scene. Press **E / Enter** or tap **Continue** to hear the next utterance; **Escape** or **Leave** ends it. Long lines are divided into readable pages. You can still move, jump with Space, switch companions, and fight. Walking away from the speaker ends the conversation, and you can speak to them again later.
+
+Each room also has a short voice tied to an existing inscription, doorway, shrine, or other landmark. Approach during a quiet moment to hear it; these whispers fade on their own and do not use your interaction input. Bosses speak from their chambers when an encounter begins and when they fall. The world keeps moving while they speak. Reading an echo with E still records its full history separately in **N → World History**.
+
+Menus and portrait rotation hide scene dialogue and hold its elapsed time until you return. Room changes, returning home, and game over clear it. Inventory, crafting, covenant choices, reward summaries, and ending decisions retain their own interfaces.
+
 ## Controls
 
 | Input | Action |
@@ -30,13 +38,14 @@ The Last Lantern and Mourningwild use dedicated scenery: a warm lantern settleme
 | F, held while still | Channel one heart for 40 Focus over 72 frames |
 | V | Drink a Bramble Flask; restore three hearts |
 | 1 / 2 / 3, or Q | Switch among the three active companions |
-| E | Talk, use camp services, read, open a cache, pull a lever, enter a door |
+| E | Advance a conversation; otherwise talk, use services, read, open a cache, pull a lever, enter a door |
+| Enter | Advance the current conversation |
 | U | Grapple toward a nearby golden anchor after unlocking Ember Thread |
 | T / C | Use / cycle the Resonance Pick and Echo Lantern |
 | B | Buy a party-wide Heartwood upgrade near a service point |
 | M / I / N | Atlas / inventory and crafting / RPG chronicle |
 | R | Threefold Resonance Surge, when its gauge reaches 100% |
-| Escape | Pause |
+| Escape | Leave the current conversation; otherwise pause |
 
 Mobile screens require landscape. Portrait shows a rotate prompt on the home screen, in menus, and during gameplay; an active adventure pauses until the device rotates. Movement/aim is on the left; strike, jump, dash, Guard, heavy, special, and power are on the right. The left-pad SWAP button or party cards switch companions. Hold-to-heal and nearby interaction buttons sit beside movement; grapple appears after its unlock. The menu prioritizes recovery and loadouts, then exploration and tools. Keyboard controls are also listed in the in-game guide. Sound effects are optional and start muted.
 

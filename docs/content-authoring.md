@@ -72,6 +72,14 @@ QUESTS records in chronicle.js use stable IDs, giver IDs, prerequisites, optiona
 
 Known unique milestones can satisfy objectives retroactively; repeated minion-kill counts generally need future events. Rewards are claimed through quest state rather than merely showing dialogue. History records must reveal only after their intended prerequisites. Add world objects, dialogue, map connections, and UI text alongside a new story arc. Keep main progression completable without optional stories.
 
+## Add scene dialogue or a landmark voice
+
+NPC dialogue remains an array of `[speaker, text]` pairs in the base or chronicle data. Call `showDialogue(lines, nearObject)` with the actual NPC object so the event carries a stable source ID, room, feet position, name, and kind. Keep dialogue display separate from quest acceptance and reward claims. The UI divides long lines at sentence or word boundaries; prefer short utterances that read naturally beside the speaker. Space is a movement input, not a conversation advance key.
+
+Add a room’s short environmental line to [world-voices.js](../src/world-voices.js), using an existing object ID as its anchor. Copy real object coordinates, including negative or zero Y, and do not invent a decorative platform or collision surface to support the text. Keep whispers concise, local to the landmark, and free of unearned plot revelations. Boss introduction and defeat lines belong in `BOSS_VOICES` under the stable boss ID. These transient voices cannot grant progression or substitute for a collected memory’s persistent history entry.
+
+[WorldDialogueState](../src/world-dialogue-state.js) controls pages, range, and ambient timing; [world-dialogue.js](../src/world-dialogue.js) owns DOM presentation. Rendering must only project and place the voice, never pause the simulation or move the source. Use the [scene dialogue checks](testing.md#scene-dialogue-regressions) to verify input, readable mobile text, rotation, and unchanged progression after an addition.
+
 ## Add or tune a combat art
 
 1. Add a stable POWERS record in combat-data.js: name, icon, color, description, Focus cost, cooldown frames, mechanic parameters, and supported unlock metadata.

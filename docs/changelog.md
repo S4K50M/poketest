@@ -1,5 +1,12 @@
 # Changelog
 
+## Voices inside the world
+
+- Replaced NPC dialogue pop-ups with floating scene speech beside the actual speaker. Conversations allow movement, jumping, companion switching, and combat; E/Enter or touch continues, and walking away leaves.
+- Added concise landmark whispers throughout all 42 rooms and distinct arrival/defeat lines for all 21 bosses. Environmental voices keep exploration moving and preserve collected history and quest rewards.
+- Added readable conversation pages, keyboard/touch controls, mobile placement, pause/rotation preservation, and cleanup on room changes, home, and game over.
+- Kept conversation state outside saves and added focused lifecycle, input, content-anchor, and desktop/mobile verification.
+
 ## A new arrival in the Mourningwild
 
 - Replaced the scrolling landing page with an animated title screen whose main actions, party controls, and realm previews fit the viewport.

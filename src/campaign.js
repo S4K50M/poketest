@@ -118,7 +118,7 @@ export class CampaignEngine extends TrainingEngine{
     // Room progression replaces the old six tutorial gates entirely.
     for(const r of this.relics)if(r.collected&&!this.opened.has(r.id)){this.opened.add(r.id);this.inventory[CHAPTERS.find(c=>c.id===this.room.biome)?BOSSES[CHAPTERS.find(c=>c.id===this.room.biome).boss].material:'heartwood']+=2;this.save();}
     const p=this.player;
-    if(this.roomId==='sanctuary'&&this.storyStage===0&&p.x>330){this.storyStage=1;this.showDialogue(DIALOGUES.vell);}
+    if(this.roomId==='sanctuary'&&this.storyStage===0&&p.x>330){this.storyStage=1;this.showDialogue(DIALOGUES.vell,this.room.objects.find(o=>o.id==='vell'));}
     const boss=this.enemies.find(e=>e.boss&&e.hp>0);
     if(boss&&p.x>(boss.introX??760)&&!boss.introduced){boss.introduced=true;this.emit('bossintro',{boss:boss.boss});}
     if(p.x<650&&this.roomId==='moss-path'&&this.tutorial<1){this.tutorial=1;this.say('J QUICK STRIKE · K HEAVY · SHIFT DASH · HOLD F TO HEAL');}
@@ -213,8 +213,8 @@ export class CampaignEngine extends TrainingEngine{
     const key=this.roomId+':'+near.id;
     if(near.requiresBoss&&!this.bossDefeated(near.requiresBoss)){this.say('THE DEPTH WARDEN HOLDS THIS SEAL · DEFEAT '+BOSSES[near.requiresBoss].name.toUpperCase());return false;}
     if(near.kind==='lever'){if(this.opened.has(key)){this.say('THE ROOTBRIDGE IS ALREADY RAISED');return false;}this.opened.add(key);this.platforms.push({...near.bridge});this.say('ROOTBRIDGE RAISED · THE WAY REMEMBERS');this.emit('slam');this.save();return true;}
-    if(near.kind==='npc'&&near.talk!=='vell'){this.showDialogue(DIALOGUES[near.talk]);return true;}
-    if(near.kind==='npc'){const chapter=CHAPTERS[Math.min(this.fragments.size,5)];this.storyStage=Math.max(1,this.storyStage);this.showDialogue(this.fragments.size?[['Professor Vell',chapter.story],['Professor Vell','The sanctuary remembers every companion you rescue. Change your party at a camp, craft at the workbench, and follow the new portal.']]:DIALOGUES.vell);return true;}
+    if(near.kind==='npc'&&near.talk!=='vell'){this.showDialogue(DIALOGUES[near.talk],near);return true;}
+    if(near.kind==='npc'){const chapter=CHAPTERS[Math.min(this.fragments.size,5)];this.storyStage=Math.max(1,this.storyStage);this.showDialogue(this.fragments.size?[['Professor Vell',chapter.story],['Professor Vell','The sanctuary remembers every companion you rescue. Change your party at a camp, craft at the workbench, and follow the new portal.']]:DIALOGUES.vell,near);return true;}
     if(near.kind==='camp'){this.say('WAYFARER’S CAMP · EQUIPMENT & CRAFTING · FIND A WELLSPRING TO RECOVER');this.emit('workbench');return true;}
     if(near.kind==='workbench'){this.emit('workbench');return true;}
     if(near.kind==='memory'){const [title,text]=near.text.split('|');if(!this.memories.has(key)){this.memories.add(key);this.gainXP(30);this.emit('memory',{title,text});}this.say('ECHO RECOVERED · '+title+' · N: WORLD HISTORY');this.save();return true;}
@@ -229,7 +229,14 @@ export class CampaignEngine extends TrainingEngine{
     }
     return false;
   }
-  showDialogue(lines){this.emit('dialogue',{lines});}
+  showDialogue(lines,source=null){
+    if(!Array.isArray(lines))return false;
+    const copy=lines.filter(line=>Array.isArray(line)&&typeof line[0]==='string'&&typeof line[1]==='string').map(line=>[line[0],line[1]]);if(!copy.length)return false;
+    const anchor=source||this.room.objects.find(o=>o.kind==='npc'&&o.name===copy[0][0])||this.player;
+    // Dialogue carries a value copy of its real speaker, never a live entity.
+    // The host can place text in the scene without moving or pausing the world.
+    this.emit('dialogue',{lines:copy,source:{room:this.roomId,id:anchor.id||anchor.talk||'voice',x:Number.isFinite(anchor.x)?anchor.x:this.player.x,y:Number.isFinite(anchor.y)?anchor.y:520,name:anchor.name||copy[0][0],kind:anchor.kind||'npc'}});return true;
+  }
   useFlask(){const p=this.player;if(!this.inventory.flask||p.hp>=p.maxHp){this.say(!this.inventory.flask?'NO FLASKS · CRAFT MORE AT A WORKBENCH':'ALREADY AT FULL HEALTH');return false;}this.inventory.flask--;p.hp=Math.min(p.maxHp,p.hp+3);this.effects.push({type:'heal',x:p.x,y:p.y-30,life:35});this.emit('heal');this.save();return true;}
   cycleTool(){this.toolIndex=(this.toolIndex+1)%this.tools.length;this.say('TOOL · '+this.tools[this.toolIndex].toUpperCase());return true;}
   useTool(tool=this.tools[this.toolIndex]){

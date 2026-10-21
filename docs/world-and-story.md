@@ -39,6 +39,12 @@ flowchart TD
 
 The hub portals unlock in chapter order through the six main fragments. Optional guardians use a separate defeated-boss set; defeating them cannot skip main portal gates. The atlas shows discovered destinations. Fast travel requires a nearby service point on the same ground, a discovered destination camp or activated spring, and no nearby living threat. It does not heal the party or bind a new respawn spring.
 
+## Hearing the levels
+
+Story voices belong to places and creatures. Every room has a brief authored whisper at an existing landmark: roots remember a promise in the Mourningwild, furnace records count borrowed dawns, drowned shelves hold missing names, storm bells leave space for a ninth voice, frozen hours shelter unfinished tomorrows, and the Crown remembers its first cage. These lines appear in the scene when you approach during a quiet moment. They fade without stopping exploration or replacing the full field notes recorded in World History.
+
+Travelers speak beside their own figures. E/Enter or the Continue touch button advances their conversation; moving away leaves it. The 21 bosses each have their own arrival and defeat words tied to their encounter. Authored whispers and boss lines supply local context; major revelations still follow earned NPC quests, history records, and ending choices.
+
 ## Optional chronicle
 
 The sanctuary has seen ninety-nine expeditions. Iona’s living map knows every traveler. It does not know you. Investigate a century of unfinished promises through **eight quest lines**, four new story characters, ten gradually revealed history records, and three optional dungeons. Read inscriptions with E, speak to the quest giver to accept and turn in objectives, and pin a story in **N → Chronicles**. Completed field notes can be reread in World History. The six-fragment progression remains intact; optional bosses and dimensional minibosses do not open main portals early.

@@ -163,10 +163,10 @@ export class RPGCampaign extends CampaignEngine{
     }
     if(near.boss&&own(CHRONICLE_BOSSES,near.boss)){if(!this.defeatedBosses.has(near.boss)){this.say('THE FORBIDDEN GUARDIAN STILL HOLDS THIS DOOR');return false;}return this.loadRoom(near.to);}
     if(near.kind==='npc'){
-      const truth=this.quests.vellLastDay;if(near.talk==='vell'&&truth&&truth.state!=='complete'&&truth.progress.slice(0,3).every(n=>n>=1)){this.questFlags.add('talk:vell-truth');this.recordObjective('talk','vell-truth');this.showDialogue(NPC_DIALOGUES['vell-truth']);this.save();return true;}
+      const truth=this.quests.vellLastDay;if(near.talk==='vell'&&truth&&truth.state!=='complete'&&truth.progress.slice(0,3).every(n=>n>=1)){this.questFlags.add('talk:vell-truth');this.recordObjective('talk','vell-truth');this.showDialogue(NPC_DIALOGUES['vell-truth'],near);this.save();return true;}
       this.questFlags.add('talk:'+near.talk);this.recordObjective('talk',near.talk);
       for(const [id,q] of Object.entries(QUESTS))if((q.giverId||q.giver)===near.talk){if(this.quests[id]?.state==='ready')this.claimQuest(id);else if(!this.quests[id]&&this.questAvailable(id))this.acceptQuest(id);}
-      if(NPC_DIALOGUES[near.talk]){this.showDialogue(NPC_DIALOGUES[near.talk]);return true;}
+      if(NPC_DIALOGUES[near.talk]){this.showDialogue(NPC_DIALOGUES[near.talk],near);return true;}
     }
     const result=super.interact();if(result&&near.kind==='memory'){this.recordObjective('memory',this.roomId+':'+near.id);this.refreshKnowledge();this.save();}return result;
   }

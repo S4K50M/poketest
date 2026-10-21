@@ -38,6 +38,7 @@ The PORT prefix shown here uses POSIX shell syntax; use your shell’s equivalen
 | `npm run test:echo` | Check nonblocking echo pickups and journal records |
 | `npm run test:recovery` | Check automatic recovery, death penalties, Game Over, and Retry |
 | `npm run test:arrival` | Check the title screen, opening cinematic, and first-area presentation |
+| `npm run test:dialogue` | Check scene conversations, environmental voices, input, and mobile placement |
 
 npm start does not build first. After editing JavaScript without a watcher, run npm run build before starting or refreshing the game. CSS and HTML are served directly; changing them does not require a JavaScript rebuild.
 
@@ -45,7 +46,7 @@ npm start does not build first. After editing JavaScript without a watcher, run 
 
 1. Use the title screen to begin an expedition and choose three distinct companions. Its controls and panels fit the viewport; the atlas, party builder, and journal open without navigating to a long page.
 2. Watch or skip the opening, then enter the Last Lantern. Walk right with D to meet Professor Vell.
-3. Advance dialogue with E. Move to the first region portal and press E.
+3. Vell’s words appear beside the professor. Advance them with E/Enter or the Continue touch button; Space remains jump. You can move away to leave the conversation. Reach the first region portal and press E.
 4. Use J/K/L to fight, Space to jump, and Shift to dash. G raises Guard; H explains the new combat routes and arts.
 5. Walk into a glowing Wellspring to restore the whole party and set your respawn point automatically. Each gate contains two or three in varied interior locations, not a healing bench at its entrance. Open M for the atlas, I for inventory, and N for the chronicle.
 6. If all three companions fall, Game Over explains the gate-wide enemy revival and 10% Lumen loss. Retry returns to your last activated spring; Save & Title keeps the pending death in your save.
@@ -68,7 +69,7 @@ HTTP is recommended for consistent browser storage. Managed environments can blo
 
 | Symptom | What to check |
 | --- | --- |
-| CSS or fonts do not load | Keep the complete src/ CSS files, including style.css, landing.css, intro.css, and their local imports, together with assets/fonts/. Serve the repository root; inspect missing paths in the browser Network panel. |
+| CSS or fonts do not load | Keep the complete src/ CSS files, including style.css, landing.css, intro.css, world-dialogue.css, and their local imports, together with assets/fonts/. Serve the repository root; inspect missing paths in the browser Network panel. |
 | Source changes do not appear | Confirm the watcher rebuilt, or run npm run build. npm start serves the previous bundle. Refresh the browser; check that you opened the intended port. |
 | Bundle freshness check fails | Run npm run build, then npm run check; include the generated bundle in the source change. |
 | Port is already occupied | Select a different PORT. Inspect the existing process before stopping it; stop only servers you own. |

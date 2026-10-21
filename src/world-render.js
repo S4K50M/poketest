@@ -24,7 +24,8 @@ const noise=n=>{const a=Math.sin(n*127.1+37)*43758.5453;return a-Math.floor(a);}
 export class WorldRenderer{
   constructor(canvas){this.canvas=canvas;this.camera=0;this.cameraY=0;this.lastRoom='';this.shake=0;this.flash=0;this.time=0;this.fx=new CombatFX();this.lastClock=0;this.actorTime=0;this.actorHistory=new Map();this.corpses=new Map();}
   event(e,g){if(e.type!=='hit')this.fx.event(e,g);}
-  render(g,clock){
+  project(x,y){const {width,height}=this.canvas.getBoundingClientRect(),scale=height/660;return {x:(x-this.camera)*scale,y:(y-this.cameraY)*scale,width,height};}
+  render(g,clock,{speakerId=null}={}){
     const {c,w,h}=fitCanvas(this.canvas);if(!w||!h)return;const scale=h/660,view=w/scale,t=clock/1000,b=BIOMES[g.room.biome];this.time=t;this.fx.reducedMotion=!!g.combat?.settings?.reducedMotion;const elapsed=Math.min(.05,Math.max(0,(clock-(this.lastClock||clock))/1000));this.fx.update(elapsed);this.lastClock=clock;
     const animationDelta=!g.paused&&g.phase==='playing'&&!g.hitstop?elapsed:0;this.actorTime+=animationDelta;const actorTime=this.actorTime;
     const target=Math.max(0,Math.min(g.worldWidth-view,g.player.x-view*.38+g.player.vx*7));
@@ -94,7 +95,7 @@ export class WorldRenderer{
     for(const f of g.combat?.fields||[]){if(!Number.isFinite(f.x))continue;const radius=f.radius||100;c.save();c.globalAlpha=Math.min(.6,f.life/25);c.strokeStyle=f.color||b.color;c.lineWidth=2;c.setLineDash(f.type==='time'?[8,12]:[]);c.beginPath();c.ellipse(f.x,f.y,radius*(.9+Math.sin(t*5)*.04),f.type==='gravity'?radius*.6:35,t*.15,0,TAU);c.stroke();glow(c,f.x,f.y,radius,(f.color||b.color)+'14');c.restore();}
     if(firstArea)drawMourningwildForeground(c,g,this.camera,this.cameraY,view,660,t);
     const near=g.room.objects.filter(o=>Math.abs(o.x-p.x)<90&&Math.abs((o.y??520)-p.y)<95).sort((x,y)=>Math.abs(x.x-p.x)-Math.abs(y.x-p.x))[0];
-    if(near){const defeated=id=>g.bossDefeated?.(id)||g.fragments.has(id)||g.defeatedBosses?.has(id),locked=near.need>g.fragments.size||near.ability&&!g.abilities.has(near.ability)||near.boss&&!defeated(near.boss)||near.requiresBoss&&!defeated(near.requiresBoss);text(c,'[ E ]  '+(locked?'SEALED · ':'')+near.name,near.x,(near.y??520)-110,locked?'#b6acbf':'#f6e5bb',11);}
+    if(near&&near.id!==speakerId){const defeated=id=>g.bossDefeated?.(id)||g.fragments.has(id)||g.defeatedBosses?.has(id),locked=near.need>g.fragments.size||near.ability&&!g.abilities.has(near.ability)||near.boss&&!defeated(near.boss)||near.requiresBoss&&!defeated(near.requiresBoss);text(c,'[ E ]  '+(locked?'SEALED · ':'')+near.name,near.x,(near.y??520)-110,locked?'#b6acbf':'#f6e5bb',11);}
     c.restore();
     // Soft foreground silhouette and cinematic light rays.
     const vign=c.createLinearGradient(0,0,0,660);vign.addColorStop(0,'#07101d77');vign.addColorStop(.3,'transparent');vign.addColorStop(.85,'transparent');vign.addColorStop(1,'#040a14bb');c.fillStyle=vign;c.fillRect(0,0,view,660);

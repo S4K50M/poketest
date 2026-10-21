@@ -1,0 +1,33 @@
+/* Voices belong to the scenery: no modal surface, border or screen dimmer. */
+#world-dialogue{--dialogue-color:#dce4ba;position:absolute;left:0;top:0;width:430px;z-index:4;pointer-events:none;isolation:isolate;will-change:transform;color:#f0f1df;text-shadow:0 1px 3px #04151e,0 0 12px #04151e,0 0 24px #04151e;font-family:var(--body)}
+#world-dialogue[hidden],#world-dialogue [hidden]{display:none!important}
+#world-dialogue .world-dialogue-copy{position:relative;animation:world-voice-arrive .25s ease-out}
+#world-dialogue .world-dialogue-copy:before{content:'';position:absolute;inset:-23px -30px -17px;background:radial-gradient(ellipse,#061a21bc, #061a2190 42%,#061a2100 73%);z-index:-1;pointer-events:none}
+#world-dialogue .world-dialogue-byline{margin:0 0 7px;display:flex;align-items:center;gap:8px;min-height:17px;color:var(--dialogue-color);font:500 9px/1.4 var(--body);letter-spacing:1.5px;text-transform:uppercase}
+#world-dialogue .world-dialogue-sigil{font-size:17px;line-height:1;text-shadow:0 0 12px var(--dialogue-color)}
+#world-dialogue-speaker{overflow-wrap:anywhere}
+#world-dialogue-count{margin-left:auto;color:#a7c0b4;white-space:nowrap;letter-spacing:1px;font-size:8px}
+#world-dialogue-text{margin:0;color:#f0f1df;font:400 15px/1.6 var(--body);overflow-wrap:anywhere;max-height:var(--dialogue-text-max-height,none);overflow:auto;scrollbar-width:thin;scrollbar-color:#b7c9ac66 transparent;overscroll-behavior:contain}
+#world-dialogue[data-manual=true] #world-dialogue-text{pointer-events:auto;touch-action:pan-y}
+#world-dialogue[data-kind=whisper] #world-dialogue-text{font-style:italic;color:#d6e8db}
+#world-dialogue[data-kind=boss] #world-dialogue-text{color:#f1e5d3;font-weight:500}
+#world-dialogue .world-dialogue-actions{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:3px}
+#world-dialogue button{pointer-events:auto;min-height:44px;min-width:44px;display:flex;align-items:center;gap:9px;padding:0 5px;border:0;background:transparent;color:var(--dialogue-color);font:500 10px/1 var(--body);letter-spacing:.5px;touch-action:manipulation;cursor:pointer;text-shadow:0 1px 5px #04151e}
+#world-dialogue button:hover{color:#fff7ce}
+#world-dialogue button:focus-visible{outline:1px solid var(--dialogue-color);outline-offset:2px;border-radius:3px;background:#173132aa}
+#world-dialogue .world-dialogue-key{display:grid;place-items:center;width:19px;height:21px;font-size:10px;border:1px solid #b9c8a866;border-bottom-width:2px;border-radius:3px;line-height:1;background:#0e252c80;color:#e3e6bf}
+#world-dialogue [data-world-dialogue-next]>span:last-child{font-size:18px;margin-left:6px}
+#world-dialogue [data-world-dialogue-close]{color:#abc0b5;gap:5px}
+#world-dialogue [data-world-dialogue-close]>span{font-size:21px;font-weight:400}
+#world-dialogue [data-world-dialogue-close]>small{font-size:9px}
+#world-dialogue .world-dialogue-thread{position:absolute;height:1px;transform-origin:left center;background:linear-gradient(90deg,#b9ceaa00,var(--dialogue-color));opacity:.34;pointer-events:none}
+#world-dialogue .world-dialogue-mark{position:absolute;width:5px;height:5px;margin:-2px;transform:rotate(45deg);background:var(--dialogue-color);opacity:.5;box-shadow:0 0 12px var(--dialogue-color);pointer-events:none}
+#world-dialogue.world-dialogue-mobile .world-dialogue-byline{font-size:8px;letter-spacing:1.1px;margin-bottom:5px;min-height:15px}
+#world-dialogue.world-dialogue-mobile #world-dialogue-text{font-size:13px;line-height:1.5}
+#world-dialogue.world-dialogue-mobile .world-dialogue-copy:before{inset:-20px -23px -12px}
+#world-dialogue.world-dialogue-mobile button{font-size:9px;min-height:44px}
+@media(max-height:360px){#world-dialogue.world-dialogue-mobile #world-dialogue-text{font-size:12px;line-height:1.45}#world-dialogue.world-dialogue-mobile .world-dialogue-byline{font-size:7px;min-height:14px;letter-spacing:.9px;margin-bottom:4px}}
+body.orientation-blocked #world-dialogue{visibility:hidden;pointer-events:none}
+#world-dialogue.world-dialogue-still .world-dialogue-copy{animation:none}
+@keyframes world-voice-arrive{from{opacity:0;translate:0 4px}to{opacity:1;translate:0 0}}
+@media(prefers-reduced-motion:reduce){#world-dialogue .world-dialogue-copy{animation:none}}

@@ -20,6 +20,7 @@ npm run test:firstgate
 npm run test:art
 npm run test:bosses
 npm run test:arrival
+npm run test:dialogue
 ```
 
 | Command | What it verifies |
@@ -37,6 +38,7 @@ npm run test:arrival
 | `npm run test:art` | Canvas contact sheets for companions, wild enemies and bosses, plus desktop/mobile world rendering |
 | `npm run test:bosses` | Distinct encounter mechanics, warning geometry and live desktop/mobile boss presentation |
 | `npm run test:arrival` | Viewport-fitting title screen, cinematic lifecycle, first-area art and desktop/mobile presentation |
+| `npm run test:dialogue` | Nonmodal NPC conversation, progression inputs, landmark/boss voices, and mobile scene placement |
 
 Test totals grow with concrete regressions; use the current command output as the result for a change. Documentation-only edits need link/path checks and command review; they do not require rebuilding or rerunning combat routes.
 
@@ -60,6 +62,7 @@ npx playwright install chromium
 | Art and animation | 3190 | `ART_TEST_PORT` |
 | Boss encounters | 3200 | `BOSS_TEST_PORT` |
 | Landing and arrival | 3210 | `ARRIVAL_TEST_PORT` |
+| World dialogue | 3220 | `DIALOGUE_TEST_PORT` |
 
 Each suite starts and stops its own server. Choose a free override port if another task uses the default. Screenshots are written to ignored test-results/. Inspect screenshots after rendering or layout changes; a passing input test cannot prove visual quality by itself.
 
@@ -127,3 +130,11 @@ Its separate mobile context also starts in portrait and rotates before tapping t
 Opening checks cover new-expedition playback, skip, complete playback, Continue bypass, and replay without save replacement. Screenshots include `arrival-home-1440.png`, `arrival-home-844.png`, `arrival-home-realm.png`, the three `arrival-intro-*.png` acts, and `arrival-<room-id>.png` first-area views under ignored `test-results/`. Simulation and combat input must stay blocked until control returns; skipping must clear held keys and restore appropriate focus. Check rotation, tab visibility, reduced motion, subtitles, and the selected party rather than treating an autoplay timer alone as evidence of a working cutscene.
 
 Review the Last Lantern, first forest passage, deeper root galleries, upper climb, vault, and Matron chamber on desktop and mobile. Their art must remain read-only and leave enemy cues, real landing edges, and catch shelves clear. Keep the existing first-gate movement and full campaign suites alongside screenshot review so a scenery change cannot quietly alter traversal or progression.
+
+## Scene dialogue regressions
+
+Verify live conversations through ordinary movement and interaction: Vell’s greeting must appear beside the professor without opening the shared dialog or pausing the simulation. E/Enter advances one page per press and must not also retrigger an NPC interaction; Space remains jump, movement and combat remain available, and walking away dismisses speech. Escape leaves a conversation before a subsequent Escape opens Pause. Quest acceptance and turn-in remain tied to NPC interaction, not to how many pages were displayed.
+
+Check that inventory/pause/portrait rotation temporarily hide the voice and preserve its page and timer. Room changes, home, and game over must remove stale speech. Touch Continue/Leave and the existing interaction button must remain usable in landscape after rotation. Review desktop and narrow mobile screenshots for readable text, speaker anchoring, HUD clearance, and unobstructed movement/combat targets; a DOM bounding box alone does not prove the utterance fits.
+
+Node coverage checks text pagination, copied source metadata, presentation-state lifecycle, and landmark/boss content registration. Every live room needs a valid authored landmark anchor, including negative-Y upper rooms and optional dungeons. Automatic whispers must avoid interrupting a manual conversation or starting beside a nearby threat. They must never collect a memory, mutate progression, enter a save, or consume E. Preserve the existing nonblocking echo, campaign, RPG, and mobile suites alongside these focused checks.

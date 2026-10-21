@@ -18,7 +18,8 @@
     "test:firstgate": "node tests/firstgate-browser.mjs",
     "test:art": "node tests/art-browser.mjs",
     "test:bosses": "node tests/boss-browser.mjs",
-    "test:arrival": "node tests/arrival-browser.mjs"
+    "test:arrival": "node tests/arrival-browser.mjs",
+    "test:dialogue": "node tests/world-dialogue-browser.mjs"
   },
   "engines": {
     "node": ">=20"

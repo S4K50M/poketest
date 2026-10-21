@@ -10,17 +10,22 @@ import {regionAtlas} from './exploration-ui.js';
 import { paintPortrait, fitCanvas } from './render.js';
 import { OPENING_DURATION, openingBeat, drawOpeningCinematic } from './opening-cinematic.js';
 import { initLanding } from './landing.js';
+import { initWorldDialogue } from './world-dialogue.js';
+import { WorldDialogueState, resolveDialogueAnchor } from './world-dialogue-state.js';
+import { WORLD_VOICES, BOSS_VOICES } from './world-voices.js';
 import { ROSTER, findFighter } from './roster.js';
 import { MINIONS } from './designs.js';
 import { ROOMS, BIOMES, BOSSES, CHAPTERS, ABILITIES, ITEMS, CHARMS, DEFAULT_PARTY, SAVE_KEY } from './world.js';
 const $=id=>document.getElementById(id);
 const readSave=()=>{try{const s=JSON.parse(localStorage.getItem(SAVE_KEY));return [2,3,4].includes(s?.version)&&Object.hasOwn(ROOMS,s.room)?s:null;}catch{return null;}};
 let rpgTab='quests',orientationBlocked=false,opening=null,landing=null,landingBiome='moss';
-let saved=readSave(),party=[...DEFAULT_PARTY],game=null,view='home',overlayType='',mapRegion='sanctuary',mapRoom='',dialogue=[],dialogueIndex=0,rewardQueue=[],last=0,accumulator=0,lastHud=0,notice='',noticeFrames=0,sound=false,audioContext=null;
+let saved=readSave(),party=[...DEFAULT_PARTY],game=null,view='home',overlayType='',mapRegion='sanctuary',mapRoom='',rewardQueue=[],last=0,accumulator=0,lastHud=0,notice='',noticeFrames=0,sound=false,audioContext=null;
 const held=new Set(),canvas=$('world-canvas'),renderer=new WorldRenderer(canvas),heroRenderer=new WorldRenderer($('hero-scene')),modal=$('overlay');
 const intro=document.createElement('dialog');intro.id='intro-screen';intro.hidden=true;intro.setAttribute('aria-modal','true');intro.setAttribute('aria-labelledby','intro-title');intro.setAttribute('aria-describedby','intro-line');
 intro.innerHTML='<canvas id="intro-canvas" aria-hidden="true"></canvas><button id="intro-skip" aria-label="Skip opening cinematic">SKIP STORY <span>↗</span></button><div class="intro-caption" aria-live="polite"><p id="intro-kicker"></p><h2 id="intro-title"></h2><p id="intro-line"></p><div class="intro-progress" aria-hidden="true"><i id="intro-progress-fill"></i></div></div>';
 document.body.append(intro);
+const speech=new WorldDialogueState({voices:WORLD_VOICES});let speechRevision=-1,speechMotion=null;
+const worldDialogue=initWorldDialogue({parent:$('game-screen'),onAdvance:advanceWorldDialogue,onDismiss:dismissWorldDialogue});
 const preview=new CampaignEngine(DEFAULT_PARTY);
 const state=()=>game||preview;
 const bossCounterLabel=counter=>({'get-close':'GET CLOSE',behind:'GET BEHIND',platform:'TAKE HIGH GROUND',dodge:'DASH CLEAR',jump:'JUMP',retreat:'MOVE AWAY',minions:'DEFEAT SUMMONS',shield:'PARRY / SHIELD'}[counter]||'WATCH THE TELL');
@@ -45,25 +50,54 @@ $('landscape-button').onclick=async()=>{
 };
 function quickMenuHTML(){return heading('Your next <em>move.</em>','Combat stays under your thumbs. Everything else is one tap away.')+`<div class="quick-menu"><button class="primary" data-resume>RESUME ADVENTURE →</button><div class="quick-section"><p class="eyebrow">01 · RECOVER & PREPARE</p><div class="quick-grid"><button data-quick-action="potion">✚<strong>Drink flask</strong><small>${game?.inventory.flask||0} available · +3 hearts</small></button><button data-quick-action="powerCycle">⇄<strong>Cycle power</strong><small>Change your selected art</small></button><button data-overlay="arsenal">ϟ<strong>Combat arsenal</strong><small>Equip powers & motion options</small></button><button data-overlay="inventory">◇<strong>Inventory</strong><small>Equipment, items & crafting</small></button></div></div><div class="quick-section"><p class="eyebrow">02 · EXPLORE & PROGRESS</p><div class="quick-grid"><button data-overlay="map">⌁<strong>World map</strong><small>Tunnels & wellsprings</small></button><button data-overlay="chronicle">≋<strong>Chronicle</strong><small>Quests, talents & story</small></button><button data-quick-action="tool">⚒<strong>Use tool</strong><small>Current: ${escapeHtml(game?.tools[game.toolIndex]||'pickaxe')}</small></button><button data-overlay="party">⋈<strong>Companions</strong><small>Change roster at a camp station</small></button></div></div><div class="quick-footer"><button data-overlay="guide">CONTROLS & HELP</button><button data-toggle-sound aria-pressed="${sound}">SOUND · ${sound?'ON':'OFF'}</button><button data-return-home>SAVE & RETURN TO CAMP</button></div></div>`;}
 function clearInputs(){held.clear();if(game){game.setInputs({});game.releaseJump();game.releaseHeal();game.releaseSpecial();game.releaseShield();}}
+function renderWorldDialogue(delta=0){
+  const suspended=view!=='game'||!game||modal.open||orientationBlocked||!!opening;
+  speech.update(game,delta,{suspended});
+  const current=speech.current;
+  if(!current){worldDialogue.hide();speechRevision=speech.revision;return;}
+  const motion=reducedMotion();
+  if(speechRevision!==speech.revision||speechMotion!==motion){worldDialogue.show({...speech.snapshot(),color:BIOMES[game.room.biome].color,reducedMotion:motion});speechRevision=speech.revision;speechMotion=motion;}
+  worldDialogue.setVisible(!suspended);
+  if(suspended)return;
+  $('region-title').hidden=true;
+  const anchor=resolveDialogueAnchor(current.source,game),head=current.source.boss?170:current.source.kind==='npc'?115:55,point=renderer.project(anchor.x,anchor.y-head);
+  worldDialogue.place({...point,mobile:mobileLayout()});
+}
+function advanceWorldDialogue(){
+  if(orientationBlocked||modal.open||opening||!game||game.phase!=='playing'||!speech.current?.manual)return false;
+  speech.advance();renderWorldDialogue();if(!speech.current){game.save();canvas.focus({preventScroll:true});}return true;
+}
+function dismissWorldDialogue(){
+  if(orientationBlocked||modal.open||opening||!speech.current)return;
+  speech.dismiss();renderWorldDialogue();canvas.focus({preventScroll:true});
+}
+function worldInteract(){if(!advanceWorldDialogue())return game?.input('interact');return true;}
+function bossVoice(id,beat){
+  if(!game||view!=='game'||!BOSS_VOICES[id]?.[beat])return;
+  const actor=game.enemies.find(e=>e.boss===id);if(!actor)return;
+  speech.begin([[(game.bossInfo?.(id)||BOSSES[id]).name,BOSS_VOICES[id][beat]]],{room:game.roomId,id:actor.key||id,boss:id,x:actor.x,y:actor.y,kind:'boss'},{manual:false,kind:'boss'});
+}
 function events(e){
   renderer.event(e,game);tone(e.type);
-  if(e.type==='gameover'&&game&&view==='game'){rewardQueue=[];openOverlay('gameover');return;}
+  if(e.type==='room'){speech.dismiss({cooldown:900});worldDialogue.hide();}
+  if(e.type==='gameover'&&game&&view==='game'){speech.dismiss();worldDialogue.hide();rewardQueue=[];openOverlay('gameover');return;}
   if(e.type==='recovery'){notice='WELLSPRING AWAKENED · PARTY FULLY RESTORED';noticeFrames=240;document.body.classList.add('recovery-flash');setTimeout(()=>document.body.classList.remove('recovery-flash'),900);}
   if(e.type==='memory'){notice='ECHO RECORDED · '+e.title+' · N: WORLD HISTORY';noticeFrames=240;}
   if(e.type==='artunlocked'){notice='COMBAT ART AWAKENED · '+e.name+' · H TO EQUIP';noticeFrames=180;}
-  if(e.type==='dialogue'){dialogue=e.lines;dialogueIndex=0;openOverlay('dialogue');}
+  if(e.type==='dialogue'&&game&&view==='game'){speech.begin(e.lines,e.source||{room:game.roomId,x:game.player.x,y:game.player.y,kind:'npc'});renderWorldDialogue();}
   if(e.type==='workbench')openOverlay('inventory');
   if(e.type==='merchant')openOverlay('merchant');
   if(e.type==='factionchoice'){rpgTab='factions';openOverlay('chronicle');}
-  if(e.type==='bossintro'){const b=game?.bossInfo?.(e.boss)||BOSSES[e.boss];notice=b.epithet+' · '+b.name;noticeFrames=160;}
+  if(e.type==='bossintro'){const b=game?.bossInfo?.(e.boss)||BOSSES[e.boss];notice=b.epithet+' · '+b.name;noticeFrames=160;bossVoice(e.boss,'intro');}
+  if(e.type==='bossdefeated')bossVoice(e.boss,'defeat');
   if(e.type==='bossdefeated'&&(e.miniboss||BOSSES[e.boss]?.miniboss)){notice='GATE CHAMPION DEFEATED · A NEW PASSAGE OPENS';noticeFrames=180;}
   else if(e.type==='bossdefeated'){rewardQueue.push(e.boss);setTimeout(()=>{if(view==='game'&&rewardQueue.length&&!modal.open)openOverlay('reward');},700);}
   if(e.type==='credits')openOverlay('credits');
 }
 function startCampaign(resume=false){
-  closeOverlay(true);rewardQueue=[];game=new CampaignEngine(resume?DEFAULT_PARTY:party,{save:resume?saved:null,onEvent:events,onSave:store});view='game';$('home-screen').hidden=true;$('game-screen').hidden=false;document.body.classList.add('playing');accumulator=0;last=performance.now();lastHud=0;noticeFrames=0;if(!resume||!saved?.combat)game.combat.settings.reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)').matches;game.save();renderHud();canvas.focus({preventScroll:true});window.scrollTo(0,0);if(game.phase==='gameover')openOverlay('gameover');else if(game.trueEnding)openOverlay('trueending');else if(game.finished&&!game.ending)openOverlay('ending');if(!resume)beginOpening('expedition');syncMobileLayout();
+  closeOverlay(true);speech.reset();worldDialogue.hide();rewardQueue=[];game=new CampaignEngine(resume?DEFAULT_PARTY:party,{save:resume?saved:null,onEvent:events,onSave:store});view='game';$('home-screen').hidden=true;$('game-screen').hidden=false;document.body.classList.add('playing');accumulator=0;last=performance.now();lastHud=0;noticeFrames=0;if(!resume||!saved?.combat)game.combat.settings.reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)').matches;game.save();renderHud();canvas.focus({preventScroll:true});window.scrollTo(0,0);if(game.phase==='gameover')openOverlay('gameover');else if(game.trueEnding)openOverlay('trueending');else if(game.finished&&!game.ending)openOverlay('ending');if(!resume)beginOpening('expedition');syncMobileLayout();
 }
-function returnHome(){if(opening)finishOpening();if(game)game.save();clearInputs();closeOverlay(true);view='home';$('home-screen').hidden=false;$('game-screen').hidden=true;document.body.classList.remove('playing','game-over','recovery-flash');game=null;syncMobileLayout();renderHomeParty();updateContinue();$('start-button').focus({preventScroll:true});}
+function returnHome(){if(opening)finishOpening();if(game)game.save();speech.reset();worldDialogue.hide();clearInputs();closeOverlay(true);view='home';$('home-screen').hidden=false;$('game-screen').hidden=true;document.body.classList.remove('playing','game-over','recovery-flash');game=null;syncMobileLayout();renderHomeParty();updateContinue();$('start-button').focus({preventScroll:true});}
 function beginOpening(mode='replay'){
   if(opening||orientationBlocked)return;
   closeOverlay(true);clearInputs();opening={mode,elapsed:0,beat:-1,suspended:document.hidden};if(game)game.paused=true;accumulator=0;last=performance.now();
@@ -100,10 +134,10 @@ function openOverlay(type){
   if(game?.phase==='gameover')type='gameover';
   if(type==='chronicle')$('overlay-kicker').textContent='THE NINTH MEMORY';
   if(type==='map'&&game){mapRegion=game.room.biome;mapRoom=game.roomId;}
-  clearInputs();overlayType=type;modal.dataset.view=type;if(game)game.paused=true;renderOverlay();modal.scrollTop=0;if(!modal.open)modal.showModal();overlayFocus().focus({preventScroll:true});
+  clearInputs();worldDialogue.setVisible(false);overlayType=type;modal.dataset.view=type;if(game)game.paused=true;renderOverlay();modal.scrollTop=0;if(!modal.open)modal.showModal();overlayFocus().focus({preventScroll:true});
 }
 function closeOverlay(force=false){if(game?.phase==='gameover'&&!force)return;if(modal.open)modal.close();overlayType='';if(game){game.paused=orientationBlocked||!!opening||game.phase==='gameover';if(!orientationBlocked)canvas.focus({preventScroll:true});}clearInputs();}
-modal.addEventListener('cancel',e=>{e.preventDefault();if(orientationBlocked||overlayType==='gameover')return;if(overlayType==='dialogue')nextDialogue();else if(overlayType==='reward')dismissReward();else closeOverlay();});
+modal.addEventListener('cancel',e=>{e.preventDefault();if(orientationBlocked||overlayType==='gameover')return;if(overlayType==='reward')dismissReward();else closeOverlay();});
 $('close-overlay').onclick=()=>{if(overlayType==='gameover')return;if(overlayType==='reward')dismissReward();else closeOverlay();};
 function heading(title,description=''){return `<div class="modal-heading"><h2 id="overlay-title">${title}</h2><p>${description}</p></div>`;}
 function renderOverlay(){
@@ -121,7 +155,6 @@ function renderOverlay(){
   else if(overlayType==='codex')content.innerHTML=codexHTML(g);
   else if(overlayType==='guide')content.innerHTML=guideHTML();
   else if(overlayType==='pause')content.innerHTML=`<div class="pause-menu"><p class="eyebrow">${g.room.name.toUpperCase()}</p><h2 id="overlay-title">A quiet moment.</h2><p>Your companions will wait.<br>${notice||'Progress saves at wellsprings, doors, discoveries, and victories.'}</p><button class="primary" data-resume>RETURN TO THE WORLD →</button><button data-overlay="arsenal">KINETIC ARSENAL · POWERS & TECHNIQUES</button><button data-overlay="map">WORLD ATLAS</button><button data-overlay="inventory">INVENTORY & CRAFTING</button><button data-overlay="party">YOUR COMPANIONS</button><button data-overlay="chronicle">CHRONICLES · TALENTS · EQUIPMENT</button><button data-overlay="codex">CREATURE BESTIARY</button><button data-overlay="guide">CONTROLS & TECHNIQUES</button><button data-return-home>SAVE & RETURN TO CAMP</button></div>`;
-  else if(overlayType==='dialogue')content.innerHTML=dialogueHTML();
   else if(overlayType==='reward')content.innerHTML=rewardHTML(g);
   else if(overlayType==='ending')content.innerHTML=endingHTML();
   else if(overlayType==='credits')content.innerHTML=creditsHTML(g);
@@ -142,9 +175,7 @@ function partyHTML(g){
 function codexHTML(g){
   const chapter=CHAPTERS[Math.min(g.fragments.size,5)];return heading('What the world <em>remembers.</em>',`${g.memories.size} field notes · ${g.shrines.size} lost echoes · ${g.discovered.size}/${Object.keys(MINIONS).length} wild species`)+`<div class="story-panel"><p class="eyebrow">${g.finished?'EPILOGUE':'CURRENT CHAPTER'}</p><h3>${g.finished?'A family for the Worldheart':chapter.title}</h3><p>${g.finished?'The guardians were never your enemies. They were carrying something too heavy to put down. The Worldheart remembers what you did for them.':chapter.story}</p></div><h3 class="minor-heading">COMPANIONS · ${g.unlocked.size} / 11 FOUND</h3><div class="codex-grid">${ROSTER.map(d=>`<article class="codex-card"><canvas data-portrait="${d.id}" aria-label="${d.name}"></canvas><small>${g.unlocked.has(d.id)?d.types.join(' / ').toUpperCase():'RESCUE THIS COMPANION'}</small><h3>${d.name}</h3><p>${d.description}</p><p><em>${d.skill}</em> · ${d.passive}</p></article>`).join('')}</div><h3 class="minor-heading">GUARDIANS & THEIR MEMORIES</h3><div class="codex-grid">${Object.entries(BOSSES).map(([id,b])=>`<article class="codex-card"><small>${g.bossDefeated(id)?'MEMORY RESTORED':'A VOICE STILL LOST'}</small><h3>${b.name}</h3><p>${g.bossDefeated(id)?b.lore:b.epithet.toLowerCase()}</p><details class="boss-field-notes"><summary>ATTACK FIELD NOTES</summary><p>${BOSS_ENCOUNTERS[id].identity}</p><ul class="boss-notes">${BOSS_ENCOUNTERS[id].moves.map(m=>`<li><strong>${m.name}</strong><small>${bossCounterLabel(m.counter)}</small><p>${m.hint}</p></li>`).join('')}</ul></details></article>`).join('')}</div><h3 class="minor-heading">FIELD BESTIARY</h3><div class="codex-grid">${Object.entries(MINIONS).map(([id,d])=>`<article class="codex-card"><small>${g.discovered.has(id)?'DISCOVERED · '+d.types:'UNOBSERVED · '+d.types}</small><h3>${d.name}</h3><p>${d.hint}</p></article>`).join('')}</div>`;
 }
-function guideHTML(){const rows=[['Shield / timed parry','HOLD G · 7-frame deflect'],['Power / cycle / arsenal','X / Z / H'],['Uppercut launcher','W + K · J J K branches'],['Aerial plunge','AIR S + K · unlock Claw'],['Run / aim','A D / W S'],['Variable-height jump','SPACE · release for short hop'],['Dash / recovery cancel','SHIFT'],['Fast three-hit chain','J · buffer your next strike'],['Armor breaker','K'],['Directional elemental skill','W A S D + L / neutral L'],['Pogo bounce','Air S + J'],['Focus heal · hold still','HOLD F · costs 40 FOCUS · 1.2s channel'],['Drink a flask','V · restores 3 hearts'],['Switch companions','1 / 2 / 3 · Q cycles'],['Interact / craft / enter','E'],['Automatic full recovery','WALK THROUGH A WELLSPRING'],['Use / cycle tools','T / C'],['Grapple to golden anchor','U · requires Ember Thread'],['Map / inventory / journal','M / I / N'],['Threefold Resonance Surge','R · full gauge required'],['Chronicle / talents / equipment','N'],['Pause','ESCAPE']];return heading('Learn the <em>rhythm.</em>','J: 0.2s · K: 0.6s · L: 1.5s. Time your follow-ups; each power has its own cooldown. Every hit refills Focus; every quiet moment can restore a heart.')+`<div class="controls-grid">${rows.map(([a,b])=>`<div class="control-row"><span>${a}</span><kbd>${b}</kbd></div>`).join('')}</div><p class="modal-note">Defeat the Briar Matron for wall jumps, Saint Bellows for grappling, the Leviathan for the Tideglass Seal, the Conductor for a double jump, and the Hourglass Stag for Rift Step. Return with new abilities to reach high chambers, buried vaults, and looping shortcuts. The map records explored passages; navigation is yours.</p><button class="secondary" data-overlay="arsenal">KINETIC ARSENAL · ALL POWERS & COMBAT ROUTES ↗</button>`;}
-function dialogueHTML(){const line=dialogue[dialogueIndex]||['The Worldheart','Listen.'];return `<div class="dialogue-body"><div class="dialogue-sigil">✧</div><div><h2 id="overlay-title">${line[0]}</h2><p>${line[1]}</p></div></div><div class="dialogue-footer"><span>${String(dialogueIndex+1).padStart(2,'0')} / ${String(dialogue.length).padStart(2,'0')} &nbsp; · &nbsp; E / SPACE TO CONTINUE</span><button class="primary" data-dialogue-next>${dialogueIndex===dialogue.length-1?'FOLLOW THE PULSE':'LISTEN'} <span>→</span></button></div>`;}
-function nextDialogue(){if(dialogueIndex<dialogue.length-1){dialogueIndex++;renderOverlay();}else{game?.save();closeOverlay();}}
+function guideHTML(){const rows=[['Shield / timed parry','HOLD G · 7-frame deflect'],['Power / cycle / arsenal','X / Z / H'],['Uppercut launcher','W + K · J J K branches'],['Aerial plunge','AIR S + K · unlock Claw'],['Run / aim','A D / W S'],['Variable-height jump','SPACE · release for short hop'],['Dash / recovery cancel','SHIFT'],['Fast three-hit chain','J · buffer your next strike'],['Armor breaker','K'],['Directional elemental skill','W A S D + L / neutral L'],['Pogo bounce','Air S + J'],['Focus heal · hold still','HOLD F · costs 40 FOCUS · 1.2s channel'],['Drink a flask','V · restores 3 hearts'],['Switch companions','1 / 2 / 3 · Q cycles'],['Interact / craft / enter','E'],['Conversation · continue / leave','E or ENTER / ESCAPE'],['Automatic full recovery','WALK THROUGH A WELLSPRING'],['Use / cycle tools','T / C'],['Grapple to golden anchor','U · requires Ember Thread'],['Map / inventory / journal','M / I / N'],['Threefold Resonance Surge','R · full gauge required'],['Chronicle / talents / equipment','N'],['Pause','ESCAPE']];return heading('Learn the <em>rhythm.</em>','J: 0.2s · K: 0.6s · L: 1.5s. Time your follow-ups; each power has its own cooldown. Every hit refills Focus; every quiet moment can restore a heart.')+`<div class="controls-grid">${rows.map(([a,b])=>`<div class="control-row"><span>${a}</span><kbd>${b}</kbd></div>`).join('')}</div><p class="modal-note">Defeat the Briar Matron for wall jumps, Saint Bellows for grappling, the Leviathan for the Tideglass Seal, the Conductor for a double jump, and the Hourglass Stag for Rift Step. Return with new abilities to reach high chambers, buried vaults, and looping shortcuts. The map records explored passages; navigation is yours.</p><button class="secondary" data-overlay="arsenal">KINETIC ARSENAL · ALL POWERS & COMBAT ROUTES ↗</button>`;}
 function rewardHTML(){const id=rewardQueue[0],b=game?.bossInfo?.(id)||BOSSES[id],art=Object.values(POWERS).find(d=>d.unlock.id===id||d.unlock.id===b?.reward);if(!b)return '';return `<div class="reward-panel"><span class="reward-icon">✧</span><p class="eyebrow">${CHRONICLE_BOSSES[id]?'FORBIDDEN MEMORY RESTORED':'HEART FRAGMENT RESTORED'} · ${BIOMES[b.biome].name.toUpperCase()}</p><h2 id="overlay-title">${b.name}</h2><p>${b.lore}</p><p class="reward-unlock">${b.reward?'ABILITY AWAKENED · '+ABILITIES[b.reward].name.toUpperCase():CHRONICLE_BOSSES[id]?'MYTHIC RELIC & TALENT POINT EARNED':'THE WORLDHEART OPENS ITS EYES'}${b.creature?'<br><br>NEW COMPANION · '+findFighter(b.creature).name.toUpperCase():''}</p>${b.reward?`<p class="modal-note">${ABILITIES[b.reward].description}</p>`:''}${art?`<p class="reward-unlock">COMBAT ART · ${art.name.toUpperCase()}<br><small>Open H · Arsenal to equip it in either power slot.</small></p>`:''}<div class="modal-actions"><button class="primary" data-dismiss-reward>CARRY THE MEMORY <span>→</span></button></div></div>`;}
 function dismissReward(){const id=rewardQueue.shift();closeOverlay();if(id==='crown')openOverlay('ending');else if(id==='nullheart')openOverlay('trueending');}
 function endingHTML(){return `<div class="reward-panel"><span class="reward-icon">◈</span><p class="eyebrow">THE WORLDHEART SPEAKS</p><h2 id="overlay-title">“Will you stay with me?”</h2><p>The heart was a creature all along. Vell broke its cage, and the world broke with it. Now six memories are whole again. Your three companions step forward. The choice is yours.</p><div class="ending-options"><button data-ending="restore"><h3>Become its guardians.</h3><p>Restore the Worldheart. Keep the roads open, and make sure no kingdom ever cages it again.</p></button><button data-ending="release"><h3>Let the heart run free.</h3><p>Release it into the stars. The roads will change, but every creature will carry a piece of its light.</p></button></div></div>`;}
@@ -182,15 +213,16 @@ function renderHud(){
   $('combo-hud').hidden=g.combo<2;$('combo-number').textContent=g.combo;$('heal-indicator').hidden=!p.healing;$('heal-progress').style.width=p.healProgress/(g.healConfig?.frames||72)*100+'%';
   $('game-toast').hidden=!(g.messageTime||noticeFrames);$('game-toast').textContent=g.messageTime?g.message:notice;
   const boss=g.enemies.find(e=>e.boss&&e.hp>0&&e.introduced);$('boss-hud').hidden=!boss;if(boss){$('boss-name').textContent=g.bossInfo(boss.boss).name;$('boss-fill').style.width=boss.hp/boss.maxHp*100+'%';$('boss-fill').style.background=BOSSES[boss.boss].color;$('boss-phase').textContent=(boss.phase>=3?'PHASE III':boss.phase===2?'PHASE II':'PHASE I')+(boss.moveName?' · '+boss.moveName.toUpperCase():'')+(boss.state==='recover'?' · RECOVERING':boss.counter?' · '+bossCounterLabel(boss.counter):'');$('boss-phase').title=boss.hint||'Watch the windup';}
-  $('region-title').hidden=g.transition<20||g.transition>95;$('region-kicker').textContent=BIOMES[g.room.biome].subtitle.toUpperCase();$('region-name').textContent=g.room.name;$('region-title').style.opacity=String(Math.min(1,(g.transition-20)/18,(100-g.transition)/18));
+  $('region-title').hidden=!!speech.current||g.transition<20||g.transition>95;$('region-kicker').textContent=BIOMES[g.room.biome].subtitle.toUpperCase();$('region-name').textContent=g.room.name;$('region-title').style.opacity=String(Math.min(1,(g.transition-20)/18,(100-g.transition)/18));
 }
 const keyAction={KeyG:'shield',KeyX:'power',KeyZ:'powerCycle',KeyR:'surge',Space:'jump',ShiftLeft:'dash',ShiftRight:'dash',KeyJ:'light',KeyK:'heavy',KeyL:'special',KeyF:'heal',KeyE:'interact',KeyQ:'switch',Digit1:'slot1',Digit2:'slot2',Digit3:'slot3',KeyV:'potion',KeyT:'tool',KeyC:'toolCycle',KeyU:'grapple',KeyB:'upgrade'};
 function syncMovement(){game?.setInputs({left:held.has('KeyA')||held.has('ArrowLeft'),right:held.has('KeyD')||held.has('ArrowRight'),up:held.has('KeyW')||held.has('ArrowUp'),down:held.has('KeyS')||held.has('ArrowDown')});}
 window.addEventListener('keydown',e=>{
   if(opening){if(orientationBlocked)return;if(['Space','Enter','Escape','KeyE'].includes(e.code)){e.preventDefault();if(!e.repeat)finishOpening();}else if(keyAction[e.code]||/^(Key[WASD]|Arrow(Left|Right|Up|Down))$/.test(e.code))e.preventDefault();return;}
   if(orientationBlocked){if(keyAction[e.code])e.preventDefault();return;}
-  if(modal.open){if(overlayType==='gameover'){if(e.code==='KeyR'&&!e.repeat){e.preventDefault();retryDeath();}return;}if(overlayType==='dialogue'&&['Space','Enter','KeyE'].includes(e.code)){e.preventDefault();if(!e.repeat)nextDialogue();}else if((overlayType==='map'&&e.code==='KeyM'||overlayType==='inventory'&&e.code==='KeyI'||overlayType==='chronicle'&&e.code==='KeyN'||overlayType==='arsenal'&&e.code==='KeyH')&&!e.repeat){e.preventDefault();closeOverlay();}return;}
+  if(modal.open){if(overlayType==='gameover'){if(e.code==='KeyR'&&!e.repeat){e.preventDefault();retryDeath();}return;}if((overlayType==='map'&&e.code==='KeyM'||overlayType==='inventory'&&e.code==='KeyI'||overlayType==='chronicle'&&e.code==='KeyN'||overlayType==='arsenal'&&e.code==='KeyH')&&!e.repeat){e.preventDefault();closeOverlay();}return;}
   if(view!=='game')return;
+  if(speech.current?.manual&&['KeyE','Enter','Escape'].includes(e.code)){e.preventDefault();if(!e.repeat){if(e.code==='Escape')dismissWorldDialogue();else advanceWorldDialogue();}return;}
   const overlays={KeyH:'arsenal',KeyM:'map',KeyI:'inventory',KeyN:'chronicle',Escape:'pause'};
   if(overlays[e.code]){e.preventDefault();if(!e.repeat)openOverlay(overlays[e.code]);return;}
   if(keyAction[e.code]||/^(Key[WASD]|Arrow(Left|Right|Up|Down))$/.test(e.code)){e.preventDefault();held.add(e.code);syncMovement();if(!e.repeat&&keyAction[e.code])game.input(keyAction[e.code]);}
@@ -228,7 +260,6 @@ document.addEventListener('click',e=>{
   if(b.dataset.travel){if(game?.fastTravel(b.dataset.travel))closeOverlay();else{const msg=game?.message||'Begin your expedition to discover this waylight.';const prior=$('overlay-content').querySelector('.travel-message');if(prior)prior.remove();$('overlay-content').insertAdjacentHTML('beforeend',`<p class="status-note travel-message" role="status">${escapeHtml(msg)}</p>`);}}
   if(b.hasAttribute('data-resume'))closeOverlay();
   if(b.hasAttribute('data-return-home'))returnHome();
-  if(b.hasAttribute('data-dialogue-next'))nextDialogue();
   if(b.hasAttribute('data-dismiss-reward'))dismissReward();
   if(b.dataset.ending)game?.finishEnding(b.dataset.ending);
   if(b.dataset.switch!==undefined){game?.switchTo(Number(b.dataset.switch));renderHud();canvas.focus({preventScroll:true});}
@@ -242,19 +273,20 @@ document.addEventListener('click',e=>{
 document.addEventListener('change',e=>{const slot=e.target.dataset.partySlot;if(slot===undefined)return;const i=Number(slot),id=e.target.value;if(game)game.replaceParty(i,id);else{const other=party.indexOf(id),old=party[i];party[i]=id;if(other>=0&&other!==i)party[other]=old;renderHomeParty();}renderOverlay();});
 for(const b of document.querySelectorAll('.touch-controls button')){
   const end=e=>{e.preventDefault();const h=b.dataset.hold;if(h==='heal')game?.releaseHeal();else if(h==='shield')game?.releaseShield();else if(h){held.delete({left:'KeyA',right:'KeyD',up:'KeyW',down:'KeyS'}[h]);syncMovement();}if(b.dataset.action==='jump')game?.releaseJump();if(b.dataset.action==='special')game?.releaseSpecial();};
-  b.addEventListener('pointerdown',e=>{e.preventDefault();if(orientationBlocked||modal.open||opening||!game)return;b.setPointerCapture(e.pointerId);const h=b.dataset.hold;if(h==='heal')game?.input('heal');else if(h==='shield')game?.input('shield');else if(h){held.add({left:'KeyA',right:'KeyD',up:'KeyW',down:'KeyS'}[h]);syncMovement();}else game?.input(b.dataset.action);});b.addEventListener('pointerup',end);b.addEventListener('pointercancel',end);
+  b.addEventListener('pointerdown',e=>{e.preventDefault();if(orientationBlocked||modal.open||opening||!game)return;b.setPointerCapture(e.pointerId);const h=b.dataset.hold;if(h==='heal')game?.input('heal');else if(h==='shield')game?.input('shield');else if(h){held.add({left:'KeyA',right:'KeyD',up:'KeyW',down:'KeyS'}[h]);syncMovement();}else if(b.dataset.action==='interact')worldInteract();else game?.input(b.dataset.action);});b.addEventListener('pointerup',end);b.addEventListener('pointercancel',end);
 }
 $('start-button').onclick=()=>openOverlay('party');$('party-button').onclick=()=>openOverlay('party');$('continue-button').onclick=()=>startCampaign(true);$('home-button').onclick=()=>{if(game)openOverlay('pause');else window.scrollTo({top:0,behavior:'smooth'});};$('nav-campaign').onclick=()=>{if(game)closeOverlay();else window.scrollTo({top:0,behavior:'smooth'});};$('nav-map').onclick=$('atlas-button').onclick=()=>openOverlay('map');$('nav-codex').onclick=()=>openOverlay('chronicle');$('guide-button').onclick=$('footer-guide').onclick=()=>openOverlay('guide');$('sound-button').onclick=()=>{sound=!sound;$('sound-button').setAttribute('aria-pressed',String(sound));$('sound-button').style.color=sound?'#e6dcac':'';tone('relic');canvas.focus({preventScroll:true});};
 function frame(clock){
   const delta=Math.min(100,clock-(last||clock));last=clock;
   if(opening){accumulator=0;if(!orientationBlocked&&!document.hidden&&!opening.suspended)opening.elapsed=Math.min(OPENING_DURATION,opening.elapsed+delta);renderOpening();if(opening.elapsed>=OPENING_DURATION)finishOpening();}
-  else if(view==='game'&&game){accumulator+=delta;let steps=0;while(accumulator>=1000/60&&steps++<6){game.step();if(noticeFrames>0)noticeFrames--;accumulator-=1000/60;}renderer.render(game,clock);if(clock-lastHud>80){renderHud();lastHud=clock;}if(game.tick&&game.tick%600===0&&!game.paused)game.save();
+  else if(view==='game'&&game){accumulator+=delta;let steps=0;while(accumulator>=1000/60&&steps++<6){game.step();if(noticeFrames>0)noticeFrames--;accumulator-=1000/60;}renderer.render(game,clock,{speakerId:speech.current?.source.id});if(clock-lastHud>80){renderHud();lastHud=clock;}if(game.tick&&game.tick%600===0&&!game.paused)game.save();
     if(game.phase==='gameover'&&overlayType!=='gameover')openOverlay('gameover');
     if(game.phase==='playing'&&rewardQueue.length&&!modal.open&&game.enemies.every(e=>!e.boss||e.hp<=0))openOverlay('reward');
+    renderWorldDialogue(delta);
   }else heroRenderer.renderHome(clock,party,{reducedMotion:reducedMotion(),biome:landingBiome});
   animatePortraits(clock);
   requestAnimationFrame(frame);
 }
-window.kinetic={snapshot:()=>({...(game?game.snapshot():{phase:'selection',mode:'campaign',party:[...party],hasSave:!!saved}),intro:{active:!!opening,elapsed:opening?.elapsed||0,beat:opening?openingBeat(opening.elapsed).index:0,mode:opening?.mode||null,paused:!!opening&&(orientationBlocked||document.hidden||opening.suspended)},home:{biome:landingBiome}}),version:'4.0.0'};
+window.kinetic={snapshot:()=>({...(game?game.snapshot():{phase:'selection',mode:'campaign',party:[...party],hasSave:!!saved}),dialogue:speech.snapshot(),intro:{active:!!opening,elapsed:opening?.elapsed||0,beat:opening?openingBeat(opening.elapsed).index:0,mode:opening?.mode||null,paused:!!opening&&(orientationBlocked||document.hidden||opening.suspended)},home:{biome:landingBiome}}),version:'4.0.0'};
 landing=initLanding({onBiome:biome=>{if(BIOMES[biome])landingBiome=biome;},onReplay:()=>beginOpening('replay')});
 renderHomeParty();updateContinue();syncMobileLayout();requestAnimationFrame(frame);

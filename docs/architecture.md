@@ -39,7 +39,7 @@ WorldRenderer follows the player with a camera, then draws biome layers, enclose
 
 Renderers receive presentation copies of enemies rather than adding animation fields to simulation objects. A renderer-local history and corpse cache completes death animation for enemies removed immediately by gameplay. Those visual bodies cannot collide, delay rewards, keep enemies alive, or enter a save. Room changes clear the caches. Entity wrappers preserve Canvas context state and apply whole-body action/recoil effects around the species-specific art.
 
-Menus, dialogue, rewards, and endings use the shared overlay dialog. The entry cinematic has a separate presentation dialog, and the portrait rotation prompt remains the outer interaction gate. Opening a gameplay overlay pauses the simulation and clears held inputs. Blur and tab hiding also pause through the UI. window.kinetic exposes a defensive snapshot and version for inspection, not a mutable game object or a cheat API.
+Menus, reward summaries, and ending choices use the shared overlay dialog. NPC conversations use a separate nonmodal DOM layer anchored to the speaker in the game scene. The entry cinematic has a separate presentation dialog, and the portrait rotation prompt remains the outer interaction gate. Opening a gameplay overlay pauses the simulation and clears held inputs. Blur and tab hiding also pause through the UI. window.kinetic exposes a defensive snapshot and version for inspection, not a mutable game object or a cheat API.
 
 ## Source map
 
@@ -77,6 +77,9 @@ Menus, dialogue, rewards, and endings use the shared overlay dialog. The entry c
 | [src/mourningwild-render.js](../src/mourningwild-render.js) | Dedicated sanctuary/first-gate backdrops, landmarks, landing surfaces and foreground layers |
 | [src/opening-cinematic.js](../src/opening-cinematic.js), [src/intro.css](../src/intro.css) | Pure three-act opening timeline, chosen-party Canvas compositions and cinematic dialog layout |
 | [src/landing.js](../src/landing.js), [src/landing.css](../src/landing.css) | Viewport-fitting title screen, dynamic panels and realm previews |
+| [src/world-dialogue-state.js](../src/world-dialogue-state.js) | Presentation-only conversation pages, proximity, ambient timing, and session voice history |
+| [src/world-dialogue.js](../src/world-dialogue.js), [src/world-dialogue.css](../src/world-dialogue.css) | Accessible floating scene speech, speaker labels, touch controls, and viewport placement |
+| [src/world-voices.js](../src/world-voices.js) | Authored landmark whispers for every room and distinct boss introduction/defeat lines |
 | [src/recovery.js](../src/recovery.js) | Seeded spring layout, world-seed validation, safe respawn-point validation |
 | [src/main.js](../src/main.js) | Campaign UI, dialogs, atlas, inventory, keyboard/touch controls, fixed-step loop |
 | [src/render.js](../src/render.js) | Shared canvas sizing and portraits |
@@ -102,6 +105,14 @@ The title screen is one viewport, with its main controls and secondary panels co
 The opening renderer accepts elapsed presentation time and party IDs. Its three scenes do not run gameplay, award progression, change collision, or write saves. New expeditions play it before control returns to the Last Lantern. Continue bypasses it; title-screen replay returns to the title screen without replacing a save. Input clearing and focus restoration belong to the host UI. Its 12-second elapsed clock advances only while the opening is visible, focused, and allowed by the orientation gate; it resumes from the same elapsed point after a pause. The gameplay accumulator stays empty until the opening finishes or is skipped, so there is no simulation catch-up behind it. Reduced motion keeps a static composition within each story act while retaining scene changes and captions.
 
 The sanctuary and first gate use dedicated scenery passes in `mourningwild-render.js`. Backdrops are screen-space; landmarks, attached platform art, and restrained foreground detail use world space and the scrolling camera. These passes replace overlapping generic cave decoration for handled rooms. Scenery is presentation-only: persistent room IDs, terrain collision, catch landings, boss encounters, and sparse recovery rules remain authoritative in the existing data and simulation.
+
+## Voices in the world
+
+`CampaignEngine.showDialogue(lines, source)` emits copied speaker/text pairs with the source room, object ID, position, name, and kind. NPC interactions pass their real room object, including Vell’s first greeting and the optional chronicle conversations. Dialogue presentation never owns quest completion or reward claims.
+
+`WorldDialogueState` owns transient conversation pages and ambient voice timing. The host projects world anchors through the camera, then places the `world-dialogue` DOM layer beside the speaker. Text updates use a polite live region; positioning does not rewrite or reannounce the line every frame. Long lines split at sentence or word boundaries into readable pages. E/Enter and touch controls advance manual conversations; movement, jumping, party switching, and combat remain available. Walking beyond conversational range or changing rooms ends the voice. Gameplay overlays and the portrait gate hide the layer and suspend its clock until play resumes.
+
+`world-voices.js` adds short whispers at existing landmarks in all rooms and distinct introduction/defeat lines for each boss. Landmark whispers wait for nearby quiet space and play once per running expedition session; they do not consume E, collect an inscription, award a memory, or write a save. Boss voices follow the actual encounter anchor. Home, a new expedition, and game over clear transient speech. Existing saved quest and memory records remain authoritative; voices are not serialized.
 
 ## Data registration and extension boundaries
 

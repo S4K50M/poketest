@@ -1,6 +1,7 @@
 @import url('./combat-style.css');
 @import url('./mobile.css');
 @import url('./intro.css');
+@import url('./world-dialogue.css');
 @font-face{font-family:Barlow;src:url('../assets/fonts/barlow-latin-400-normal.woff2') format('woff2');font-weight:400;font-display:swap}
 @font-face{font-family:Barlow;src:url('../assets/fonts/barlow-latin-500-normal.woff2') format('woff2');font-weight:500;font-display:swap}
 @font-face{font-family:Barlow;src:url('../assets/fonts/barlow-latin-600-normal.woff2') format('woff2');font-weight:600;font-display:swap}
