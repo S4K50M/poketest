@@ -17,7 +17,7 @@ try{
   assert.equal(await page.evaluate(()=>document.activeElement.closest('dialog')?.id),'rotate-prompt');
   await page.click('#landscape-button');assert.match(await page.locator('#rotate-help').textContent(),/manually/);
   await page.setViewportSize({width:844,height:390});await clock(100);assert(!(await page.locator('#rotate-prompt').isVisible()));
-  await page.click('#start-button');await page.click('#confirm-expedition');await clock(100);
+  await page.click('#start-button');await page.click('#confirm-expedition');await page.click('#intro-skip');await clock(100);
   await page.setViewportSize({width:390,height:844});await clock(100);
   assert(await page.locator('#rotate-prompt').isVisible());assert((await snapshot()).paused);const portrait=await snapshot();
   await page.keyboard.down('KeyD');await page.keyboard.press('Space');await clock(500);await page.keyboard.up('KeyD');

@@ -76,7 +76,7 @@ try {
   assert.equal(await page.evaluate(() => window.kinetic.version), '4.0.0');
   await screenshot('home');
   await page.click('#start-button');
-  await page.click('#confirm-expedition');
+  await page.click('#confirm-expedition');await page.click('#intro-skip');
   await clock(100);
   assert(await page.locator('#combat-hud').isVisible());
   assert.match(await page.locator('#guard-label').textContent(), /GUARD/);

@@ -17,7 +17,8 @@
     "test:recovery": "node tests/recovery-browser.mjs",
     "test:firstgate": "node tests/firstgate-browser.mjs",
     "test:art": "node tests/art-browser.mjs",
-    "test:bosses": "node tests/boss-browser.mjs"
+    "test:bosses": "node tests/boss-browser.mjs",
+    "test:arrival": "node tests/arrival-browser.mjs"
   },
   "engines": {
     "node": ">=20"

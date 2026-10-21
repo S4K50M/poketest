@@ -1,5 +1,12 @@
 # Changelog
 
+## A new arrival in the Mourningwild
+
+- Replaced the scrolling landing page with an animated title screen whose main actions, party controls, and realm previews fit the viewport.
+- Added a skippable opening cinematic with three story scenes and the selected companions. Continue resumes directly; replay from the title screen does not replace expedition progress.
+- Gave the Last Lantern and first gate their own layered scenery, room landmarks, local light, organic root architecture, and visible landing surfaces.
+- Kept continuous lower floors, catch landings, room identifiers, boss mechanics, and recovery rules intact while adding focused presentation and opening-lifecycle checks.
+
 ## Distinct boss encounters
 
 - Replaced the shared four-attack boss loop with 21 encounter profiles and 84 named attacks. Each main guardian, gatekeeper, and vault boss has its own spatial patterns, movement, counterplay, and phase sequences.

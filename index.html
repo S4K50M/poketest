@@ -5,7 +5,7 @@
   <meta name="theme-color" content="#0d1824"><meta name="description" content="An original creature action RPG. Three companions. Six dimensional gates. Forty-two interconnected chambers. A dangerous fractured Worldheart.">
   <title>Kinetic Monsters — The Ninth Memory</title>
   <link rel="preload" href="./assets/fonts/barlow-condensed-latin-500-normal.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="icon" href="./assets/favicon.svg"><link rel="stylesheet" href="./src/style.css">
+  <link rel="icon" href="./assets/favicon.svg"><link rel="stylesheet" href="./src/style.css"><link rel="stylesheet" href="./src/landing.css">
   <script defer src="./bundle/game.js"></script>
 </head>
 <body>
@@ -14,20 +14,36 @@
     <nav aria-label="Main navigation"><button class="nav active" id="nav-campaign">THE EXPEDITION</button><button class="nav" id="nav-map">WORLD ATLAS</button><button class="nav" id="nav-codex">THE CHRONICLE</button></nav>
     <div class="header-end"><span class="edition"><i></i> A WORLD WAITING TO WAKE</span><button class="icon-button" id="sound-button" aria-label="Toggle sound" aria-pressed="false">♫</button><button class="icon-button" id="guide-button" aria-label="Controls and guide">?</button></div>
   </header>
-  <main id="home-screen">
-    <section class="hero">
-      <canvas id="hero-scene" aria-label="Your three companions in the luminous Mourningwild forest"></canvas>
-      <div class="hero-shade"></div><div class="hero-grain"></div>
-      <div class="hero-copy"><p class="eyebrow"><span class="small-line"></span> THE SIXFOLD DESCENT · NO ROAD IS SAFE</p><h1>ECHOES<br>OF THE <em>RIFT.</em></h1><p class="hero-description">Ninety-nine journeys ended here.<br>You are the first one it cannot remember.</p><p class="hero-story">Six gates open into a wounded living world. Climb its abandoned spires. Descend into forbidden vaults. Face twelve gate champions and nine guardians with three companions, twelve combat arts, and no hand to point the way.</p>
-        <div class="hero-actions"><button class="primary" id="start-button">BEGIN THE EXPEDITION <span>↗</span></button><button class="secondary" id="continue-button" hidden>CONTINUE JOURNEY <span>→</span></button></div><p class="save-caption" id="save-caption">A single-player adventure. Your journey saves as you explore.</p>
-      </div>
-      <div class="scene-caption"><span class="scene-coordinates">01 / 06 &nbsp; · &nbsp; THE MOURNINGWILD</span><p>Some bonds outlast<br>the end of the world.</p><span class="caption-rule"></span></div>
-      <div class="hero-footer"><span><i class="pulse-dot"></i> WORLDHEART SIGNAL DETECTED</span><span>EXPLORE. EVOLVE. REMEMBER.</span></div>
-    </section>
-    <section class="expansion-strip"><div class="expansion-mark">IX</div><div><p class="eyebrow">THE SIXFOLD DESCENT · A WORLD BELOW</p><h2>More than a journey.<br><em>A life the world has never lived.</em></h2></div><div class="expansion-pillars"><button data-open-chronicle="factions"><span>01</span> CHOOSE YOUR COVENANT <b>↗</b></button><button data-open-chronicle="talents"><span>02</span> SHAPE YOUR SOUL <b>↗</b></button><button data-open-chronicle="quests"><span>03</span> FOLLOW THE MISSING NAMES <b>↗</b></button></div></section>
-    <section class="party-section"><div class="section-title"><div><p class="eyebrow">THREE HEARTBEATS. ONE JOURNEY.</p><h2>Find your <em>kindred.</em></h2></div><p>Switch companions mid-combat.<br>Every creature changes the way you fight.</p><button class="text-button" id="party-button">BUILD YOUR PARTY <span>↗</span></button></div><div class="party-cards" id="home-party"></div></section>
-    <section class="world-section"><div class="section-title"><div><p class="eyebrow">A WORLD IN SIX FRACTURES</p><h2>Follow the <em>unknown.</em></h2></div><p>Branching dungeons. Forgotten high roads.<br>Hidden wellsprings. Guardians who fight to survive.</p><button class="text-button" id="atlas-button">OPEN THE ATLAS <span>↗</span></button></div><div id="biome-cards" class="biome-cards"></div></section>
-    <footer class="site-footer"><span>✧ KINETIC MONSTERS</span><p>42 chambers · 6 dimensions · 21 bosses · 19 wild species · 11 companions</p><button id="footer-guide">LEARN THE CONTROLS ↗</button></footer>
+  <main id="home-screen" class="landing" aria-label="Expedition title screen">
+    <canvas id="hero-scene" aria-label="Your companions beside the ancient Worldheart"></canvas>
+    <div class="landing-shade" aria-hidden="true"></div><div class="landing-grain" aria-hidden="true"></div>
+    <div class="landing-layout">
+      <section class="landing-stage" aria-labelledby="landing-title">
+        <div class="hero-copy">
+          <p class="eyebrow"><span class="small-line"></span> THE NINTH MEMORY <span class="landing-issue">/ AN ORIGINAL ACTION RPG</span></p>
+          <h1 id="landing-title"><span>ECHOES</span><span>OF THE <em>RIFT.</em></span></h1>
+          <p class="hero-description">The world forgot your name.<br><span>Your companions never did.</span></p>
+          <div class="landing-tags"><span>THREE COMPANIONS</span><i>✦</i><span>ONE IMPOSSIBLE JOURNEY</span></div>
+          <div class="hero-actions"><button class="primary" id="start-button">BEGIN THE EXPEDITION <span>↗</span></button><button class="secondary" id="continue-button" hidden>CONTINUE JOURNEY <span>→</span></button></div>
+          <p class="save-caption" id="save-caption">Your next heartbeat could change everything.</p>
+        </div>
+        <aside class="landing-signal" aria-label="Selected dimension">
+          <div class="signal-heading"><span class="pulse-dot"></span> A SIGNAL IN THE QUIET <span>LIVE</span></div>
+          <div class="signal-orbit" aria-hidden="true"><div class="orbit-ring orbit-ring-one"></div><div class="orbit-ring orbit-ring-two"></div><div class="orbit-ring orbit-ring-three"></div><span id="landing-realm-icon">❧</span><i></i></div>
+          <div class="signal-copy"><p class="eyebrow" id="landing-realm-number">GATE 01 / 06</p><h2 id="landing-realm-name">Mourningwild</h2><p id="landing-realm-story">Beneath the old forest, something is learning to remember.</p></div>
+          <div class="signal-progress"><span id="landing-status">UNWRITTEN JOURNEY</span><b id="landing-fragments">00 / 06</b></div>
+          <button id="replay-intro" class="landing-replay"><span>▷</span> WATCH THE PROLOGUE <b>↗</b></button>
+        </aside>
+        <div class="landing-scene-note" aria-hidden="true"><span class="note-line"></span><span>THE LAST LANTERN<br><b>A small light. A whole world.</b></span></div>
+      </section>
+      <section class="landing-journal" aria-label="Expedition journal">
+        <div class="journal-heading"><p class="eyebrow">YOUR EXPEDITION <span>FIELD JOURNAL / 01</span></p><div class="landing-tabs" role="tablist" aria-label="Expedition details"><button id="landing-tab-kindred" type="button" role="tab" aria-selected="true" aria-controls="landing-panel-kindred" data-landing-tab="kindred">01 <span>KINDRED</span></button><button id="landing-tab-realms" type="button" role="tab" aria-selected="false" aria-controls="landing-panel-realms" tabindex="-1" data-landing-tab="realms">02 <span>THE SIX GATES</span></button><button id="landing-tab-chronicle" type="button" role="tab" aria-selected="false" aria-controls="landing-panel-chronicle" tabindex="-1" data-landing-tab="chronicle">03 <span>YOUR LEGACY</span></button></div><div class="journal-actions"><button class="text-button" id="party-button">BUILD PARTY <span>↗</span></button><button class="text-button" id="atlas-button">WORLD ATLAS <span>↗</span></button></div></div>
+        <div id="landing-panel-kindred" class="landing-panel" role="tabpanel" aria-labelledby="landing-tab-kindred"><div class="party-cards" id="home-party"></div></div>
+        <div id="landing-panel-realms" class="landing-panel" role="tabpanel" aria-labelledby="landing-tab-realms" hidden><div id="biome-cards" class="biome-cards"></div></div>
+        <div id="landing-panel-chronicle" class="landing-panel" role="tabpanel" aria-labelledby="landing-tab-chronicle" hidden><div class="landing-legacy"><button data-open-chronicle="quests"><span>≋</span><div><small>THE MISSING NAMES</small><strong>Follow your story.</strong></div><b>↗</b></button><button data-open-chronicle="talents"><span>✧</span><div><small>THE SOUL CONSTELLATION</small><strong>Become something new.</strong></div><b>↗</b></button><button data-open-chronicle="factions"><span>◈</span><div><small>THREE COVENANTS</small><strong>Choose what survives.</strong></div><b>↗</b></button></div></div>
+      </section>
+      <footer class="landing-footer"><span><i class="pulse-dot"></i> WORLDHEART SIGNAL DETECTED</span><p>42 CHAMBERS <i>·</i> 21 GUARDIANS <i>·</i> A WORLD WORTH REMEMBERING</p><button id="footer-guide">CONTROLS & GUIDE <span>↗</span></button></footer>
+    </div>
   </main>
   <section id="game-screen" hidden aria-label="Worldheart campaign">
     <canvas id="world-canvas" tabindex="0" aria-label="Campaign gameplay. A D move, Space jump, Shift dash, J strike, K heavy, L special, E interact."></canvas>

@@ -1684,11 +1684,11 @@
           active: 82,
           recover: 55,
           build: (c) => {
-            const landing = c.clampX(c.tx + c.face * 55);
+            const landing2 = c.clampX(c.tx + c.face * 55);
             return [
-              zone3(0, "blast", landing, c.floor - 24, 160, 74, 30, 16, 2, { knockback: 2.5, status: { burn: 80 }, label: "MORTAR IMPACT" }),
-              { at: 0, type: "dash", to: landing, duration: 30, height: 218, damage: 1.5, knockback: 1.8 },
-              { at: 42, type: "shots", x: landing, y: c.floor - 85, angle: -Math.PI / 2, count: 5 + c.phase, spread: 2.3, speed: 6.2, gravity: 0.24, damage: 1, kind: "orb", status: { burn: 65 } }
+              zone3(0, "blast", landing2, c.floor - 24, 160, 74, 30, 16, 2, { knockback: 2.5, status: { burn: 80 }, label: "MORTAR IMPACT" }),
+              { at: 0, type: "dash", to: landing2, duration: 30, height: 218, damage: 1.5, knockback: 1.8 },
+              { at: 42, type: "shots", x: landing2, y: c.floor - 85, angle: -Math.PI / 2, count: 5 + c.phase, spread: 2.3, speed: 6.2, gravity: 0.24, damage: 1, kind: "orb", status: { burn: 65 } }
             ];
           }
         },
@@ -1743,11 +1743,11 @@
           active: 88,
           recover: 44,
           build: (c) => {
-            const landing = c.clampX(c.tx + c.face * 110);
+            const landing2 = c.clampX(c.tx + c.face * 110);
             return [
               platform2(0, c.clampX(c.center - 65), c.floor - 105, 130, "water"),
-              zone3(0, "blast", landing, c.floor - 20, 166, 72, 28, 16, 1.75, { knockback: 2.1, status: { slick: 110 }, label: "FIRST BREACH" }),
-              { at: 0, type: "dash", to: landing, duration: 28, height: 230, damage: 1.5, knockback: 1.8 },
+              zone3(0, "blast", landing2, c.floor - 20, 166, 72, 28, 16, 1.75, { knockback: 2.1, status: { slick: 110 }, label: "FIRST BREACH" }),
+              { at: 0, type: "dash", to: landing2, duration: 28, height: 230, damage: 1.5, knockback: 1.8 },
               zone3(32, "blast", c.x, c.floor - 20, 146, 72, 24, 16, 1.75, { knockback: 2.1, label: "RETURN BREACH" }),
               { at: 36, type: "dash", to: c.x, duration: 20, height: 115, damage: 1.5, knockback: 1.8 }
             ];
@@ -1939,12 +1939,12 @@
           active: 94,
           recover: 40,
           build: (c) => {
-            const far = c.clampX(c.x - c.face * 150), landing = c.clampX(c.tx + c.face * 85);
+            const far = c.clampX(c.x - c.face * 150), landing2 = c.clampX(c.tx + c.face * 85);
             return [
               { at: 0, type: "dash", to: far, duration: 20, height: 165, damage: 1.25, knockback: 1.5 },
               { at: 24, type: "shots", x: far, y: c.floor - 180, angle: Math.PI / 2, count: 3 + c.phase, spread: 1.25, speed: 6.7, damage: 1, kind: "needle", status: { slow: 95 } },
-              zone3(34, "blast", landing, c.floor - 25, 135, 86, 26, 14, 1.5, { knockback: 1.9, status: { slow: 90 }, label: "RETURNING WING" }),
-              { at: 42, type: "dash", to: landing, duration: 18, height: 115, damage: 1.75, knockback: 2 }
+              zone3(34, "blast", landing2, c.floor - 25, 135, 86, 26, 14, 1.5, { knockback: 1.9, status: { slow: 90 }, label: "RETURNING WING" }),
+              { at: 42, type: "dash", to: landing2, duration: 18, height: 115, damage: 1.75, knockback: 2 }
             ];
           }
         }
@@ -5944,10 +5944,10 @@
     }
   }
   function glow(c, x, y, r, color, power = 0.2) {
-    const grad3 = c.createRadialGradient(x, y, 0, x, y, Math.max(1, r));
-    grad3.addColorStop(0, alpha(color, power));
-    grad3.addColorStop(1, alpha(color, 0));
-    oval(c, x, y, r, r, grad3);
+    const grad4 = c.createRadialGradient(x, y, 0, x, y, Math.max(1, r));
+    grad4.addColorStop(0, alpha(color, power));
+    grad4.addColorStop(1, alpha(color, 0));
+    oval(c, x, y, r, r, grad4);
   }
   function diamond(c, x, y, size, color) {
     poly(c, [[x, y - size], [x + size * 0.5, y], [x, y + size], [x - size * 0.5, y]], color);
@@ -6194,12 +6194,12 @@
     c.fill();
   }
   function glow2(c, x, y, radius, color, alpha4 = 0.2) {
-    const gradient = c.createRadialGradient(x, y, 0, x, y, radius);
-    gradient.addColorStop(0, color);
-    gradient.addColorStop(1, "transparent");
+    const gradient2 = c.createRadialGradient(x, y, 0, x, y, radius);
+    gradient2.addColorStop(0, color);
+    gradient2.addColorStop(1, "transparent");
     c.save();
     c.globalAlpha *= alpha4;
-    c.fillStyle = gradient;
+    c.fillStyle = gradient2;
     ellipse(c, x, y, radius, radius);
     c.restore();
   }
@@ -6913,12 +6913,12 @@
       if (this.hurtVignette > 5e-3 || this.powerVignette > 5e-3) {
         const hurt = this.hurtVignette > this.powerVignette;
         const amount = hurt ? this.hurtVignette : this.powerVignette * 0.5;
-        const gradient = c.createRadialGradient(width * 0.5, height * 0.5, Math.min(width, height) * 0.15, width * 0.5, height * 0.5, Math.max(width, height) * 0.64);
-        gradient.addColorStop(0, "transparent");
-        gradient.addColorStop(0.5, "transparent");
-        gradient.addColorStop(1, hurt ? "#e87575" : "#83e8cc");
+        const gradient2 = c.createRadialGradient(width * 0.5, height * 0.5, Math.min(width, height) * 0.15, width * 0.5, height * 0.5, Math.max(width, height) * 0.64);
+        gradient2.addColorStop(0, "transparent");
+        gradient2.addColorStop(0.5, "transparent");
+        gradient2.addColorStop(1, hurt ? "#e87575" : "#83e8cc");
         c.globalAlpha = Math.min(this.reducedMotion ? 0.12 : 0.55, amount);
-        c.fillStyle = gradient;
+        c.fillStyle = gradient2;
         c.fillRect(0, 0, width, height);
       }
       if (this.flash > 7e-3) {
@@ -7667,13 +7667,13 @@
     }
   }
   function force(c, h, time, reducedMotion2) {
-    const x = finite5(h.x), y = finite5(h.y), r = Math.max(1, finite5(h.radius, 220)), col = h.color || "#bceee1", clock = reducedMotion2 ? 0 : time;
+    const x = finite5(h.x), y = finite5(h.y), r = Math.max(1, finite5(h.radius, 220)), col = h.color || "#bceee1", clock2 = reducedMotion2 ? 0 : time;
     c.save();
     try {
       oval3(c, x, y, r, r, null, alpha2(col, 0.15), 1);
       oval3(c, x, y, r * 0.4, r * 0.4, null, alpha2(col, 0.3), 1.3);
       for (let i = 0; i < 8; i++) {
-        const a = i * TAU4 / 8 + clock * 0.7, p = reducedMotion2 ? 0.55 : (clock * 0.5 + i / 8) % 1, rr = r * (1 - p * 0.8), xx = x + Math.cos(a) * rr, yy = y + Math.sin(a) * rr;
+        const a = i * TAU4 / 8 + clock2 * 0.7, p = reducedMotion2 ? 0.55 : (clock2 * 0.5 + i / 8) % 1, rr = r * (1 - p * 0.8), xx = x + Math.cos(a) * rr, yy = y + Math.sin(a) * rr;
         line3(c, [[xx + Math.cos(a) * 15, yy + Math.sin(a) * 15], [xx, yy], [xx + Math.cos(a + 0.6) * 7, yy + Math.sin(a + 0.6) * 7]], alpha2(col, 0.3 + p * 0.3), 1.2);
       }
       diamond2(c, x, y, 5, alpha2(col, 0.5));
@@ -9005,10 +9005,10 @@
     const bob = Math.sin(t * 1.8) * 5;
     c.translate(0, bob - 9);
     for (const side of [-1, 1]) for (let i = 2; i >= 0; i--) {
-      const root = [side * 34, -91 - i * 25], reach = pose3.attack ? 28 : pose3.wind ? -14 : 0;
+      const root2 = [side * 34, -91 - i * 25], reach = pose3.attack ? 28 : pose3.wind ? -14 : 0;
       const elbow = [side * (74 + i * 8 + reach * 0.4), -85 - i * 40 + Math.sin(t * 2 + i + side) * 7];
       const hand2 = [side * (107 + i * 10 + reach), -61 - i * 57 + Math.sin(t * 2.8 + i) * 6];
-      curve3(c, [...root, side * 69, -140, ...elbow, ...hand2], i === 1 ? "#a7a0ae" : "#8b7d96", 7);
+      curve3(c, [...root2, side * 69, -140, ...elbow, ...hand2], i === 1 ? "#a7a0ae" : "#8b7d96", 7);
       oval5(c, ...elbow, 6, 6, "#d4cabd", "#776681");
       oval5(c, ...hand2, 7, 10, "#d7ccba", "#8a7c92");
       for (let finger = 0; finger < 4; finger++) {
@@ -9564,10 +9564,10 @@
     }
     path3(c, [["M", -18, -171], ["Q", 2, -190, 22, -167], ["L", 17, -119], ["Q", -2, -102, -22, -122], ["Z"]], grad2(c, -20, -170, 25, -114, "#e0e59e", p.body, p.dark), INK3, 2.5);
     for (const back of [true, false]) {
-      const sign = back ? -1 : 1, active = m.combo % 2 === 0 === back, extension = m.attack * (active ? 1 : 0.22), root = [sign * 22, -155];
-      joint3(c, ...root, sign * (m.guard ? -0.5 : m.cast ? -0.2 : 0) - extension * 0.7, () => {
+      const sign = back ? -1 : 1, active = m.combo % 2 === 0 === back, extension = m.attack * (active ? 1 : 0.22), root2 = [sign * 22, -155];
+      joint3(c, ...root2, sign * (m.guard ? -0.5 : m.cast ? -0.2 : 0) - extension * 0.7, () => {
         const elbow = [sign * (44 + extension * 17), -121 - (m.guard ? 34 : 0)], wrist = [sign * (58 + extension * 25), -158 - (m.guard ? 40 : 0)];
-        segment(c, root, elbow, 11, 7, back ? p.dark : "#b3c77b");
+        segment(c, root2, elbow, 11, 7, back ? p.dark : "#b3c77b");
         segment(c, elbow, wrist, 7, 5, p.body);
         const x = wrist[0], y = wrist[1];
         path3(c, [["M", x - 8, y + 6], ["C", x + 26, y - 9, x + 57, y - 45, x + 65, y - 73], ["C", x + 80, y - 29, x + 46, y + 23, x + 6, y + 25], ["Q", x + 17, y + 9, x - 8, y + 6], ["Z"]], grad2(c, x, y - 60, x + 57, y + 22, "#fff3c1", "#cbe7a4", "#6d9b71"), INK3, 2);
@@ -9602,10 +9602,10 @@
     fur(c, 0, -174, 128, 61, "#e7f0df", 11);
     fur(c, -9, -128, 81, 39, "#d4e3d6", 8);
     for (const back of [true, false]) {
-      const sign = back ? -1 : 1, striking = m.combo % 2 === 0 === back, a = m.attack * (striking ? 1 : 0.24), root = [sign * 58, -174];
-      joint3(c, ...root, -sign * (m.guard ? 0.65 : 0.03) - a * 0.38, () => {
+      const sign = back ? -1 : 1, striking = m.combo % 2 === 0 === back, a = m.attack * (striking ? 1 : 0.24), root2 = [sign * 58, -174];
+      joint3(c, ...root2, -sign * (m.guard ? 0.65 : 0.03) - a * 0.38, () => {
         const elbow = [sign * 86 + a * 35, -135 - (m.guard ? 25 : 0)], hand2 = [sign * 80 + a * 57, -84 - (m.guard ? 52 : 0) - m.strike * 15];
-        segment(c, root, elbow, 27, 25, back ? p.dark : frost);
+        segment(c, root2, elbow, 27, 25, back ? p.dark : frost);
         segment(c, elbow, hand2, 28, 32, back ? "#6094a1" : frost);
         for (let i = 0; i < 4; i++) {
           const x = lerp(elbow[0], hand2[0], i / 4);
@@ -9613,7 +9613,7 @@
         }
         oval6(c, ...hand2, 34, 29, back ? "#79acb4" : "#b9dcd9", INK3, 2);
         toes(c, hand2[0] - 16, hand2[1] + 18, BONE, 3, 0.9);
-        fur(c, root[0], -181, 50, 27, "#e7f1e1", 6);
+        fur(c, root2[0], -181, 50, 27, "#e7f1e1", 6);
       });
     }
     joint3(c, 0, -213, m.head, () => {
@@ -10289,22 +10289,539 @@
     }
   }
 
-  // src/render.js
+  // src/mourningwild-render.js
   var TAU10 = Math.PI * 2;
-  function ellipse2(c, x, y, rx, ry, fill, stroke2 = null, line11 = 2) {
+  var clamp15 = (v, a, b) => Math.max(a, Math.min(b, v));
+  var finite7 = (v, f = 0) => Number.isFinite(v) ? v : f;
+  var noise2 = (n2) => {
+    const v = Math.sin(n2 * 123.71 + 47.13) * 43758.5453;
+    return v - Math.floor(v);
+  };
+  var SCENES = Object.freeze({
+    sanctuary: { title: "The Last Lantern", sky: "#0d2330", depth: "#1c403c", bark: "#2e4a43", ink: "#0a1d26", moss: "#779d78", edge: "#c1d5a0", light: "#ffdc9b", mist: "#a6d8c5", mode: "village" },
+    "moss-path": { title: "The Rootway", sky: "#10272e", depth: "#24473e", bark: "#365749", ink: "#102a2c", moss: "#779e68", edge: "#c5dba3", light: "#d5edac", mist: "#9fceb6", mode: "cathedral" },
+    "moss-descent": { title: "Rootfall Cistern", sky: "#0d2631", depth: "#1b4146", bark: "#2c5050", ink: "#0b232c", moss: "#79a58a", edge: "#bdded0", light: "#a8eee3", mist: "#94d5d3", mode: "waterfall" },
+    "moss-nexus": { title: "The Seedkeeper\u2019s Court", sky: "#152b31", depth: "#2e4540", bark: "#405b49", ink: "#10272c", moss: "#8aa775", edge: "#d2dba5", light: "#f2df9b", mist: "#b6ceba", mode: "court" },
+    "moss-ascent": { title: "The Returning Canopy", sky: "#193a3c", depth: "#355747", bark: "#44644e", ink: "#143032", moss: "#9ab479", edge: "#e2e4ad", light: "#f1e7b1", mist: "#cee1bd", mode: "canopy" },
+    "moss-vault": { title: "The Buried Garden", sky: "#1a2230", depth: "#303b45", bark: "#3e4a50", ink: "#151e2c", moss: "#939c97", edge: "#c9d2b7", light: "#dfc2ee", mist: "#a8becd", mode: "vault" },
+    "moss-heart": { title: "The Matron\u2019s Bower", sky: "#1b2b25", depth: "#3b4e37", bark: "#4b6042", ink: "#15271f", moss: "#a5b47c", edge: "#e5deac", light: "#f6e5ad", mist: "#cbd9a7", mode: "heart" }
+  });
+  var handled = (g) => g?.room?.biome === "moss" || g?.room?.biome === "sanctuary";
+  var sceneFor = (g) => SCENES[g.roomId || g.room.id] || (g.room.biome === "sanctuary" ? SCENES.sanctuary : SCENES["moss-path"]);
+  var clock = (g, t) => g?.combat?.settings?.reducedMotion ? 0 : finite7(t);
+  function poly8(c, p, fill, edge, width = 1) {
+    c.beginPath();
+    p.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y));
+    c.closePath();
+    if (fill) {
+      c.fillStyle = fill;
+      c.fill();
+    }
+    if (edge) {
+      c.strokeStyle = edge;
+      c.lineWidth = width;
+      c.lineJoin = "round";
+      c.stroke();
+    }
+  }
+  function oval9(c, x, y, rx, ry, fill, edge, width = 1) {
     c.beginPath();
     c.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), 0, 0, TAU10);
     if (fill) {
       c.fillStyle = fill;
       c.fill();
     }
-    if (stroke2) {
-      c.strokeStyle = stroke2;
-      c.lineWidth = line11;
+    if (edge) {
+      c.strokeStyle = edge;
+      c.lineWidth = width;
       c.stroke();
     }
   }
-  function glow8(c, x, y, r, color) {
+  function line9(c, p, col, width = 1) {
+    c.beginPath();
+    p.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y));
+    c.strokeStyle = col;
+    c.lineWidth = width;
+    c.lineCap = "round";
+    c.lineJoin = "round";
+    c.stroke();
+  }
+  function curve5(c, p, col, width = 1) {
+    c.beginPath();
+    c.moveTo(p[0], p[1]);
+    c.bezierCurveTo(...p.slice(2));
+    c.strokeStyle = col;
+    c.lineWidth = width;
+    c.lineCap = "round";
+    c.stroke();
+  }
+  function grad3(c, x, y, x2, y2, ...colors) {
+    const g = c.createLinearGradient(x, y, x2, y2);
+    colors.forEach((col, i) => g.addColorStop(i / (colors.length - 1), col));
+    return g;
+  }
+  function glow8(c, x, y, r, col, opacity = 0.15) {
+    c.save();
+    c.globalAlpha *= opacity;
+    const g = c.createRadialGradient(x, y, 0, x, y, Math.max(1, r));
+    g.addColorStop(0, col);
+    g.addColorStop(1, "transparent");
+    oval9(c, x, y, r, r, g);
+    c.restore();
+  }
+  function leaf2(c, x, y, length, angle, col, light) {
+    c.save();
+    c.translate(x, y);
+    c.rotate(angle);
+    c.beginPath();
+    c.moveTo(0, 0);
+    c.bezierCurveTo(-length * 0.4, -length * 0.35, -length * 0.3, -length * 0.8, 0, -length);
+    c.bezierCurveTo(length * 0.4, -length * 0.75, length * 0.5, -length * 0.25, 0, 0);
+    c.closePath();
+    c.fillStyle = col;
+    c.fill();
+    if (light) line9(c, [[0, -2], [0, -length * 0.85]], light, 0.7);
+    c.restore();
+  }
+  function fern(c, x, y, size, col, light, t = 0) {
+    const lean = Math.sin(t * 0.7 + x * 0.01) * size * 0.05;
+    for (const side of [-1, 1]) for (let stem = 0; stem < 3; stem++) {
+      const reach = side * size * (0.3 + stem * 0.17), high = size * (0.65 - stem * 0.12);
+      curve5(c, [x, y, x + reach * 0.2, y - high * 0.5, x + reach * 0.5 + lean, y - high * 0.9, x + reach + lean, y - high], col, Math.max(1, size * 0.027));
+      for (let n2 = 1; n2 < 5; n2++) {
+        const p = n2 / 5, xx = x + reach * p + lean * p, yy = y - high * (2 * p - p * p);
+        leaf2(c, xx, yy, size * 0.16 * (1 - p * 0.5), side * (0.9 + stem * 0.15), col, light);
+      }
+    }
+  }
+  function lantern(c, x, y, size, t, palette2) {
+    line9(c, [[x, y - size * 1.2], [x, y - size * 0.45]], palette2.edge + "77", 1.1);
+    glow8(c, x, y, size * 4.3, palette2.light, 0.15 + 0.025 * Math.sin(t * 2 + x));
+    poly8(c, [[x - size * 0.55, y - size * 0.5], [x + size * 0.55, y - size * 0.5], [x + size * 0.7, y + size * 0.55], [x - size * 0.7, y + size * 0.55]], "#c1ae78", palette2.ink, 1.2);
+    poly8(c, [[x - size * 0.5, y - size * 0.4], [x + size * 0.5, y - size * 0.4], [x + size * 0.48, y + size * 0.4], [x - size * 0.48, y + size * 0.4]], grad3(c, x - size, y, x + size, y, palette2.light, "#dca65e"), null);
+    line9(c, [[x, y - size * 0.5], [x, y + size * 0.45]], palette2.ink + "77", 1);
+    line9(c, [[x - size * 0.68, y + size * 0.55], [x + size * 0.68, y + size * 0.55]], palette2.light, 0.8);
+    oval9(c, x, y, size * 0.14, size * 0.3, "#fff5cf");
+  }
+  function tree(c, x, bottom, height, width, col, detail, phase = 0) {
+    c.beginPath();
+    c.moveTo(x - width, bottom);
+    c.bezierCurveTo(x - width * 0.3, bottom - height * 0.24, x - width * 0.62, bottom - height * 0.73, x - width * 0.12, bottom - height);
+    c.lineTo(x + width * 0.35, bottom - height - 18);
+    c.bezierCurveTo(x + width * 0.2, bottom - height * 0.6, x + width * 0.15, bottom - height * 0.22, x + width * 1.3, bottom);
+    c.closePath();
+    c.fillStyle = col;
+    c.fill();
+    for (const side of [-1, 1]) for (let b = 0; b < 3; b++) {
+      const y = bottom - height * (0.45 + b * 0.18), reach = side * height * (0.17 + b * 0.025);
+      curve5(c, [x, y + 30, x + reach * 0.24, y - 19, x + reach * 0.5, y - 48, x + reach, y - 63 - b * 12], col, width * (0.42 - b * 0.08));
+    }
+    if (detail) {
+      curve5(c, [x - width * 0.25, bottom - 8, x - width * 0.16, bottom - height * 0.25, x + width * 0.12, bottom - height * 0.7, x, bottom - height + 20], detail, 1.3);
+      for (let n2 = 0; n2 < 5; n2++) {
+        const y = bottom - height * 0.16 - n2 * height * 0.14;
+        curve5(c, [x - width * 0.36, y, x - width * 0.12, y - 8, x + width * 0.18, y - 2, x + width * 0.4, y - 14], detail, 0.8);
+      }
+    }
+    for (let i = 0; i < 7; i++) {
+      const px = x + Math.cos(i * 1.6 + phase) * height * 0.16, py = bottom - height * 0.78 + Math.sin(i * 1.8) * height * 0.12;
+      oval9(c, px, py, height * 0.17, height * 0.075, col);
+    }
+  }
+  function rootVault(c, x, floor3, width, top, p, t) {
+    for (const side of [-1, 1]) {
+      const bx = x + side * width * 0.56;
+      c.beginPath();
+      c.moveTo(bx + side * 25, floor3 + 32);
+      c.bezierCurveTo(bx - side * 28, floor3 - 65, bx + side * 12, top + 80, x + side * 31, top);
+      c.bezierCurveTo(x + side * 5, top + 20, bx - side * 50, top + 139, bx - side * 40, floor3 + 10);
+      c.closePath();
+      c.fillStyle = p.bark + "d4";
+      c.fill();
+      curve5(c, [bx + side * 6, floor3 + 10, bx - side * 44, floor3 - 110, bx - side * 7, top + 90, x + side * 32, top + 16], p.edge + "26", 2.4);
+      for (let i = 0; i < 4; i++) {
+        const yy = top + 95 + i * 66;
+        curve5(c, [bx - side * 23, yy, bx - side * 11, yy - 20, bx + side * 18, yy - 11, bx + side * 22, yy - 34], p.ink + "70", 2);
+      }
+      for (let i = 0; i < 5; i++) leaf2(c, x + side * (48 + i * 28), top + 23 + i * 9, 18 + noise2(i + x) * 13, side * 1.15, p.moss + "80", p.edge + "25");
+    }
+    for (let i = 0; i < 3; i++) {
+      const xx = x + (i - 1) * 40, yy = top + 58 + Math.sin(t + i) * 2;
+      line9(c, [[xx, top + 19], [xx, yy - 8]], p.moss + "4c", 1);
+      oval9(c, xx, yy, 4, 7, p.light + "8c");
+    }
+  }
+  function windowRose(c, x, y, r, p) {
+    glow8(c, x, y, r * 1.8, p.light, 0.055);
+    oval9(c, x, y, r, r, p.ink + "aa", p.bark, 10);
+    oval9(c, x, y, r - 9, r - 9, null, p.edge + "35", 1.3);
+    for (let i = 0; i < 8; i++) {
+      const a = i * TAU10 / 8;
+      c.save();
+      c.translate(x, y);
+      c.rotate(a);
+      c.beginPath();
+      c.moveTo(0, -r + 15);
+      c.bezierCurveTo(-r * 0.3, -r * 0.45, -r * 0.15, -r * 0.16, 0, 0);
+      c.bezierCurveTo(r * 0.15, -r * 0.16, r * 0.3, -r * 0.45, 0, -r + 15);
+      c.closePath();
+      c.fillStyle = i % 2 ? p.light + "12" : p.moss + "27";
+      c.fill();
+      c.strokeStyle = p.edge + "42";
+      c.lineWidth = 1.6;
+      c.stroke();
+      c.restore();
+    }
+    oval9(c, x, y, r * 0.14, r * 0.14, p.light + "66", p.edge + "80", 1);
+  }
+  function mushrooms(c, x, y, size, p, t) {
+    for (let i = 0; i < 4; i++) {
+      const xx = x + (i - 1.5) * size * 0.55, h = size * (0.6 + noise2(i + x) * 0.5);
+      curve5(c, [xx, y, xx - 3, y - h * 0.3, xx + 4, y - h * 0.65, xx, y - h], p.moss, Math.max(1, size * 0.08));
+      c.beginPath();
+      c.ellipse(xx, y - h, size * 0.43, size * 0.2, 0, Math.PI, TAU10);
+      c.closePath();
+      c.fillStyle = i % 2 ? p.light + "a0" : p.moss;
+      c.fill();
+      line9(c, [[xx - size * 0.39, y - h], [xx + size * 0.39, y - h]], p.light + "99", 1);
+      for (let n2 = 0; n2 < 3; n2++) oval9(c, xx + (n2 - 1) * size * 0.15, y - h - size * 0.08, 1, 1, p.light);
+    }
+    if (size > 16) glow8(c, x, y - size, size * 1.6, p.light, 0.07 + 0.015 * Math.sin(t * 1.4));
+  }
+  function village(c, p, t) {
+    tree(c, 326, 520, 635, 58, p.bark, p.edge + "22");
+    for (const side of [-1, 1]) for (let i = 0; i < 3; i++) curve5(c, [326 + side * 15, 485, 326 + side * 44, 500, 326 + side * 88, 501, 326 + side * (130 + i * 42), 526 + i * 9], p.bark, 18 - i * 4);
+    const x = 326, y = 255;
+    curve5(c, [x - 120, y - 144, x - 68, y - 174, x + 109, y - 110, x + 85, y - 43], p.bark, 18);
+    curve5(c, [x - 115, y - 147, x - 43, y - 166, x + 101, y - 101, x + 80, y - 41], p.edge + "55", 1.7);
+    line9(c, [[x + 47, y - 93], [x + 47, y - 12]], "#9fa78b", 2);
+    glow8(c, x + 47, y + 38, 160, p.light, 0.21);
+    c.beginPath();
+    c.moveTo(x + 47, y - 19);
+    c.bezierCurveTo(x - 9, y + 4, x - 5, y + 85, x + 47, y + 107);
+    c.bezierCurveTo(x + 98, y + 85, x + 102, y + 4, x + 47, y - 19);
+    c.closePath();
+    c.fillStyle = grad3(c, x, y, x + 95, y, p.light, "#f5c878", "#826d48");
+    c.fill();
+    c.strokeStyle = "#263d38";
+    c.lineWidth = 5;
+    c.stroke();
+    for (const side of [-1, 1]) curve5(c, [x + 47, y - 11, x + 47 + side * 11, y + 29, x + 47 + side * 12, y + 64, x + 47, y + 100], "#746d4d", 2);
+    oval9(c, x + 47, y + 44, 9, 18, "#fff2c1");
+    const hx = 740;
+    c.beginPath();
+    c.moveTo(hx - 133, 518);
+    c.lineTo(hx - 125, 422);
+    c.quadraticCurveTo(hx, 344, hx + 125, 422);
+    c.lineTo(hx + 133, 518);
+    c.closePath();
+    c.fillStyle = p.ink + "85";
+    c.fill();
+    curve5(c, [hx - 145, 429, hx - 76, 341, hx + 80, 338, hx + 150, 429], p.bark, 17);
+    curve5(c, [hx - 144, 424, hx - 70, 342, hx + 82, 344, hx + 148, 425], p.edge + "64", 2);
+    for (let i = 0; i < 7; i++) {
+      const xx = hx - 119 + i * 40;
+      line9(c, [[xx, 413], [xx + 12, 436]], p.light + "24", 8);
+    }
+    for (const side of [-1, 1]) line9(c, [[hx + side * 125, 425], [hx + side * 132, 521]], p.bark, 15);
+    lantern(c, hx - 92, 457, 9, t, p);
+    lantern(c, hx + 92, 457, 9, t + 0.5, p);
+    for (let i = 0; i < 4; i++) {
+      const xx = 70 + i * 118;
+      fern(c, xx, 524, 29 + i % 2 * 17, p.moss, p.edge + "33", t);
+    }
+  }
+  function waterfall(c, x, top, bottom, width, p, t) {
+    const fall = grad3(c, x - width / 2, 0, x + width / 2, 0, "#79b5b000", "#99d7cc24", "#d6f2df38", "#74b7b21b", "#79b5b000");
+    c.fillStyle = fall;
+    c.fillRect(x - width / 2, top, width, bottom - top);
+    for (let i = 0; i < 7; i++) {
+      const xx = x + (i - 3) * width * 0.1;
+      curve5(c, [xx, top, xx + Math.sin(i) * 8, top + (bottom - top) * 0.3, xx + Math.cos(i) * 6, bottom - 90, xx, bottom], p.light + (i % 2 ? "24" : "13"), 1.5);
+    }
+    for (let i = 0; i < 11; i++) {
+      const phase = ((t * 0.34 + i * 0.091) % 1 + 1) % 1, yy = top + phase * (bottom - top);
+      line9(c, [[x + Math.sin(i * 4) * width * 0.25, yy], [x + Math.sin(i * 4) * width * 0.25 + 2, yy + 16]], p.light + "45", 1);
+    }
+    for (let i = 0; i < 4; i++) oval9(c, x + (i - 1.5) * width * 0.27, bottom - 4, 25 + noise2(i) * 13, 4, p.light + "12");
+    glow8(c, x, bottom - 20, width * 1.3, p.light, 0.08);
+  }
+  function bellRuin(c, x, floor3, p) {
+    for (const side of [-1, 1]) {
+      line9(c, [[x + side * 167, floor3], [x + side * 148, floor3 - 207]], p.bark, 30);
+      poly8(c, [[x + side * 181, floor3 - 207], [x + side * 151, floor3 - 256], [x + side * 129, floor3 - 211]], p.bark);
+      curve5(c, [x + side * 148, floor3 - 207, x + side * 97, floor3 - 280, x + side * 42, floor3 - 275, x + side * 22, floor3 - 286], p.bark, 19);
+    }
+    const y = floor3 - 140;
+    c.beginPath();
+    c.moveTo(x - 59, y + 38);
+    c.quadraticCurveTo(x - 38, y - 22, x - 38, y - 61);
+    c.quadraticCurveTo(x, y - 92, x + 38, y - 61);
+    c.quadraticCurveTo(x + 37, y - 19, x + 62, y + 37);
+    c.closePath();
+    c.fillStyle = grad3(c, x - 60, y, x + 65, y, "#6f7760", "#a9a47b", "#3c594b");
+    c.fill();
+    c.strokeStyle = p.ink;
+    c.lineWidth = 4;
+    c.stroke();
+    poly8(c, [[x + 2, y - 67], [x - 7, y - 29], [x + 10, y - 4], [x - 5, y + 34]], p.ink);
+    oval9(c, x, y + 38, 61, 9, "#344b3e", p.edge + "67", 2);
+    line9(c, [[x, y - 78], [x + 6, y - 125]], "#7c9074", 3);
+    glow8(c, x, y - 25, 90, p.light, 0.035);
+    for (let i = 0; i < 5; i++) poly8(c, [[x - 95 + i * 43, floor3], [x - 83 + i * 43, floor3 - 16 - noise2(i) * 20], [x - 54 + i * 43, floor3 - 7], [x - 52 + i * 43, floor3 + 1]], p.bark, p.moss + "44");
+  }
+  function seedShrine(c, x, floor3, p, t) {
+    const top = floor3 - 410;
+    for (const side of [-1, 1]) {
+      curve5(c, [x + side * 297, floor3 + 12, x + side * 257, floor3 - 211, x + side * 171, top - 21, x + side * 13, top + 1], p.bark, 35);
+      curve5(c, [x + side * 282, floor3 - 4, x + side * 239, floor3 - 204, x + side * 161, top - 4, x + side * 18, top + 12], p.edge + "50", 2);
+      for (let i = 0; i < 5; i++) {
+        const xx = x + side * (38 + i * 42), yy = top + 31 + i * 13;
+        leaf2(c, xx, yy, 38, side * 1.07, p.moss, p.edge + "55");
+      }
+    }
+    const y = floor3 - 258;
+    glow8(c, x, y, 173, p.light, 0.11);
+    for (let i = 0; i < 10; i++) {
+      const a = i * TAU10 / 10;
+      c.save();
+      c.translate(x, y);
+      c.rotate(a);
+      c.beginPath();
+      c.moveTo(0, -34);
+      c.bezierCurveTo(-37, -46, -31, -101, 0, -119);
+      c.bezierCurveTo(32, -94, 37, -49, 0, -34);
+      c.closePath();
+      c.fillStyle = i % 2 ? p.moss + "70" : p.edge + "40";
+      c.fill();
+      c.strokeStyle = p.edge + "75";
+      c.lineWidth = 1.5;
+      c.stroke();
+      c.restore();
+    }
+    oval9(c, x, y, 44, 66, grad3(c, x - 45, y - 50, x + 46, y + 50, "#e8e6b0", "#c6cd8d", "#6d8b54"), p.ink, 3);
+    for (const side of [-1, 1]) curve5(c, [x, y - 60, x + side * 36, y - 20, x + side * 26, y + 36, x, y + 61], p.bark, 2);
+    oval9(c, x, y + 2, 6, 17, "#fff0bc");
+    for (let i = 0; i < 6; i++) {
+      const a = i * TAU10 / 6 + t * 0.15, xx = x + Math.cos(a) * 146, yy = y + Math.sin(a) * 111;
+      oval9(c, xx, yy, 2, 2, p.light + "b0");
+    }
+  }
+  function drawMourningwildBackdrop(c, g, camX, camY, width, height, time = 0) {
+    if (!handled(g)) return false;
+    const p = sceneFor(g), t = clock(g, time), w = Math.max(1, finite7(width, 1280)), h = Math.max(1, finite7(height, 660)), cx = finite7(camX), cy = finite7(camY);
+    c.save();
+    try {
+      c.fillStyle = grad3(c, 0, 0, 0, h, p.sky, p.depth, p.ink);
+      c.fillRect(0, 0, w, h);
+      const skyX = w * 0.64 - cx * 0.025, skyY = h * 0.21 - cy * 0.015;
+      glow8(c, skyX, skyY, Math.min(w * 0.43, 360), p.mist, 0.09);
+      if (p.mode === "village" || p.mode === "canopy") {
+        oval9(c, skyX, skyY, 38, 38, "#e0e7cb24");
+        oval9(c, skyX + 11, skyY - 7, 34, 34, p.sky);
+      }
+      for (let layer = 0; layer < 3; layer++) {
+        const spacing = 250 + layer * 105, parallax = 0.05 + layer * 0.075, offset = cx * parallax, start = Math.floor(offset / spacing) - 2;
+        for (let i = start; i < start + Math.ceil(w / spacing) + 5; i++) {
+          const x = i * spacing - offset, base = h + 90 - cy * parallax * 0.22, height2 = 430 + noise2(i + layer * 99) * 310, width2 = 17 + layer * 9;
+          tree(c, x, base, height2, width2, [p.depth + "88", p.ink + "58", p.bark + "3d"][layer], layer === 2 ? p.edge + "0c" : null, i);
+        }
+      }
+      for (let i = 0; i < 4; i++) {
+        const yy = h * 0.31 + i * 101 - cy * 0.075;
+        curve5(c, [-80, yy, w * 0.22, yy - 210, w * 0.73, yy + 95, w + 70, yy - 112], p.mist + "0d", 2);
+      }
+      for (let i = 0; i < 4; i++) {
+        const x = (i * 0.31 + 0.1) * w - cx * 0.018;
+        c.save();
+        c.globalAlpha = 0.023;
+        c.fillStyle = p.light;
+        c.beginPath();
+        c.moveTo(x - 10, -40);
+        c.lineTo(x + 32, -40);
+        c.lineTo(x + 225, h + 80);
+        c.lineTo(x + 104, h + 80);
+        c.closePath();
+        c.fill();
+        c.restore();
+      }
+      if (p.mode === "waterfall") {
+        const x = w * 0.64 - cx * 0.19 % 470;
+        waterfall(c, x, -100, h + 60, 110, p, t);
+        waterfall(c, x + 440, -80, h + 40, 48, p, t + 0.4);
+      }
+      if (p.mode === "vault") for (let i = 0; i < 7; i++) {
+        const x = i * 240 - cx * 0.16 % 240, y = h * 0.6 + noise2(i + 21) * 120;
+        oval9(c, x, y, 58, 104, p.ink + "54");
+        windowRose(c, x, y - 26, 39, { ...p, bark: p.bark + "88" });
+      }
+      for (let i = 0; i < 28; i++) {
+        const x = ((noise2(i + 83) * w - cx * 0.075 + t * (i % 2 ? 1.7 : -1.1)) % (w + 50) + w + 50) % (w + 50) - 25, y = ((noise2(i + 93) * h - cy * 0.09 + t * (1 + noise2(i) * 3)) % (h + 80) + h + 80) % (h + 80) - 40;
+        if (i % 4 === 0) leaf2(c, x, y, 5 + noise2(i) * 4, Math.sin(t * 0.3 + i) * 0.6, p.edge + "50");
+        else {
+          oval9(c, x, y, i % 3 === 0 ? 1.4 : 0.8, i % 3 === 0 ? 1.4 : 0.8, p.light + "55");
+          if (i % 7 === 0) glow8(c, x, y, 12, p.light, 0.08);
+        }
+      }
+      const fog = grad3(c, 0, h * 0.5, 0, h, "#b8d7c000", p.mist + "09", p.ink + "20");
+      c.fillStyle = fog;
+      c.fillRect(0, h * 0.5, w, h * 0.5);
+    } finally {
+      c.restore();
+    }
+    return true;
+  }
+  function drawMourningwildLandmarks(c, g, camX, camY, viewWidth, viewHeight, time = 0) {
+    if (!handled(g)) return false;
+    const p = sceneFor(g), t = clock(g, time), left = finite7(camX) - 250, right = finite7(camX) + finite7(viewWidth, 1200) + 250, top = finite7(camY) - 150, bottom = finite7(camY) + finite7(viewHeight, 660) + 150, near = (x, r = 280) => x + r > left && x - r < right;
+    c.save();
+    try {
+      if (p.mode === "village") {
+        if (near(430, 450) && bottom > 0) village(c, p, t);
+        for (const o of g.room.objects || []) if (o.kind === "portal" && near(o.x, 100) && bottom > 330 && top < 550) {
+          rootVault(c, o.x, 520, 150, 355, p, t);
+          windowRose(c, o.x, 375, 20, p);
+          for (const side of [-1, 1]) mushrooms(c, o.x + side * 65, 523, 12, p, t);
+        }
+      } else {
+        const spacing = p.mode === "canopy" ? 760 : 680, start = Math.floor(left / spacing), end = Math.ceil(right / spacing), roof = p.mode === "heart" ? 95 : p.mode === "court" ? 155 : p.mode === "vault" ? 180 : 150;
+        if (top < 550 && bottom > roof - 80) for (let i = start; i <= end; i++) rootVault(c, i * spacing + spacing * 0.5, 520, spacing * 0.8, roof + noise2(i + 13) * 36, p, t);
+        if (top < 220) for (let i = Math.floor(left / 740); i <= Math.ceil(right / 740); i++) {
+          const x = i * 740 + 145;
+          tree(c, x, 555, 1310, 29, p.bark + "70", p.edge + "17", i);
+          for (let n2 = -3; n2 < 2; n2++) {
+            const y = n2 * 230 + 80;
+            curve5(c, [x - 3, y, x + 95, y - 50, x + 153, y - 124, x + 231, y - 104], p.bark + "70", 17);
+            for (let k = 0; k < 3; k++) leaf2(c, x + 104 + k * 41, y - 76 - k * 15, 23, 0.8, p.moss + "45", p.edge + "16");
+          }
+        }
+        if (p.mode === "cathedral") {
+          for (const x of [610, 1420, 2160]) if (near(x, 120) && bottom > 40 && top < 380) windowRose(c, x, 221, 88, p);
+          if (near(2380, 190) && bottom > 180) rootVault(c, 2370, 520, 300, 229, { ...p, bark: "#526248", edge: "#dddaa2" }, t);
+        } else if (p.mode === "waterfall") {
+          for (const x of [760, 1690, 2610]) if (near(x, 120)) waterfall(c, x, -780, 520, x === 1690 ? 130 : 60, p, t);
+          if (near(640, 260) && top < 400) {
+            for (const side of [-1, 1]) fern(c, 640 + side * 145, 500, 86, p.moss + "77", p.edge + "27", t);
+          }
+        } else if (p.mode === "court") {
+          for (const x of [560, 2110]) if (near(x, 250) && bottom > 90 && top < 540) bellRuin(c, x, 520, p);
+          if (near(1470, 190) && bottom > 0) windowRose(c, 1460, 205, 107, p);
+        } else if (p.mode === "canopy") {
+          for (const [x, y] of [[560, 93], [1320, -265], [2080, -518]]) if (near(x, 180) && y + 180 > top && y - 180 < bottom) {
+            windowRose(c, x, y, 91, p);
+            curve5(c, [x - 130, y + 135, x - 123, y - 4, x + 124, y - 4, x + 132, y + 135], p.bark, 17);
+          }
+        } else if (p.mode === "vault") {
+          for (const x of [460, 1110, 1820, 2530]) if (near(x, 160) && top < 540) {
+            windowRose(c, x, 356, 70, p);
+            mushrooms(c, x, 520, 36, p, t);
+          }
+          if (near(1940, 300) && bottom > 100) {
+            for (const side of [-1, 1]) curve5(c, [1940 + side * 230, 516, 1940 + side * 193, 359, 1940 + side * 117, 249, 1940 + side * 12, 244], p.bark, 24);
+          }
+        } else if (p.mode === "heart") {
+          if (near(1230, 400) && bottom > 0 && top < 540) seedShrine(c, 1230, 520, p, t);
+          if (near(360, 180) && top < 540) {
+            windowRose(c, 360, 307, 64, p);
+            mushrooms(c, 352, 521, 27, p, t);
+          }
+        }
+        if (top < 550 && bottom > 455) for (let i = Math.floor(left / 230); i <= Math.ceil(right / 230); i++) {
+          const x = i * 230 + 37;
+          if (i % 3 === 0) mushrooms(c, x, 522, p.mode === "vault" ? 25 : 14, p, t);
+          else fern(c, x, 524, 25 + noise2(i + 17) * 19, p.moss + "70", p.edge + "25", t);
+        }
+      }
+    } finally {
+      c.restore();
+    }
+    return true;
+  }
+  function drawMourningwildPlatform(c, platform3, g, time = 0) {
+    if (!handled(g) || platform3.bossOwner) return false;
+    const p = sceneFor(g), x = platform3.x, y = platform3.y, w = platform3.w, h = Math.max(1, platform3.h || 24), t = clock(g, time), ground2 = y === 520 && w > 600;
+    c.save();
+    try {
+      if (!ground2 && !platform3.solid) {
+        const mid = x + w * 0.5, depth = clamp15(w * 0.2, 32, 80);
+        for (const side of [-1, 1]) {
+          const rootX = mid + side * Math.min(w * 0.31, 95);
+          curve5(c, [rootX, y + h - 2, rootX - side * 17, y + h + 17, mid + side * 19, y + h + depth * 0.55, mid + side * 8, y + h + depth], p.bark + "a0", 9);
+          curve5(c, [rootX - side * 3, y + h - 1, rootX - side * 19, y + h + 16, mid + side * 15, y + h + depth * 0.55, mid + side * 7, y + h + depth - 5], p.edge + "24", 1.1);
+        }
+        for (let n2 = 0; n2 < 2; n2++) {
+          const xx = mid + (n2 ? 22 : -22);
+          curve5(c, [xx, y + h + 9, xx - 13, y + h + 39, xx + 8, y + h + 55, xx - 2, y + h + depth + 17], p.moss + "55", 1.7);
+        }
+      }
+      c.fillStyle = grad3(c, 0, y, 0, y + Math.min(h, 170), p.bark, p.ink);
+      c.fillRect(x, y, w, h);
+      const count = Math.min(28, Math.ceil(w / 47));
+      for (let i = 0; i < count; i++) {
+        const xx = x + i * w / count, ww = w / count;
+        poly8(c, [[xx, y + 4], [xx + ww * 0.7, y + 2], [xx + ww, y + 12], [xx + ww * 0.72, y + Math.min(h - 1, 25)], [xx + ww * 0.2, y + Math.min(h, 30)]], i % 2 ? p.moss + "19" : p.edge + "10");
+        line9(c, [[xx + ww * 0.74, y + 8], [xx + ww * 0.51, y + Math.min(h, 27)]], p.ink + "80", 1);
+      }
+      c.fillStyle = p.moss + "aa";
+      c.fillRect(x, y, w, 3);
+      line9(c, [[x, y + 0.5], [x + w, y + 0.5]], platform3.catch ? p.light : p.edge, ground2 ? 2.7 : 2.2);
+      line9(c, [[x + 2, y + 5], [x + w - 2, y + 5]], p.edge + "38", 0.8);
+      if (ground2) {
+        const shade = grad3(c, 0, y + 10, 0, y + 180, "#071b1900", p.ink + "dd");
+        c.fillStyle = shade;
+        c.fillRect(x, y + 10, w, h - 10);
+        for (let i = 0; i < Math.min(22, Math.ceil(w / 93)); i++) {
+          const xx = x + 26 + i * 93;
+          curve5(c, [xx, y + 30, xx - 12, y + 57, xx + 30, y + 88, xx + 14, y + 144], p.moss + "20", 2);
+        }
+      } else for (const side of [0, 1]) {
+        const xx = x + (side ? w - 13 : 13);
+        leaf2(c, xx, y + 3, 11, side ? 0.9 : -0.9, p.moss, p.edge + "30");
+      }
+      for (let i = 0; i < Math.min(14, Math.floor(w / 42)); i++) {
+        const xx = x + 17 + i * 42, hh = 4 + noise2(i + x) * 5;
+        line9(c, [[xx, y], [xx + Math.sin(t * 1.1 + i) * 2, y - hh]], p.moss, 1.1);
+      }
+    } finally {
+      c.restore();
+    }
+    return true;
+  }
+  function drawMourningwildForeground(c, g, camX, camY, viewWidth, viewHeight, time = 0) {
+    if (!handled(g)) return false;
+    const p = sceneFor(g), t = clock(g, time), cx = finite7(camX), cy = finite7(camY), w = finite7(viewWidth, 1200), h = finite7(viewHeight, 660);
+    c.save();
+    try {
+      c.globalAlpha = 0.56;
+      fern(c, cx - 31, cy + h + 25, 101, p.ink, p.bark + "66", t * 0.6);
+      fern(c, cx + w + 33, cy + h + 28, 110, p.ink, p.bark + "66", t * 0.6);
+      for (const side of [0, 1]) {
+        const x = cx + (side ? w + 17 : -16);
+        curve5(c, [x, cy - 18, x + (side ? -17 : 17), cy + 19, x + (side ? -26 : 26), cy + 43, x + (side ? -14 : 14), cy + 75], p.ink, 4);
+        for (let i = 0; i < 4; i++) leaf2(c, x + (side ? -i * 3 : i * 3), cy + 4 + i * 16, 17, side ? -0.8 : 0.8, p.bark + "aa");
+      }
+    } finally {
+      c.restore();
+    }
+    return true;
+  }
+
+  // src/render.js
+  var TAU11 = Math.PI * 2;
+  function ellipse2(c, x, y, rx, ry, fill, stroke2 = null, line13 = 2) {
+    c.beginPath();
+    c.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), 0, 0, TAU11);
+    if (fill) {
+      c.fillStyle = fill;
+      c.fill();
+    }
+    if (stroke2) {
+      c.strokeStyle = stroke2;
+      c.lineWidth = line13;
+      c.stroke();
+    }
+  }
+  function glow9(c, x, y, r, color) {
     const g = c.createRadialGradient(x, y, 0, x, y, r);
     g.addColorStop(0, color);
     g.addColorStop(1, "transparent");
@@ -10327,17 +10844,17 @@
     const bounds = creatureBounds(d), size = Math.min(w * 0.92 / bounds.width, h * 0.88 / bounds.height);
     const x = w * 0.5 - (bounds.left + bounds.right) * 0.5 * size * face, y = h * 0.5 - (bounds.top + bounds.bottom) * 0.5 * size;
     if (hero) {
-      glow8(c, w * 0.53, h * 0.52, h * 0.43, d.color + "15");
+      glow9(c, w * 0.53, h * 0.52, h * 0.43, d.color + "15");
       c.save();
       c.translate(x, y + 2 * size);
       c.scale(1, 0.26);
       c.strokeStyle = "#b9d97844";
       c.lineWidth = 2;
       c.beginPath();
-      c.arc(0, 0, w * 0.34, 0, TAU10);
+      c.arc(0, 0, w * 0.34, 0, TAU11);
       c.stroke();
       c.beginPath();
-      c.arc(0, 0, w * 0.28, 0, TAU10);
+      c.arc(0, 0, w * 0.28, 0, TAU11);
       c.stroke();
       c.restore();
       drawCreature(c, d, x, y, size, face, { state: "idle" }, time, { aura: true, reducedMotion: reducedMotion2 });
@@ -10351,8 +10868,8 @@
   }
 
   // src/dungeon-art.js
-  var TAU11 = Math.PI * 2;
-  var line9 = (c, p, color, width = 2) => {
+  var TAU12 = Math.PI * 2;
+  var line10 = (c, p, color, width = 2) => {
     c.beginPath();
     p.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y));
     c.strokeStyle = color;
@@ -10361,7 +10878,7 @@
     c.lineJoin = "round";
     c.stroke();
   };
-  var poly8 = (c, p, color, edge) => {
+  var poly9 = (c, p, color, edge) => {
     c.beginPath();
     p.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y));
     c.closePath();
@@ -10373,9 +10890,9 @@
       c.stroke();
     }
   };
-  var oval9 = (c, x, y, rx, ry, color) => {
+  var oval10 = (c, x, y, rx, ry, color) => {
     c.beginPath();
-    c.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), 0, 0, TAU11);
+    c.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), 0, 0, TAU12);
     c.fillStyle = color;
     c.fill();
   };
@@ -10386,56 +10903,56 @@
     c.scale(e.face || 1, 1);
     if (e.flash) c.globalAlpha = 0.55;
     const wind = e.state === "windup", move2 = ["patrol", "charge", "chase"].includes(e.state), stride = move2 ? Math.sin(t * 14 + e.id) * 6 : Math.sin(t * 3) * 1.5;
-    oval9(c, 0, 0, 28, 5, "#07152166");
+    oval10(c, 0, 0, 28, 5, "#07152166");
     if (e.kind === "glassmarauder") {
       for (const s of [-1, 1]) {
-        line9(c, [[s * 10, -23], [s * (15 + stride * 0.3), -10], [s * (19 - stride * 0.4), 0]], "#698b91", 6);
-        poly8(c, [[s * 13, -33], [s * 28, -55], [s * 32, -23]], color + "77", color);
+        line10(c, [[s * 10, -23], [s * (15 + stride * 0.3), -10], [s * (19 - stride * 0.4), 0]], "#698b91", 6);
+        poly9(c, [[s * 13, -33], [s * 28, -55], [s * 32, -23]], color + "77", color);
       }
-      poly8(c, [[-19, -40], [-8, -64], [10, -62], [23, -34], [8, -22], [-10, -24]], "#3d6570", color);
-      poly8(c, [[-13, -65], [-5, -89], [10, -77], [18, -61], [1, -50]], color + "88", color);
-      line9(c, [[-7, -63], [11, -63]], "#f5ffe5", 3);
+      poly9(c, [[-19, -40], [-8, -64], [10, -62], [23, -34], [8, -22], [-10, -24]], "#3d6570", color);
+      poly9(c, [[-13, -65], [-5, -89], [10, -77], [18, -61], [1, -50]], color + "88", color);
+      line10(c, [[-7, -63], [11, -63]], "#f5ffe5", 3);
       const reach = wind ? -14 : e.state === "charge" ? 28 : 0;
-      line9(c, [[15, -42], [31 + reach, -31], [42 + reach, -48]], "#648b91", 5);
-      poly8(c, [[36 + reach, -47], [50 + reach, -99], [59 + reach, -36], [43 + reach, -22]], color + "99", "#e8fff0");
-      line9(c, [[-9, -44], [-29, -35], [-35, -16]], "#648b91", 5);
+      line10(c, [[15, -42], [31 + reach, -31], [42 + reach, -48]], "#648b91", 5);
+      poly9(c, [[36 + reach, -47], [50 + reach, -99], [59 + reach, -36], [43 + reach, -22]], color + "99", "#e8fff0");
+      line10(c, [[-9, -44], [-29, -35], [-35, -16]], "#648b91", 5);
     } else if (e.kind === "veilwasp") {
       const flap = Math.sin(t * 30) * 13;
       for (const s of [-1, 1]) {
-        poly8(c, [[-3, -34], [s * 48, -62 + flap], [s * 37, -20 + flap], [-2, -20]], color + "30", color + "99");
-        line9(c, [[s * 4, -24], [s * 23, -11], [s * 31, -19]], color, 2);
+        poly9(c, [[-3, -34], [s * 48, -62 + flap], [s * 37, -20 + flap], [-2, -20]], color + "30", color + "99");
+        line10(c, [[s * 4, -24], [s * 23, -11], [s * 31, -19]], color, 2);
       }
-      oval9(c, -12, -31, 19, 13, "#4d3b66");
-      for (let i = 0; i < 3; i++) line9(c, [[-24 + i * 10, -40], [-25 + i * 10, -22]], color + "88", 3);
-      poly8(c, [[-30, -32], [-55, -24], [-31, -23]], color);
-      oval9(c, 9, -40, 13, 15, color + "99");
-      poly8(c, [[14, -37], [41, -31], [16, -29]], "#eae5ce");
-      line9(c, [[6, -52], [0, -69], [-7, -72]], color, 2);
-      line9(c, [[14, -51], [24, -67], [31, -66]], color, 2);
-      oval9(c, 16, -44, 3, 4, "#fff5c1");
+      oval10(c, -12, -31, 19, 13, "#4d3b66");
+      for (let i = 0; i < 3; i++) line10(c, [[-24 + i * 10, -40], [-25 + i * 10, -22]], color + "88", 3);
+      poly9(c, [[-30, -32], [-55, -24], [-31, -23]], color);
+      oval10(c, 9, -40, 13, 15, color + "99");
+      poly9(c, [[14, -37], [41, -31], [16, -29]], "#eae5ce");
+      line10(c, [[6, -52], [0, -69], [-7, -72]], color, 2);
+      line10(c, [[14, -51], [24, -67], [31, -66]], color, 2);
+      oval10(c, 16, -44, 3, 4, "#fff5c1");
     } else if (e.kind === "graveburrower") {
-      for (const s of [-1, 1]) for (let i = 0; i < 3; i++) line9(c, [[s * 12, -20], [s * (27 + i * 3), -13 + Math.sin(t * 13 + i) * 3], [s * (33 + i * 3), 0]], "#8c8377", 4);
-      poly8(c, [[-29, -13], [-24, -40], [-10, -58], [15, -55], [32, -30], [27, -7]], "#675f62", color);
-      for (let i = 0; i < 4; i++) poly8(c, [[-28 + i * 15, -29], [-21 + i * 15, -64 - i % 2 * 13], [-8 + i * 15, -30]], color + "77", color);
-      oval9(c, 10, -26, 16, 17, "#c9bda0");
-      oval9(c, 4, -28, 4, 5, "#241f31");
-      oval9(c, 17, -28, 4, 5, "#241f31");
-      poly8(c, [[10, -21], [6, -15], [14, -15]], "#423846");
-      for (const s of [-1, 1]) poly8(c, [[s * 17, -8], [s * 34, -20], [s * 28, 4], [s * 16, -1]], "#e1d3ae");
+      for (const s of [-1, 1]) for (let i = 0; i < 3; i++) line10(c, [[s * 12, -20], [s * (27 + i * 3), -13 + Math.sin(t * 13 + i) * 3], [s * (33 + i * 3), 0]], "#8c8377", 4);
+      poly9(c, [[-29, -13], [-24, -40], [-10, -58], [15, -55], [32, -30], [27, -7]], "#675f62", color);
+      for (let i = 0; i < 4; i++) poly9(c, [[-28 + i * 15, -29], [-21 + i * 15, -64 - i % 2 * 13], [-8 + i * 15, -30]], color + "77", color);
+      oval10(c, 10, -26, 16, 17, "#c9bda0");
+      oval10(c, 4, -28, 4, 5, "#241f31");
+      oval10(c, 17, -28, 4, 5, "#241f31");
+      poly9(c, [[10, -21], [6, -15], [14, -15]], "#423846");
+      for (const s of [-1, 1]) poly9(c, [[s * 17, -8], [s * 34, -20], [s * 28, 4], [s * 16, -1]], "#e1d3ae");
       if (e.state === "burrow" || e.state === "windup") {
         c.strokeStyle = color + "77";
         c.lineWidth = 2;
         c.beginPath();
-        c.ellipse(0, 2, 42 + Math.sin(t * 9) * 4, 7, 0, 0, TAU11);
+        c.ellipse(0, 2, 42 + Math.sin(t * 9) * 4, 7, 0, 0, TAU12);
         c.stroke();
       }
     } else {
-      for (const s of [-1, 1]) line9(c, [[s * 8, -22], [s * 17, -8], [s * 22, 0]], "#756984", 5);
-      poly8(c, [[-16, -51], [10, -51], [25, -12], [7, -21], [-12, -9], [-22, -16]], "#574968", color + "88");
-      oval9(c, -1, -64, 14, 17, "#bdacbc");
-      poly8(c, [[-20, -70], [0, -91], [21, -69], [12, -49], [0, -57], [-13, -50]], "#685577", color);
-      line9(c, [[-8, -66], [7, -66]], "#f8e9bb", 3);
-      for (const s of [-1, 1]) line9(c, [[s * 12, -46], [s * 26, -32], [s * 35, -46]], "#9b819e", 4);
+      for (const s of [-1, 1]) line10(c, [[s * 8, -22], [s * 17, -8], [s * 22, 0]], "#756984", 5);
+      poly9(c, [[-16, -51], [10, -51], [25, -12], [7, -21], [-12, -9], [-22, -16]], "#574968", color + "88");
+      oval10(c, -1, -64, 14, 17, "#bdacbc");
+      poly9(c, [[-20, -70], [0, -91], [21, -69], [12, -49], [0, -57], [-13, -50]], "#685577", color);
+      line10(c, [[-8, -66], [7, -66]], "#f8e9bb", 3);
+      for (const s of [-1, 1]) line10(c, [[s * 12, -46], [s * 26, -32], [s * 35, -46]], "#9b819e", 4);
       const length = wind ? 43 : e.state === "charge" ? 90 : 65;
       for (let i = 0; i < 9; i++) {
         const x = 31 + i * length / 9, y = -42 + Math.sin(i * 0.6 + t * 5) * 8;
@@ -10447,7 +10964,7 @@
         c.strokeRect(-4, -2, 8, 4);
         c.restore();
       }
-      poly8(c, [[31 + length, -52], [41 + length, -42], [31 + length, -32], [21 + length, -42]], "#a887ac", color);
+      poly9(c, [[31 + length, -52], [41 + length, -42], [31 + length, -32], [21 + length, -42]], "#a887ac", color);
     }
     if (wind) {
       c.fillStyle = "#ffe7b2";
@@ -10465,50 +10982,50 @@
     c.scale(e.face || 1, 1);
     if (e.flash) c.globalAlpha = 0.55;
     const col = b.color, wind = e.state === "windup", reaver2 = e.boss.endsWith("-reaver"), rage = e.phase >= 2;
-    oval9(c, 0, 0, 72, 10, "#09111b88");
+    oval10(c, 0, 0, 72, 10, "#09111b88");
     if (!reaver2) {
       for (const s of [-1, 1]) {
-        line9(c, [[s * 22, -48], [s * 37, -24], [s * 39, -2]], "#647274", 15);
-        poly8(c, [[s * 26, -41], [s * 45, -43], [s * 56, 0], [s * 29, 0]], "#455861", col + "88");
+        line10(c, [[s * 22, -48], [s * 37, -24], [s * 39, -2]], "#647274", 15);
+        poly9(c, [[s * 26, -41], [s * 45, -43], [s * 56, 0], [s * 29, 0]], "#455861", col + "88");
       }
-      poly8(c, [[-45, -118], [-25, -144], [25, -144], [49, -116], [35, -53], [0, -42], [-32, -55]], "#435963", col);
-      for (const s of [-1, 1]) poly8(c, [[s * 25, -132], [s * 58, -152], [s * 77, -115], [s * 34, -103]], "#657b7e", col);
-      poly8(c, [[-24, -144], [-17, -184], [0, -201], [20, -182], [26, -144], [0, -132]], "#617780", col);
-      line9(c, [[-15, -159], [15, -159]], rage ? "#ffe9b0" : col, 5);
-      for (const s of [-1, 1]) poly8(c, [[s * 15, -185], [s * 34, -218], [s * 30, -176]], col + "88", col);
-      line9(c, [[-40, -113], [-67, -79], [-65, -42]], "#779091", 13);
-      poly8(c, [[-79, -108], [-49, -108], [-36, -60], [-65, -35], [-91, -60]], "#3e535f", col);
+      poly9(c, [[-45, -118], [-25, -144], [25, -144], [49, -116], [35, -53], [0, -42], [-32, -55]], "#435963", col);
+      for (const s of [-1, 1]) poly9(c, [[s * 25, -132], [s * 58, -152], [s * 77, -115], [s * 34, -103]], "#657b7e", col);
+      poly9(c, [[-24, -144], [-17, -184], [0, -201], [20, -182], [26, -144], [0, -132]], "#617780", col);
+      line10(c, [[-15, -159], [15, -159]], rage ? "#ffe9b0" : col, 5);
+      for (const s of [-1, 1]) poly9(c, [[s * 15, -185], [s * 34, -218], [s * 30, -176]], col + "88", col);
+      line10(c, [[-40, -113], [-67, -79], [-65, -42]], "#779091", 13);
+      poly9(c, [[-79, -108], [-49, -108], [-36, -60], [-65, -35], [-91, -60]], "#3e535f", col);
       const lean = wind ? -0.35 : e.state === "charge" ? 0.45 : 0;
       c.save();
       c.translate(49, -105);
       c.rotate(lean);
-      line9(c, [[0, 0], [23, 35], [41, 20]], "#779091", 12);
-      line9(c, [[41, -46], [41, 67]], "#b4ae8f", 6);
-      poly8(c, [[16, -46], [24, -78], [59, -78], [70, -46], [57, -17], [25, -17]], "#5a7075", col);
+      line10(c, [[0, 0], [23, 35], [41, 20]], "#779091", 12);
+      line10(c, [[41, -46], [41, 67]], "#b4ae8f", 6);
+      poly9(c, [[16, -46], [24, -78], [59, -78], [70, -46], [57, -17], [25, -17]], "#5a7075", col);
       c.restore();
-      poly8(c, [[-12, -115], [0, -129], [14, -115], [0, -91]], rage ? "#ffe2af" : col);
+      poly9(c, [[-12, -115], [0, -129], [14, -115], [0, -91]], rage ? "#ffe2af" : col);
     } else {
       const motion = Math.sin(t * 5) * 5;
-      for (let i = 0; i < 6; i++) line9(c, [[-37, -75], [-65 - i * 9, -60 + motion], [-85 - i * 7, -90 - i * 9 + Math.sin(t * 3 + i) * 10]], i % 2 ? col + "88" : "#6c5b79", 7 - i * 0.7);
+      for (let i = 0; i < 6; i++) line10(c, [[-37, -75], [-65 - i * 9, -60 + motion], [-85 - i * 7, -90 - i * 9 + Math.sin(t * 3 + i) * 10]], i % 2 ? col + "88" : "#6c5b79", 7 - i * 0.7);
       for (const s of [-1, 1]) {
-        line9(c, [[s * 22, -51], [s * 43, -23], [s * 51, 0]], "#7d6985", 12);
-        poly8(c, [[s * 45, -12], [s * 67, -11], [s * 76, 2], [s * 45, 2]], "#ac94a2", col);
+        line10(c, [[s * 22, -51], [s * 43, -23], [s * 51, 0]], "#7d6985", 12);
+        poly9(c, [[s * 45, -12], [s * 67, -11], [s * 76, 2], [s * 45, 2]], "#ac94a2", col);
       }
-      poly8(c, [[-40, -104], [-25, -147], [13, -158], [46, -120], [36, -67], [4, -43], [-32, -61]], "#66516f", col);
+      poly9(c, [[-40, -104], [-25, -147], [13, -158], [46, -120], [36, -67], [4, -43], [-32, -61]], "#66516f", col);
       for (const s of [-1, 1]) {
-        line9(c, [[s * 30, -113], [s * 60, -80], [s * (79 + (wind ? -12 : 7)), -118]], "#8a6c8c", 13);
-        for (let i = 0; i < 3; i++) poly8(c, [[s * 69, -116 + i * 4], [s * (108 - i * 5), -147 + i * 8], [s * 84, -100 + i * 3]], "#e0cdbb", col);
+        line10(c, [[s * 30, -113], [s * 60, -80], [s * (79 + (wind ? -12 : 7)), -118]], "#8a6c8c", 13);
+        for (let i = 0; i < 3; i++) poly9(c, [[s * 69, -116 + i * 4], [s * (108 - i * 5), -147 + i * 8], [s * 84, -100 + i * 3]], "#e0cdbb", col);
       }
-      poly8(c, [[-23, -153], [-15, -195], [20, -200], [45, -172], [30, -140], [0, -130]], "#bd9fac", col);
-      poly8(c, [[26, -169], [70, -159], [32, -150]], "#d9bfae");
-      oval9(c, 23, -174, 4, 7, "#fff4c4");
-      for (let i = 0; i < 4; i++) poly8(c, [[-26 + i * 12, -160], [-43 + i * 13, -209 - i % 2 * 17], [-9 + i * 12, -176]], col + "88", col);
+      poly9(c, [[-23, -153], [-15, -195], [20, -200], [45, -172], [30, -140], [0, -130]], "#bd9fac", col);
+      poly9(c, [[26, -169], [70, -159], [32, -150]], "#d9bfae");
+      oval10(c, 23, -174, 4, 7, "#fff4c4");
+      for (let i = 0; i < 4; i++) poly9(c, [[-26 + i * 12, -160], [-43 + i * 13, -209 - i % 2 * 17], [-9 + i * 12, -176]], col + "88", col);
     }
     if (rage) {
       c.strokeStyle = col + "88";
       c.lineWidth = 2;
       c.beginPath();
-      c.ellipse(0, -2, 82 + Math.sin(t * 6) * 6, 13, 0, 0, TAU11);
+      c.ellipse(0, -2, 82 + Math.sin(t * 6) * 6, 13, 0, 0, TAU12);
       c.stroke();
     }
     if (wind) {
@@ -10532,36 +11049,36 @@
     if (cue.kind === "rush") {
       const end = x + (Math.sign(tx - x) || e.face) * Math.min(700, Math.max(300, Math.abs(tx - x) + 80));
       c.fillRect(Math.min(x, end), y - 28, Math.abs(end - x), 28);
-      line9(c, [[x, y - 4], [end, y - 4]], col + "aa", 2);
-      line9(c, [[x, y - 25], [end, y - 25]], col + "55", 1);
+      line10(c, [[x, y - 4], [end, y - 4]], col + "aa", 2);
+      line10(c, [[x, y - 25], [end, y - 25]], col + "55", 1);
     } else if (cue.kind === "volley") {
       c.setLineDash([5, 8]);
-      line9(c, [[x, y - 90], [tx, ty - 30]], col + "99", 1.3);
+      line10(c, [[x, y - 90], [tx, ty - 30]], col + "99", 1.3);
       c.setLineDash([]);
       c.strokeStyle = col;
       c.beginPath();
-      c.arc(tx, ty - 30, 19 + pulse * 4, 0, TAU11);
+      c.arc(tx, ty - 30, 19 + pulse * 4, 0, TAU12);
       c.stroke();
-      line9(c, [[tx - 28, ty - 30], [tx + 28, ty - 30]], col + "88", 1);
-      line9(c, [[tx, ty - 58], [tx, ty - 2]], col + "88", 1);
+      line10(c, [[tx - 28, ty - 30], [tx + 28, ty - 30]], col + "88", 1);
+      line10(c, [[tx, ty - 58], [tx, ty - 2]], col + "88", 1);
     } else {
       const radius = cue.radius || 90, target = cue.kind === "slam" ? x : tx, base = cue.kind === "slam" ? y : ty;
       c.beginPath();
-      c.ellipse(target, base - 3, radius, 13, 0, 0, TAU11);
+      c.ellipse(target, base - 3, radius, 13, 0, 0, TAU12);
       c.fill();
       c.stroke();
       c.strokeStyle = col + "88";
       c.beginPath();
-      c.ellipse(target, base - 3, radius * (0.55 + pulse * 0.2), 9, 0, 0, TAU11);
+      c.ellipse(target, base - 3, radius * (0.55 + pulse * 0.2), 9, 0, 0, TAU12);
       c.stroke();
-      for (const side of [-1, 1]) line9(c, [[target + side * radius, base - 12], [target + side * radius, base + 4]], col, 2);
+      for (const side of [-1, 1]) line10(c, [[target + side * radius, base - 12], [target + side * radius, base + 4]], col, 2);
     }
     c.restore();
   }
 
   // src/tunnel-render.js
-  var TAU12 = Math.PI * 2;
-  var noise2 = (n2) => {
+  var TAU13 = Math.PI * 2;
+  var noise3 = (n2) => {
     const a = Math.sin(n2 * 127.1 + 37) * 43758.5453;
     return a - Math.floor(a);
   };
@@ -10590,15 +11107,15 @@
   };
   var ellipse3 = (c, x, y, rx, ry, color) => {
     c.beginPath();
-    c.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), 0, 0, TAU12);
+    c.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), 0, 0, TAU13);
     c.fillStyle = color;
     c.fill();
   };
-  var glow9 = (c, x, y, r, color) => {
-    const gradient = c.createRadialGradient(x, y, 0, x, y, r);
-    gradient.addColorStop(0, color);
-    gradient.addColorStop(1, "transparent");
-    ellipse3(c, x, y, r, r, gradient);
+  var glow10 = (c, x, y, r, color) => {
+    const gradient2 = c.createRadialGradient(x, y, 0, x, y, r);
+    gradient2.addColorStop(0, color);
+    gradient2.addColorStop(1, "transparent");
+    ellipse3(c, x, y, r, r, gradient2);
   };
   var PALETTES = {
     moss: { void: "#071415", back: "#112727", wall: "#183331", shadow: "#0c1d20", stone: "#35483e", face: "#26372f", edge: "#7f9a75", vein: "#8fb795", light: "#b9e5b3" },
@@ -10628,23 +11145,23 @@
   function ceilingAt(g, x) {
     const nearby = g.platforms.filter((p) => !p.veil && x >= p.x - 210 && x <= p.x + p.w + 210);
     const top = Math.min(...(nearby.length ? nearby : g.platforms).map((p) => p.y));
-    return top - 310 - 26 * noise2(Math.floor(x / 110) + g.roomId.length);
+    return top - 310 - 26 * noise3(Math.floor(x / 110) + g.roomId.length);
   }
   function drawTunnelBackdrop(c, g, camX, camY, width, height, t) {
-    const p = tunnelPalette(g.room.biome), background = c.createLinearGradient(0, 0, 0, height);
-    background.addColorStop(0, p.void);
-    background.addColorStop(0.58, p.back);
-    background.addColorStop(1, p.void);
-    c.fillStyle = background;
+    const p = tunnelPalette(g.room.biome), background2 = c.createLinearGradient(0, 0, 0, height);
+    background2.addColorStop(0, p.void);
+    background2.addColorStop(0.58, p.back);
+    background2.addColorStop(1, p.void);
+    c.fillStyle = background2;
     c.fillRect(0, 0, width, height);
     c.save();
     c.translate(-camX * 0.18, -camY * 0.12);
     const originX = Math.floor(camX * 0.18 / 240) * 240, originY = Math.floor(camY * 0.12 / 170) * 170;
     for (let row = -2; row < 8; row++) for (let n2 = -2; n2 < Math.ceil(width / 240) + 3; n2++) {
       const x = originX + n2 * 240 + row % 2 * 90, y = originY + row * 170, seed3 = (n2 + 1) * 31 + row * 17;
-      const top = y - 15 - noise2(seed3) * 28, bottom = y + 155 + noise2(seed3 + 1) * 35;
+      const top = y - 15 - noise3(seed3) * 28, bottom = y + 155 + noise3(seed3 + 1) * 35;
       const facet = [[x - 30, top + 15], [x + 99, top - 10], [x + 236, top + 21], [x + 260, bottom - 31], [x + 144, bottom + 9], [x + 17, bottom - 2]];
-      polygon(c, facet, noise2(seed3 + 4) > 0.5 ? p.wall + "60" : p.shadow + "60");
+      polygon(c, facet, noise3(seed3 + 4) > 0.5 ? p.wall + "60" : p.shadow + "60");
       stroke(c, [[x - 30, top + 15], [x + 99, top - 10], [x + 236, top + 21]], p.vein + "16", 1.2);
       stroke(c, [[x + 236, top + 21], [x + 219, top + 65], [x + 235, top + 100]], p.void + "80", 1.6);
       stroke(c, [[x + 14, top + 65], [x + 42, top + 82], [x + 35, top + 110]], p.vein + "11", 1);
@@ -10652,7 +11169,7 @@
     c.restore();
     const spacing = 630, offset = camX * 0.32 % spacing;
     for (let i = -1; i < Math.ceil(width / spacing) + 1; i++) {
-      const x = i * spacing - offset, y = 240 + noise2(Math.floor(camX * 0.32 / spacing) + i + 63) * 90;
+      const x = i * spacing - offset, y = 240 + noise3(Math.floor(camX * 0.32 / spacing) + i + 63) * 90;
       c.save();
       c.globalAlpha = 0.72;
       arch(c, x, y, 93, 290, p.shadow, p.wall);
@@ -10665,7 +11182,7 @@
     }
     for (let layer = 0; layer < 8; layer++) {
       const y = (layer * 121 - camY * 0.2) % 920 - 90, points = [];
-      for (let n2 = -1; n2 < Math.ceil(width / 145) + 2; n2++) points.push([n2 * 145 - camX * 0.27 % 145, y + Math.sin(n2 * 0.75 + layer * 2) * 24 + noise2(n2 + layer * 17) * 17]);
+      for (let n2 = -1; n2 < Math.ceil(width / 145) + 2; n2++) points.push([n2 * 145 - camX * 0.27 % 145, y + Math.sin(n2 * 0.75 + layer * 2) * 24 + noise3(n2 + layer * 17) * 17]);
       stroke(c, points, p.vein + "12", layer % 3 === 0 ? 2 : 1);
     }
     if (g.room.biome === "forge" || g.room.biome === "storm") for (let i = -1; i < Math.ceil(width / 300) + 1; i++) {
@@ -10674,11 +11191,11 @@
       stroke(c, [[x - 12, 90], [x + 14, 82], [x + 8, 120], [x - 17, 136]], p.vein + "18", 2);
     }
     for (let i = -1; i < Math.ceil(width / 310) + 2; i++) {
-      const tile = Math.floor(camX / 310) + i, x = tile * 310 - camX, y = 170 + noise2(tile + 53) * 260;
-      glow9(c, x, y, 135, p.light + "0b");
+      const tile = Math.floor(camX / 310) + i, x = tile * 310 - camX, y = 170 + noise3(tile + 53) * 260;
+      glow10(c, x, y, 135, p.light + "0b");
       if (g.room.biome === "forge") {
         stroke(c, [[x, y - 37], [x - 10, y], [x + 4, y + 40]], "#ef8d4040", 2);
-        glow9(c, x, y, 35, "#f49d4d25");
+        glow10(c, x, y, 35, "#f49d4d25");
       } else if (g.room.biome === "reef" || g.room.biome === "moss") {
         for (let n2 = 0; n2 < 4; n2++) ellipse3(c, x + Math.sin(n2 * 3) * 18, y + n2 * 5, 2.5, 1.5, p.light + "42");
       } else if (g.room.biome === "frost") {
@@ -10692,15 +11209,15 @@
     if (!Number.isFinite(g.room.tunnelCeiling) || camY + height < g.room.tunnelCeiling - 30 || camY > 560) return;
     const p = tunnelPalette(g.room.biome), roof = g.room.tunnelCeiling, floor3 = 520;
     const left = Math.max(0, camX - 100), right = Math.min(g.worldWidth, camX + width + 100);
-    const opening = c.createLinearGradient(0, roof - 110, 0, floor3);
-    opening.addColorStop(0, p.void + "e0");
-    opening.addColorStop(0.25, p.shadow + "cf");
-    opening.addColorStop(1, p.back + "10");
-    c.fillStyle = opening;
+    const opening2 = c.createLinearGradient(0, roof - 110, 0, floor3);
+    opening2.addColorStop(0, p.void + "e0");
+    opening2.addColorStop(0.25, p.shadow + "cf");
+    opening2.addColorStop(1, p.back + "10");
+    c.fillStyle = opening2;
     c.fillRect(left, roof - 110, right - left, floor3 - roof + 110);
     const spacing = 560, start = Math.floor(left / spacing) - 1, end = Math.ceil(right / spacing) + 1;
     for (let n2 = start; n2 <= end; n2++) {
-      const x = n2 * spacing, peak = roof - 28 - noise2(n2 + g.roomId.length) * 22;
+      const x = n2 * spacing, peak = roof - 28 - noise3(n2 + g.roomId.length) * 22;
       c.beginPath();
       c.moveTo(x - 18, floor3);
       c.lineTo(x - 18, roof + 116);
@@ -10728,7 +11245,7 @@
       const lampX = x + spacing * 0.5, lampY = roof + 66;
       if (lampX > left - 50 && lampX < right + 50) {
         stroke(c, [[lampX, peak + 29], [lampX, lampY]], p.edge + "35", 1);
-        glow9(c, lampX, lampY + 6, 95, p.light + "10");
+        glow10(c, lampX, lampY + 6, 95, p.light + "10");
         if (g.room.biome === "forge") {
           polygon(c, [[lampX - 9, lampY + 7], [lampX - 7, lampY - 7], [lampX + 7, lampY - 7], [lampX + 9, lampY + 7]], p.stone, p.edge + "55");
           ellipse3(c, lampX, lampY, 4, 6, "#f9bc7b");
@@ -10753,16 +11270,16 @@
         const xx = x + w * (n2 + 0.5) / bays;
         arch(c, xx, shelf2.y - 52, Math.min(36, w / bays * 0.24), 54, p.void + "ac", p.wall);
         if (!shelf2.catch || n2 % 2 === 0) {
-          glow9(c, xx, shelf2.y - 38, 45, p.light + "12");
+          glow10(c, xx, shelf2.y - 38, 45, p.light + "12");
           ellipse3(c, xx, shelf2.y - 38, 2.2, 3.6, "#d4e6baaa");
           stroke(c, [[xx, roof + 10], [xx, shelf2.y - 46]], p.edge + "33", 1);
         }
       }
       for (const side of [-1, 1]) {
-        const xx = side < 0 ? x + 9 : x + w - 9, root = side < 0 ? -1 : 1;
-        stroke(c, [[xx, shelf2.y + 8], [xx + root * 9, shelf2.y + 43], [xx + root * 3, shelf2.y + 86]], p.wall, 13);
-        stroke(c, [[xx, shelf2.y + 8], [xx + root * 9, shelf2.y + 43], [xx + root * 3, shelf2.y + 86]], p.edge + "28", 2);
-        if (shelf2.catch) for (let leaf2 = 0; leaf2 < 3; leaf2++) ellipse3(c, xx + root * (6 + leaf2 * 3), shelf2.y + 20 + leaf2 * 14, 6, 2, "#71916b55");
+        const xx = side < 0 ? x + 9 : x + w - 9, root2 = side < 0 ? -1 : 1;
+        stroke(c, [[xx, shelf2.y + 8], [xx + root2 * 9, shelf2.y + 43], [xx + root2 * 3, shelf2.y + 86]], p.wall, 13);
+        stroke(c, [[xx, shelf2.y + 8], [xx + root2 * 9, shelf2.y + 43], [xx + root2 * 3, shelf2.y + 86]], p.edge + "28", 2);
+        if (shelf2.catch) for (let leaf4 = 0; leaf4 < 3; leaf4++) ellipse3(c, xx + root2 * (6 + leaf4 * 3), shelf2.y + 20 + leaf4 * 14, 6, 2, "#71916b55");
       }
       if (shelf2.landing) {
         const xx = x + w * 0.27, yy = roof + 15;
@@ -10782,7 +11299,7 @@
     stroke(c, edge, p.stone + "b0", 13);
     stroke(c, edge.map(([x, y]) => [x, y - 8]), p.wall, 17);
     for (let x = left; x < right; x += 113) {
-      const y = ceilingAt(g, x), length = 18 + noise2(x + 19) * 55;
+      const y = ceilingAt(g, x), length = 18 + noise3(x + 19) * 55;
       polygon(c, [[x - 18, y - 9], [x + 13, y - 5], [x + 3, y + length], [x - 7, y + length * 0.7]], p.shadow, p.stone + "88");
       if (g.room.biome === "moss") {
         stroke(c, [[x, y + 4], [x + 8, y + 55], [x - 5, y + 92 + Math.sin(t * 0.5 + x) * 3]], "#52715a88", 2);
@@ -10792,7 +11309,7 @@
     drawLandingNetwork(c, g, camX, camY, width, height, t);
     for (const shelf2 of g.platforms) {
       if (shelf2.veil || shelf2.h > 70 || shelf2.x + shelf2.w < camX - 120 || shelf2.x > camX + width + 120 || g.room.climbNetwork && (shelf2.landing || shelf2.catch)) continue;
-      const depth = 170 + noise2(shelf2.x + shelf2.y) * 170, base = shelf2.y + depth;
+      const depth = 170 + noise3(shelf2.x + shelf2.y) * 170, base = shelf2.y + depth;
       c.save();
       c.globalAlpha = 0.9;
       polygon(c, [[shelf2.x + 6, shelf2.y + 14], [shelf2.x + shelf2.w - 6, shelf2.y + 14], [shelf2.x + shelf2.w + 100, base - 28], [shelf2.x + shelf2.w * 0.65, base + 70], [shelf2.x - 84, base]], p.wall);
@@ -10815,15 +11332,15 @@
       polygon(c, [[x, camY - 50], [x + side * 90, camY - 50], [x + side * 90, camY + height + 80], [x, camY + height + 80], [x - side * 6, camY + height * 0.64], [x, camY + height * 0.3]], p.shadow);
     }
     for (let i = 0; i < 32; i++) {
-      const x = camX + noise2(i + Math.floor(camX / 250) * 53) * width, y = camY + (noise2(i + 97) * height + t * (g.room.biome === "reef" ? 12 : 3)) % height;
+      const x = camX + noise3(i + Math.floor(camX / 250) * 53) * width, y = camY + (noise3(i + 97) * height + t * (g.room.biome === "reef" ? 12 : 3)) % height;
       if (i % 7 === 0 && ["moss", "reef", "frost"].includes(g.room.biome)) stroke(c, [[x, y], [x - 1, y + 6]], p.light + "20", 1);
-      else ellipse3(c, x, y, 0.6 + noise2(i) * 0.9, 0.6 + noise2(i) * 0.9, p.light + "22");
+      else ellipse3(c, x, y, 0.6 + noise3(i) * 0.9, 0.6 + noise3(i) * 0.9, p.light + "22");
     }
   }
   function drawTunnelPlatform(c, shelf2, biome, t) {
     const p = tunnelPalette(biome), { x, y, w, h } = shelf2, depth = Math.max(12, h), seed3 = x + y;
     const silhouette = [[x, y], [x + w, y], [x + w, y + Math.min(depth, 17)]];
-    for (let xx = x + w; xx > x; xx -= 29) silhouette.push([Math.max(x, xx - 9), y + depth * (0.72 + noise2(xx + seed3) * 0.28)]);
+    for (let xx = x + w; xx > x; xx -= 29) silhouette.push([Math.max(x, xx - 9), y + depth * (0.72 + noise3(xx + seed3) * 0.28)]);
     silhouette.push([x, y + Math.min(depth, 14)]);
     polygon(c, silhouette, p.face);
     c.save();
@@ -10842,7 +11359,7 @@
       stroke(c, [[x, yy], [x + w * 0.22, yy + 4], [x + w * 0.59, yy - 3], [x + w, yy + 5]], p.edge + (layer % 2 ? "0b" : "14"), 1);
     }
     for (let xx = x + 13; xx < x + w; xx += 42) {
-      const yy = y + 12 + noise2(xx) * Math.min(depth * 0.65, 80), d = 7 + noise2(xx + 3) * 16;
+      const yy = y + 12 + noise3(xx) * Math.min(depth * 0.65, 80), d = 7 + noise3(xx + 3) * 16;
       stroke(c, [[xx - 7, yy], [xx + 3, yy + d], [xx - 3, yy + d + 12]], "#020b106b", 1.4);
       stroke(c, [[xx + 4, yy + d], [xx + 20, yy + d + 8]], p.edge + "20", 1);
     }
@@ -10853,11 +11370,11 @@
       if (biome === "moss") for (let xx = x + 20; xx < x + w - 12; xx += 67) ellipse3(c, xx, y + 4, 14, 2, "#75916a88");
     }
     for (let xx = x + 3; xx < x + w - 2; xx += 19) {
-      const ww = Math.min(18, x + w - xx), chip = noise2(xx + seed3);
+      const ww = Math.min(18, x + w - xx), chip = noise3(xx + seed3);
       polygon(c, [[xx, y + 1], [xx + ww, y + 1], [xx + ww - 3, y + 4 + chip * 4], [xx + 4, y + 3]], p.stone);
     }
     if (biome === "moss") for (let xx = x + 9; xx < x + w - 7; xx += 24) {
-      const n2 = noise2(xx);
+      const n2 = noise3(xx);
       ellipse3(c, xx, y + 2, 9 + n2 * 5, 2, "#69815f99");
       if (n2 > 0.65) stroke(c, [[xx, y + 3], [xx + 3, y + 12], [xx - 1, y + 21]], "#596f5299", 1.4);
     }
@@ -10879,8 +11396,8 @@
   function drawRecoverySpring(c, point2, t) {
     const { x, y } = point2, spent = point2.used, light = spent ? "#667d84" : "#b8f3db";
     if (!spent) {
-      glow9(c, x, y - 28, 95, "#a5eadb23");
-      glow9(c, x, y - 20, 34, "#e3fff139");
+      glow10(c, x, y - 28, 95, "#a5eadb23");
+      glow10(c, x, y - 20, 34, "#e3fff139");
     }
     polygon(c, [[x - 36, y - 2], [x - 31, y - 18], [x - 21, y - 25], [x + 27, y - 22], [x + 37, y - 10], [x + 30, y - 2]], "#43514d", "#748c7b");
     ellipse3(c, x, y - 18, 28, 8, spent ? "#243b3b" : "#77bfae");
@@ -10900,8 +11417,8 @@
   }
 
   // src/world-render.js
-  var TAU13 = Math.PI * 2;
-  var poly9 = (c, pts, fill, stroke2) => {
+  var TAU14 = Math.PI * 2;
+  var poly10 = (c, pts, fill, stroke2) => {
     c.beginPath();
     pts.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y));
     c.closePath();
@@ -10915,13 +11432,13 @@
       c.stroke();
     }
   };
-  var oval10 = (c, x, y, rx, ry, color) => {
+  var oval11 = (c, x, y, rx, ry, color) => {
     c.beginPath();
-    c.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), 0, 0, TAU13);
+    c.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), 0, 0, TAU14);
     c.fillStyle = color;
     c.fill();
   };
-  var line10 = (c, pts, col, width = 2) => {
+  var line11 = (c, pts, col, width = 2) => {
     c.beginPath();
     pts.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y));
     c.strokeStyle = col;
@@ -10930,11 +11447,11 @@
     c.lineJoin = "round";
     c.stroke();
   };
-  var glow10 = (c, x, y, r, col) => {
+  var glow11 = (c, x, y, r, col) => {
     const g = c.createRadialGradient(x, y, 0, x, y, r);
     g.addColorStop(0, col);
     g.addColorStop(1, "transparent");
-    oval10(c, x, y, r, r, g);
+    oval11(c, x, y, r, r, g);
   };
   var text2 = (c, txt, x, y, col = "#dbeae0", size = 12, align = "center") => {
     c.fillStyle = col;
@@ -10942,7 +11459,7 @@
     c.textAlign = align;
     c.fillText(txt, x, y);
   };
-  var noise3 = (n2) => {
+  var noise4 = (n2) => {
     const a = Math.sin(n2 * 127.1 + 37) * 43758.5453;
     return a - Math.floor(a);
   };
@@ -10964,15 +11481,15 @@
     event(e, g) {
       if (e.type !== "hit") this.fx.event(e, g);
     }
-    render(g, clock) {
+    render(g, clock2) {
       const { c, w, h } = fitCanvas(this.canvas);
       if (!w || !h) return;
-      const scale = h / 660, view2 = w / scale, t = clock / 1e3, b = BIOMES[g.room.biome];
+      const scale = h / 660, view2 = w / scale, t = clock2 / 1e3, b = BIOMES[g.room.biome];
       this.time = t;
       this.fx.reducedMotion = !!g.combat?.settings?.reducedMotion;
-      const elapsed = Math.min(0.05, Math.max(0, (clock - (this.lastClock || clock)) / 1e3));
+      const elapsed = Math.min(0.05, Math.max(0, (clock2 - (this.lastClock || clock2)) / 1e3));
       this.fx.update(elapsed);
-      this.lastClock = clock;
+      this.lastClock = clock2;
       const animationDelta = !g.paused && g.phase === "playing" && !g.hitstop ? elapsed : 0;
       this.actorTime += animationDelta;
       const actorTime = this.actorTime;
@@ -10995,45 +11512,49 @@
         c.scale(impulse.zoom, impulse.zoom);
         c.translate(-view2 / 2, -330);
       }
-      if (isTunnel(g)) drawTunnelBackdrop(c, g, this.camera, this.cameraY, view2, 660, t);
-      else this.backdrop(c, b, view2, 660, this.camera, t);
+      const firstArea = drawMourningwildBackdrop(c, g, this.camera, this.cameraY, view2, 660, t);
+      if (!firstArea) {
+        if (isTunnel(g)) drawTunnelBackdrop(c, g, this.camera, this.cameraY, view2, 660, t);
+        else this.backdrop(c, b, view2, 660, this.camera, t);
+      }
       this.fx.drawAmbient(c, g, this.camera, this.cameraY, view2, 660, t);
       c.save();
       c.translate(-this.camera, -this.cameraY);
-      if (isTunnel(g)) drawTunnelStructure(c, g, this.camera, this.cameraY, view2, 660, t);
+      if (firstArea) drawMourningwildLandmarks(c, g, this.camera, this.cameraY, view2, 660, t);
+      else if (isTunnel(g)) drawTunnelStructure(c, g, this.camera, this.cameraY, view2, 660, t);
       for (let i = 0; i < 55; i++) {
-        const x = noise3(i + 9) * g.worldWidth, y = 70 + noise3(i + 72) * 420 + Math.sin(t * 0.5 + i) * 15;
-        glow10(c, x, y, 4, b.color + "25");
-        oval10(c, x, y, 0.8, 0.8, b.color + "99");
+        const x = noise4(i + 9) * g.worldWidth, y = 70 + noise4(i + 72) * 420 + Math.sin(t * 0.5 + i) * 15;
+        glow11(c, x, y, 4, b.color + "25");
+        oval11(c, x, y, 0.8, 0.8, b.color + "99");
       }
-      for (const p2 of g.platforms) if (!p2.veil) this.platform(c, p2, b, t, g);
+      for (const p2 of g.platforms) if (!p2.veil && p2.x + p2.w > this.camera - 120 && p2.x < this.camera + view2 + 120 && p2.y + p2.h + 160 > this.cameraY && p2.y < this.cameraY + 740) this.platform(c, p2, b, t, g);
       for (const pit of g.thorns) {
-        glow10(c, pit.x + pit.w / 2, pit.y, Math.min(220, pit.w), b.color + "16");
-        for (let i = 0; i < pit.w; i += 23) poly9(c, [[pit.x + i, pit.y + 12], [pit.x + i + 12, pit.y - 20 - noise3(i) * 14], [pit.x + i + 23, pit.y + 12]], b.color + "55");
+        glow11(c, pit.x + pit.w / 2, pit.y, Math.min(220, pit.w), b.color + "16");
+        for (let i = 0; i < pit.w; i += 23) poly10(c, [[pit.x + i, pit.y + 12], [pit.x + i + 12, pit.y - 20 - noise4(i) * 14], [pit.x + i + 23, pit.y + 12]], b.color + "55");
         if (g.room.biome === "reef") {
           c.fillStyle = "#61c5d128";
           c.fillRect(pit.x, 570, pit.w, 100);
-          line10(c, [[pit.x, 570], [pit.x + pit.w, 570]], "#a0edeb55", 2);
+          line11(c, [[pit.x, 570], [pit.x + pit.w, 570]], "#a0edeb55", 2);
         }
       }
       drawRPGWorld(c, g, t);
       for (const o of g.room.objects) this.object(c, o, g, t);
       for (const spring of g.recoveryPoints || []) drawRecoverySpring(c, spring, t);
       for (const a2 of g.room.anchors) {
-        line10(c, [[a2.x, a2.y - 36], [a2.x, a2.y]], "#d6b87866", 1);
-        glow10(c, a2.x, a2.y, 25, "#ffdd932a");
-        poly9(c, [[a2.x, a2.y - 9], [a2.x + 8, a2.y], [a2.x, a2.y + 9], [a2.x - 8, a2.y]], "#f8d895");
+        line11(c, [[a2.x, a2.y - 36], [a2.x, a2.y]], "#d6b87866", 1);
+        glow11(c, a2.x, a2.y, 25, "#ffdd932a");
+        poly10(c, [[a2.x, a2.y - 9], [a2.x + 8, a2.y], [a2.x, a2.y + 9], [a2.x - 8, a2.y]], "#f8d895");
       }
       for (const r of g.relics) if (!r.collected) {
         const yy = r.y + Math.sin(t * 3 + r.x) * 6;
-        glow10(c, r.x, yy, 35, b.color + "30");
-        poly9(c, [[r.x, yy - 13], [r.x + 8, yy], [r.x, yy + 13], [r.x - 8, yy]], b.color, "#efffe6");
+        glow11(c, r.x, yy, 35, b.color + "30");
+        poly10(c, [[r.x, yy - 13], [r.x + 8, yy], [r.x, yy + 13], [r.x - 8, yy]], b.color, "#efffe6");
       }
       for (const z of g.zones) {
-        glow10(c, z.x, z.y - 25, z.radius, z.type === "fire" ? "#ff9b3833" : z.type === "wind" ? "#bfffe128" : "#e2d6ff33");
+        glow11(c, z.x, z.y - 25, z.radius, z.type === "fire" ? "#ff9b3833" : z.type === "wind" ? "#bfffe128" : "#e2d6ff33");
         for (let i = 0; i < 9; i++) {
           const xx = z.x + Math.sin(t * 4 + i) * z.radius * 0.8;
-          line10(c, [[xx, z.y], [xx + 10, z.y - 18 - Math.sin(i + t * 6) * 10]], z.type === "fire" ? "#ffb96d88" : "#d0f7ed77", 2);
+          line11(c, [[xx, z.y], [xx + 10, z.y - 18 - Math.sin(i + t * 6) * 10]], z.type === "fire" ? "#ffb96d88" : "#d0f7ed77", 2);
         }
       }
       drawBossEncounterWorld(c, g, actorTime);
@@ -11089,10 +11610,10 @@
       c.restore();
       drawRPGAuras(c, g, actorTime);
       if (p.healing) {
-        glow10(c, p.x, p.y - 30, 80, "#abf2ce38");
+        glow11(c, p.x, p.y - 30, 80, "#abf2ce38");
         for (let i = 0; i < 6; i++) {
-          const ang = t * 3 + i * TAU13 / 6;
-          oval10(c, p.x + Math.cos(ang) * 32, p.y - 35 + Math.sin(ang) * 35, 2, 2, "#dcffe0");
+          const ang = t * 3 + i * TAU14 / 6;
+          oval11(c, p.x + Math.cos(ang) * 32, p.y - 35 + Math.sin(ang) * 35, 2, 2, "#dcffe0");
         }
       }
       if (p.guard || p.fortress) {
@@ -11102,34 +11623,34 @@
         c.arc(p.x, p.y - 35, 48, -Math.PI * 0.5, Math.PI * 0.5);
         c.stroke();
       }
-      if (g.grapple) line10(c, [[p.x, p.y - 30], [g.grapple.x, g.grapple.y]], "#ffe2a7", 2);
+      if (g.grapple) line11(c, [[p.x, p.y - 30], [g.grapple.x, g.grapple.y]], "#ffe2a7", 2);
       for (const b2 of g.projectiles) {
-        glow10(c, b2.x, b2.y, 23, (b2.color || "#c9f4df") + "55");
-        oval10(c, b2.x, b2.y, b2.kind === "ice" ? 14 : 7, b2.kind === "needle" ? 3 : 7, b2.color || "#c7f7e4");
-        line10(c, [[b2.x, b2.y], [b2.x - b2.vx * 2, b2.y - b2.vy * 2]], b2.color || "#c7f7e4", 3);
+        glow11(c, b2.x, b2.y, 23, (b2.color || "#c9f4df") + "55");
+        oval11(c, b2.x, b2.y, b2.kind === "ice" ? 14 : 7, b2.kind === "needle" ? 3 : 7, b2.color || "#c7f7e4");
+        line11(c, [[b2.x, b2.y], [b2.x - b2.vx * 2, b2.y - b2.vy * 2]], b2.color || "#c7f7e4", 3);
       }
       for (const b2 of g.enemyShots) {
         if (drawBossProjectile(c, b2, actorTime)) continue;
-        glow10(c, b2.x, b2.y, 18, (b2.color || "#fba37c") + "44");
-        poly9(c, [[b2.x - 7, b2.y], [b2.x, b2.y - 7], [b2.x + 7, b2.y], [b2.x, b2.y + 7]], b2.color || "#fba37c");
+        glow11(c, b2.x, b2.y, 18, (b2.color || "#fba37c") + "44");
+        poly10(c, [[b2.x - 7, b2.y], [b2.x, b2.y - 7], [b2.x + 7, b2.y], [b2.x, b2.y + 7]], b2.color || "#fba37c");
       }
       for (const wave of g.waves) {
         const col = wave.color || b.color;
-        glow10(c, wave.x, 510, 45, col + "44");
-        poly9(c, [[wave.x - 26, 520], [wave.x - 10, 481], [wave.x, 500], [wave.x + 16, 465], [wave.x + 25, 520]], col);
+        glow11(c, wave.x, 510, 45, col + "44");
+        poly10(c, [[wave.x - 26, 520], [wave.x - 10, 481], [wave.x, 500], [wave.x + 16, 465], [wave.x + 25, 520]], col);
       }
       for (const hz of g.hazards) {
-        if (hz.type === "bubble") oval10(c, hz.x, hz.y - 4, 22, 8, "#8ddeed77");
+        if (hz.type === "bubble") oval11(c, hz.x, hz.y - 4, 22, 8, "#8ddeed77");
         else {
           const col = hz.type === "root" ? "#c7e1a7" : hz.type === "lightning" ? "#ddbcff" : "#c7eeff";
-          oval10(c, hz.x, hz.y - 2, hz.type === "stasis" ? 100 : 38, 8, col + "33");
+          oval11(c, hz.x, hz.y - 2, hz.type === "stasis" ? 100 : 38, 8, col + "33");
           if (hz.timer > 0) {
-            line10(c, [[hz.x - 30, hz.y - 3], [hz.x + 30, hz.y - 3]], col + "77", 2);
+            line11(c, [[hz.x - 30, hz.y - 3], [hz.x + 30, hz.y - 3]], col + "77", 2);
             text2(c, "!", hz.x, hz.y - 25, col, 18);
           } else if (hz.type === "lightning") {
-            line10(c, [[hz.x + 20, 0], [hz.x - 10, 200], [hz.x + 10, 185], [hz.x - 8, 400], [hz.x + 12, 390], [hz.x, hz.y]], col, 5);
-            glow10(c, hz.x, hz.y - 70, 100, col + "44");
-          } else for (let i = 0; i < 5; i++) poly9(c, [[hz.x - 36 + i * 15, hz.y], [hz.x - 25 + i * 15, hz.y - 65 - noise3(i) * 55], [hz.x - 13 + i * 15, hz.y]], col + "99");
+            line11(c, [[hz.x + 20, 0], [hz.x - 10, 200], [hz.x + 10, 185], [hz.x - 8, 400], [hz.x + 12, 390], [hz.x, hz.y]], col, 5);
+            glow11(c, hz.x, hz.y - 70, 100, col + "44");
+          } else for (let i = 0; i < 5; i++) poly10(c, [[hz.x - 36 + i * 15, hz.y], [hz.x - 25 + i * 15, hz.y - 65 - noise4(i) * 55], [hz.x - 13 + i * 15, hz.y]], col + "99");
         }
       }
       for (const e of g.effects) this.effect(c, e, t, b);
@@ -11143,11 +11664,12 @@
         c.lineWidth = 2;
         c.setLineDash(f.type === "time" ? [8, 12] : []);
         c.beginPath();
-        c.ellipse(f.x, f.y, radius * (0.9 + Math.sin(t * 5) * 0.04), f.type === "gravity" ? radius * 0.6 : 35, t * 0.15, 0, TAU13);
+        c.ellipse(f.x, f.y, radius * (0.9 + Math.sin(t * 5) * 0.04), f.type === "gravity" ? radius * 0.6 : 35, t * 0.15, 0, TAU14);
         c.stroke();
-        glow10(c, f.x, f.y, radius, (f.color || b.color) + "14");
+        glow11(c, f.x, f.y, radius, (f.color || b.color) + "14");
         c.restore();
       }
+      if (firstArea) drawMourningwildForeground(c, g, this.camera, this.cameraY, view2, 660, t);
       const near = g.room.objects.filter((o) => Math.abs(o.x - p.x) < 90 && Math.abs((o.y ?? 520) - p.y) < 95).sort((x, y) => Math.abs(x.x - p.x) - Math.abs(y.x - p.x))[0];
       if (near) {
         const defeated = (id) => g.bossDefeated?.(id) || g.fragments.has(id) || g.defeatedBosses?.has(id), locked = near.need > g.fragments.size || near.ability && !g.abilities.has(near.ability) || near.boss && !defeated(near.boss) || near.requiresBoss && !defeated(near.requiresBoss);
@@ -11170,26 +11692,26 @@
       sky.addColorStop(1, b.sky[1]);
       c.fillStyle = sky;
       c.fillRect(0, 0, w, h);
-      glow10(c, w * 0.65 - cam * 0.035, 180, 360, b.color + "15");
+      glow11(c, w * 0.65 - cam * 0.035, 180, 360, b.color + "15");
       if (["forest", "sanctuary"].includes(b.kind)) {
         for (let layer = 0; layer < 3; layer++) for (let i = -2; i < 12; i++) {
-          const spacing = 210 + layer * 110, x = i * spacing - cam * (0.08 + layer * 0.13) % spacing, base = 600, top = -100 + noise3(i + layer * 34) * 160, col = ["#18343b", "#183c3c", "#163835"][layer];
-          poly9(c, [[x - 40 - layer * 9, base], [x - 14, top], [x + 25, top - 50], [x + 35, base]], col);
+          const spacing = 210 + layer * 110, x = i * spacing - cam * (0.08 + layer * 0.13) % spacing, base = 600, top = -100 + noise4(i + layer * 34) * 160, col = ["#18343b", "#183c3c", "#163835"][layer];
+          poly10(c, [[x - 40 - layer * 9, base], [x - 14, top], [x + 25, top - 50], [x + 35, base]], col);
           for (const side of [-1, 1]) for (let j = 0; j < 3; j++) {
             const yy = 80 + j * 120;
-            line10(c, [[x + 7, yy + 80], [x + side * 65, yy], [x + side * 140, yy - 20]], col, 15 + layer * 6);
-            oval10(c, x + side * 95, yy - 30, 120, 55, col);
+            line11(c, [[x + 7, yy + 80], [x + side * 65, yy], [x + side * 140, yy - 20]], col, 15 + layer * 6);
+            oval11(c, x + side * 95, yy - 30, 120, 55, col);
           }
-          if (layer === 2) line10(c, [[x - 2, base], [x + 12, 220]], "#45665b22", 3);
+          if (layer === 2) line11(c, [[x - 2, base], [x + 12, 220]], "#45665b22", 3);
         }
         for (let i = 0; i < 18; i++) {
-          const x = i * 95 - cam * 0.27 % 95, y = 470 + noise3(i) * 90;
-          line10(c, [[x, y + 40], [x + 5, y]], "#5c8b7355", 2);
-          oval10(c, x + 5, y, 13, 5, "#90b99a44");
-          glow10(c, x + 5, y - 2, 20, "#c5e4aa0c");
+          const x = i * 95 - cam * 0.27 % 95, y = 470 + noise4(i) * 90;
+          line11(c, [[x, y + 40], [x + 5, y]], "#5c8b7355", 2);
+          oval11(c, x + 5, y, 13, 5, "#90b99a44");
+          glow11(c, x + 5, y - 2, 20, "#c5e4aa0c");
           if (i % 3 === 0) {
-            line10(c, [[x + 9, 0], [x + 4, 130], [x + 23, 205]], "#71a68a33", 1);
-            for (let j = 0; j < 4; j++) oval10(c, x + 3 + j * 4, 80 + j * 26, 6, 3, "#7eb39933");
+            line11(c, [[x + 9, 0], [x + 4, 130], [x + 23, 205]], "#71a68a33", 1);
+            for (let j = 0; j < 4; j++) oval11(c, x + 3 + j * 4, 80 + j * 26, 6, 3, "#7eb39933");
           }
         }
         for (let i = 0; i < 7; i++) {
@@ -11215,81 +11737,82 @@
           c.bezierCurveTo(x + 30, 90, x + 210, 90, x + 210, 230);
           c.lineTo(x + 210, 540);
           c.stroke();
-          glow10(c, x + 120, 330, 70, "#f58d3d23");
-          for (let j = 0; j < 5; j++) line10(c, [[x + 90 + j * 14, 230], [x + 90 + j * 14, 440]], "#f6a46028", 4);
+          glow11(c, x + 120, 330, 70, "#f58d3d23");
+          for (let j = 0; j < 5; j++) line11(c, [[x + 90 + j * 14, 230], [x + 90 + j * 14, 440]], "#f6a46028", 4);
         }
         for (let i = 0; i < 20; i++) {
           const x = (i * 67 + t * 9) % (w + 50), y = 600 - (t * 25 + i * 71) % 650;
-          oval10(c, x, y, 1.5, 2.5, "#ffb67c88");
+          oval11(c, x, y, 1.5, 2.5, "#ffb67c88");
         }
       } else if (b.kind === "reef") {
         for (let i = 0; i < 12; i++) {
           const x = i * 150 - cam * 0.16 % 150;
           c.fillStyle = "#143444";
-          c.fillRect(x, 190 + noise3(i) * 100, 45, 500);
-          for (let j = 0; j < 5; j++) line10(c, [[x + 4, 240 + j * 55], [x + 42, 240 + j * 55]], "#2c526155", 3);
+          c.fillRect(x, 190 + noise4(i) * 100, 45, 500);
+          for (let j = 0; j < 5; j++) line11(c, [[x + 4, 240 + j * 55], [x + 42, 240 + j * 55]], "#2c526155", 3);
         }
         for (let i = 0; i < 30; i++) {
           const x = (i * 83 + Math.sin(t * 0.1 + i) * 25 - cam * 0.08 + w * 4) % w, y = (i * 71 - t * 17 + 6600) % 660;
           c.strokeStyle = "#a4e7ed25";
           c.lineWidth = 1;
           c.beginPath();
-          c.arc(x, y, 3 + noise3(i) * 8, 0, TAU13);
+          c.arc(x, y, 3 + noise4(i) * 8, 0, TAU14);
           c.stroke();
         }
         for (let i = 0; i < 6; i++) {
-          const x = (i * 241 + t * 15 - cam * 0.04) % (w + 160) - 80, y = 160 + noise3(i + 20) * 250;
-          poly9(c, [[x - 24, y], [x, y - 8], [x + 30, y], [x, y + 8]], "#9edbe422");
+          const x = (i * 241 + t * 15 - cam * 0.04) % (w + 160) - 80, y = 160 + noise4(i + 20) * 250;
+          poly10(c, [[x - 24, y], [x, y - 8], [x + 30, y], [x, y + 8]], "#9edbe422");
         }
       } else if (b.kind === "storm") {
         for (let i = 0; i < 6; i++) {
-          const x = i * 350 - cam * 0.13 % 350, y = 260 + noise3(i) * 180;
-          poly9(c, [[x - 110, y], [x + 110, y], [x + 50, y + 110], [x, y + 160], [x - 55, y + 80]], "#272740");
-          poly9(c, [[x - 110, y], [x - 40, y - 20], [x + 100, y - 15], [x + 110, y]], "#64617e");
+          const x = i * 350 - cam * 0.13 % 350, y = 260 + noise4(i) * 180;
+          poly10(c, [[x - 110, y], [x + 110, y], [x + 50, y + 110], [x, y + 160], [x - 55, y + 80]], "#272740");
+          poly10(c, [[x - 110, y], [x - 40, y - 20], [x + 100, y - 15], [x + 110, y]], "#64617e");
           c.fillStyle = "#28273f";
           c.fillRect(x - 13, y - 210, 26, 210);
-          poly9(c, [[x - 32, y - 210], [x, y - 256], [x + 32, y - 210]], "#aaa0bd55");
+          poly10(c, [[x - 32, y - 210], [x, y - 256], [x + 32, y - 210]], "#aaa0bd55");
         }
-        if (Math.sin(t * 0.7) > 0.995) line10(c, [[w * 0.75, -10], [w * 0.7, 130], [w * 0.77, 120], [w * 0.66, 310]], "#eee3ff77", 3);
+        if (Math.sin(t * 0.7) > 0.995) line11(c, [[w * 0.75, -10], [w * 0.7, 130], [w * 0.77, 120], [w * 0.66, 310]], "#eee3ff77", 3);
         for (let i = 0; i < 10; i++) {
           const xx = (i * 181 + t * 70) % (w + 200) - 100;
-          line10(c, [[xx, 120 + i * 47], [xx + 70, 114 + i * 47]], "#d9d2f022", 1);
+          line11(c, [[xx, 120 + i * 47], [xx + 70, 114 + i * 47]], "#d9d2f022", 1);
         }
       } else if (b.kind === "frost") {
         for (let i = 0; i < 8; i++) {
           const x = i * 220 - cam * 0.12 % 220;
-          poly9(c, [[x - 150, 560], [x, 80 + noise3(i) * 130], [x + 170, 560]], "#3b5b6d");
-          poly9(c, [[x, 80 + noise3(i) * 130], [x + 56, 240], [x + 17, 210], [x - 20, 245], [x - 50, 220]], "#a1b9c444");
+          poly10(c, [[x - 150, 560], [x, 80 + noise4(i) * 130], [x + 170, 560]], "#3b5b6d");
+          poly10(c, [[x, 80 + noise4(i) * 130], [x + 56, 240], [x + 17, 210], [x - 20, 245], [x - 50, 220]], "#a1b9c444");
         }
         for (let i = 0; i < 50; i++) {
-          const x = (i * 63 + t * (6 + noise3(i) * 14)) % (w + 30), y = (i * 77 + t * 20) % 660;
-          oval10(c, x, y, noise3(i) * 2 + 0.5, noise3(i) * 2 + 0.5, "#e8f7ff66");
+          const x = (i * 63 + t * (6 + noise4(i) * 14)) % (w + 30), y = (i * 77 + t * 20) % 660;
+          oval11(c, x, y, noise4(i) * 2 + 0.5, noise4(i) * 2 + 0.5, "#e8f7ff66");
         }
       } else {
         const x = w * 0.6 - cam * 0.025, y = 200;
-        glow10(c, x, y, 250, "#ffa0c02a");
-        oval10(c, x, y, 105, 105, "#180f29");
+        glow11(c, x, y, 250, "#ffa0c02a");
+        oval11(c, x, y, 105, 105, "#180f29");
         c.strokeStyle = "#efa7c455";
         c.lineWidth = 2;
         c.beginPath();
-        c.arc(x, y, 122, 0, TAU13);
+        c.arc(x, y, 122, 0, TAU14);
         c.stroke();
         for (let i = 0; i < 14; i++) {
-          const ang = i * TAU13 / 14 + t * 0.08, xx = x + Math.cos(ang) * 160, yy = y + Math.sin(ang) * 160;
+          const ang = i * TAU14 / 14 + t * 0.08, xx = x + Math.cos(ang) * 160, yy = y + Math.sin(ang) * 160;
           c.save();
           c.translate(xx, yy);
           c.rotate(ang);
-          poly9(c, [[0, -12], [7, 0], [0, 12], [-7, 0]], "#e7a0bc55");
+          poly10(c, [[0, -12], [7, 0], [0, 12], [-7, 0]], "#e7a0bc55");
           c.restore();
         }
         for (let i = 0; i < 12; i++) {
           const xx = i * 170 - cam * 0.2 % 170, yy = 400 + Math.sin(t + i) * 20;
-          poly9(c, [[xx - 30, yy], [xx + 20, yy - 80], [xx + 45, yy + 70], [xx, yy + 110]], "#2a203c");
+          poly10(c, [[xx - 30, yy], [xx + 20, yy - 80], [xx + 45, yy + 70], [xx, yy + 110]], "#2a203c");
         }
       }
     }
     platform(c, p, b, t, g) {
       if (drawBossPlatform(c, p, t)) return;
+      if (g && drawMourningwildPlatform(c, p, g, t)) return;
       if (g && isTunnel(g)) {
         drawTunnelPlatform(c, p, g.room.biome, t);
         return;
@@ -11301,16 +11824,16 @@
       under.addColorStop(1, "#06101be8");
       c.fillStyle = under;
       c.fillRect(p.x, p.y, p.w, p.h);
-      line10(c, [[p.x, p.y], [p.x + p.w, p.y]], b.color + "55", 3);
+      line11(c, [[p.x, p.y], [p.x + p.w, p.y]], b.color + "55", 3);
       for (let i = 0; i < p.w; i += 42) {
         const xx = p.x + i;
-        line10(c, [[xx, p.y + 10], [xx + noise3(i) * 20, p.y + 34], [xx + 30, p.y + 46]], "#b9d0be0b", 1);
+        line11(c, [[xx, p.y + 10], [xx + noise4(i) * 20, p.y + 34], [xx + 30, p.y + 46]], "#b9d0be0b", 1);
       }
       if (["forest", "sanctuary"].includes(b.kind)) for (let i = 5; i < p.w; i += 14) {
-        const xx = p.x + i, hh = 5 + noise3(i) * 10;
-        line10(c, [[xx, p.y], [xx + Math.sin(t * 2 + i) * 3, p.y - hh]], i % 3 === 0 ? "#8ca48066" : "#5d8c7077", 1.5);
+        const xx = p.x + i, hh = 5 + noise4(i) * 10;
+        line11(c, [[xx, p.y], [xx + Math.sin(t * 2 + i) * 3, p.y - hh]], i % 3 === 0 ? "#8ca48066" : "#5d8c7077", 1.5);
       }
-      else if (b.kind === "frost") poly9(c, [[p.x, p.y], [p.x + p.w, p.y], [p.x + p.w - 14, p.y + 10], [p.x + 20, p.y + 8]], "#cce8e788");
+      else if (b.kind === "frost") poly10(c, [[p.x, p.y], [p.x + p.w, p.y], [p.x + p.w - 14, p.y + 10], [p.x + 20, p.y + 8]], "#cce8e788");
     }
     object(c, o, g, t) {
       if (["npc", "merchant"].includes(o.kind)) {
@@ -11322,85 +11845,85 @@
       } else if (drawRPGObject(c, o, g, t)) return;
       const x = o.x, y = o.y ?? 520, col = BIOMES[g.room.biome].color, key = g.roomId + ":" + o.id, used = g.opened.has(key);
       if (o.kind === "camp" || o.kind === "bench") {
-        line10(c, [[x - 27, y], [x - 30, y - 20], [x + 18, y - 26], [x + 31, y - 8], [x + 29, y]], "#776c58", 6);
-        poly9(c, [[x - 33, y - 26], [x - 28, y - 52], [x + 19, y - 52], [x + 27, y - 28]], "#6f7360", "#a5a48566");
-        line10(c, [[x - 26, y - 40], [x + 20, y - 40]], "#3c4a4288", 3);
-        line10(c, [[x + 38, y], [x + 38, y - 80], [x + 22, y - 80]], "#8f9c7e", 2);
-        oval10(c, x + 21, y - 67, 5, 9, "#e2c891");
-        glow10(c, x + 21, y - 67, 24, "#ead79a28");
+        line11(c, [[x - 27, y], [x - 30, y - 20], [x + 18, y - 26], [x + 31, y - 8], [x + 29, y]], "#776c58", 6);
+        poly10(c, [[x - 33, y - 26], [x - 28, y - 52], [x + 19, y - 52], [x + 27, y - 28]], "#6f7360", "#a5a48566");
+        line11(c, [[x - 26, y - 40], [x + 20, y - 40]], "#3c4a4288", 3);
+        line11(c, [[x + 38, y], [x + 38, y - 80], [x + 22, y - 80]], "#8f9c7e", 2);
+        oval11(c, x + 21, y - 67, 5, 9, "#e2c891");
+        glow11(c, x + 21, y - 67, 24, "#ead79a28");
         text2(c, "SUPPLY CAMP", x, y - 100, "#bbc1a9", 8);
       } else if (o.kind === "npc") {
         drawNPCAnimation(c, o, g, t, () => {
-          oval10(c, x, y, 20, 6, "#08151e88");
-          poly9(c, [[x - 15, y - 63], [x + 10, y - 62], [x + 23, y - 3], [x - 22, y - 3]], "#d0d6bb", "#263e3d");
-          oval10(c, x, y - 79, 13, 16, "#d9b996");
-          poly9(c, [[x - 18, y - 85], [x - 9, y - 108], [x + 12, y - 106], [x + 20, y - 85]], "#b5c5b9");
-          line10(c, [[x + 22, y - 52], [x + 31, y - 8]], "#c7b783", 3);
-          oval10(c, x + 31, y - 54, 6, 10, "#edd69b");
+          oval11(c, x, y, 20, 6, "#08151e88");
+          poly10(c, [[x - 15, y - 63], [x + 10, y - 62], [x + 23, y - 3], [x - 22, y - 3]], "#d0d6bb", "#263e3d");
+          oval11(c, x, y - 79, 13, 16, "#d9b996");
+          poly10(c, [[x - 18, y - 85], [x - 9, y - 108], [x + 12, y - 106], [x + 20, y - 85]], "#b5c5b9");
+          line11(c, [[x + 22, y - 52], [x + 31, y - 8]], "#c7b783", 3);
+          oval11(c, x + 31, y - 54, 6, 10, "#edd69b");
           text2(c, "PROF. VELL", x, y - 126, "#cbd8c4", 9);
         });
       } else if (o.kind === "workbench") {
         c.fillStyle = "#747e69";
         c.fillRect(x - 40, y - 36, 80, 9);
-        line10(c, [[x - 31, y - 29], [x - 31, y], [x + 30, y], [x + 30, y - 29]], "#555e54", 6);
-        poly9(c, [[x - 15, y - 40], [x - 6, y - 70], [x + 8, y - 70], [x + 25, y - 40]], "#a5a78a");
-        glow10(c, x, y - 55, 25, "#ffe6ac33");
+        line11(c, [[x - 31, y - 29], [x - 31, y], [x + 30, y], [x + 30, y - 29]], "#555e54", 6);
+        poly10(c, [[x - 15, y - 40], [x - 6, y - 70], [x + 8, y - 70], [x + 25, y - 40]], "#a5a78a");
+        glow11(c, x, y - 55, 25, "#ffe6ac33");
         text2(c, "THE MENDER", x, y - 97, "#c8d5bf", 9);
       } else if (o.kind === "portal") {
         const active = o.need <= g.fragments.size, cc = BIOMES[o.id].color;
-        glow10(c, x, y - 66, 90, active ? cc + "23" : "#77777708");
+        glow11(c, x, y - 66, 90, active ? cc + "23" : "#77777708");
         c.strokeStyle = active ? cc + "88" : "#526161";
         c.lineWidth = 7;
         c.beginPath();
-        c.ellipse(x, y - 65, 37, 65, 0, Math.PI, TAU13);
+        c.ellipse(x, y - 65, 37, 65, 0, Math.PI, TAU14);
         c.lineTo(x + 37, y);
         c.stroke();
-        line10(c, [[x - 37, y], [x - 37, y - 65]], active ? cc + "88" : "#526161", 7);
+        line11(c, [[x - 37, y], [x - 37, y - 65]], active ? cc + "88" : "#526161", 7);
         for (let i = 0; i < 4; i++) if (active) {
-          const a = t * 0.7 + i * TAU13 / 4;
-          oval10(c, x + Math.cos(a) * 21, y - 60 + Math.sin(a) * 35, 1.5, 1.5, cc);
+          const a = t * 0.7 + i * TAU14 / 4;
+          oval11(c, x + Math.cos(a) * 21, y - 60 + Math.sin(a) * 35, 1.5, 1.5, cc);
         }
         text2(c, BIOMES[o.id].icon, x, y - 46, active ? cc : "#63716f", 23);
         text2(c, String(o.need + 1).padStart(2, "0"), x, y - 150, active ? cc : "#64726e", 10);
       } else if (o.kind === "veil") {
         const active = g.abilities.has("blink");
-        glow10(c, x, 300, 200, "#d7a5e81b");
+        glow11(c, x, 300, 200, "#d7a5e81b");
         for (let i = 0; i < 8; i++) {
           const xx = x + Math.sin(t * 2 + i) * 8;
-          line10(c, [[xx, 45], [xx + Math.sin(t + i) * 10, 280], [xx, 520]], active ? "#d5a7e75c" : "#d5a7e7bb", 2);
+          line11(c, [[xx, 45], [xx + Math.sin(t + i) * 10, 280], [xx, 520]], active ? "#d5a7e75c" : "#d5a7e7bb", 2);
         }
         text2(c, "RIFT STEP", x, 410, "#e1bfea", 9);
       } else if (o.kind === "lever") {
-        line10(c, [[x - 15, y], [x + 15, y]], "#91a582", 5);
-        line10(c, [[x, y], [x + (used ? 24 : -24), y - 42]], "#cfcea0", 4);
-        oval10(c, x + (used ? 24 : -24), y - 42, 6, 6, used ? "#b4deb0" : "#efd8a0");
+        line11(c, [[x - 15, y], [x + 15, y]], "#91a582", 5);
+        line11(c, [[x, y], [x + (used ? 24 : -24), y - 42]], "#cfcea0", 4);
+        oval11(c, x + (used ? 24 : -24), y - 42, 6, 6, used ? "#b4deb0" : "#efd8a0");
       } else if (o.kind === "door") {
         const defeated = (id) => g.bossDefeated?.(id) || g.fragments.has(id) || g.defeatedBosses?.has(id), locked = o.ability && !g.abilities.has(o.ability) || o.boss && !defeated(o.boss) || o.requiresBoss && !defeated(o.requiresBoss);
-        line10(c, [[x - 26, y], [x - 26, y - 77], [x, y - 103], [x + 26, y - 77], [x + 26, y]], locked ? "#655b70" : "#8caa92", 5);
-        line10(c, [[x - 18, y - 4], [x - 18, y - 72], [x, y - 89], [x + 18, y - 72], [x + 18, y - 4]], col + "44", 1);
-        glow10(c, x, y - 47, 46, locked ? "#bd94e622" : col + "18");
+        line11(c, [[x - 26, y], [x - 26, y - 77], [x, y - 103], [x + 26, y - 77], [x + 26, y]], locked ? "#655b70" : "#8caa92", 5);
+        line11(c, [[x - 18, y - 4], [x - 18, y - 72], [x, y - 89], [x + 18, y - 72], [x + 18, y - 4]], col + "44", 1);
+        glow11(c, x, y - 47, 46, locked ? "#bd94e622" : col + "18");
         text2(c, locked ? "\u25C7" : "\u224B", x, y - 45, locked ? "#b79ac4" : col, 21);
         if (!locked) for (let i = 0; i < 4; i++) {
           const yy = y - 10 - (t * 19 + i * 21) % 80;
-          oval10(c, x + Math.sin(i * 2 + t) * 12, yy, 1, 1, col + "99");
+          oval11(c, x + Math.sin(i * 2 + t) * 12, yy, 1, 1, col + "99");
         }
       } else if (o.kind === "memory") {
-        line10(c, [[x - 15, y], [x - 12, y - 51], [x + 12, y - 51], [x + 16, y]], "#5d7a71", 4);
+        line11(c, [[x - 15, y], [x - 12, y - 51], [x + 12, y - 51], [x + 16, y]], "#5d7a71", 4);
         text2(c, "\u224B", x, y - 30, "#b4d8bf", 24);
-        if (!g.memories.has(key)) glow10(c, x, y - 36, 30, "#caecc02a");
+        if (!g.memories.has(key)) glow11(c, x, y - 36, 30, "#caecc02a");
       } else if (o.kind === "cache") {
-        poly9(c, [[x - 24, y - 4], [x - 24, y - 29], [x - 12, y - 43], [x + 19, y - 43], [x + 27, y - 29], [x + 27, y - 4]], used ? "#35483f" : "#8d8c61", "#c7c3a277");
-        line10(c, [[x - 23, y - 24], [x + 24, y - 24]], "#b9bd9177", 2);
+        poly10(c, [[x - 24, y - 4], [x - 24, y - 29], [x - 12, y - 43], [x + 19, y - 43], [x + 27, y - 29], [x + 27, y - 4]], used ? "#35483f" : "#8d8c61", "#c7c3a277");
+        line11(c, [[x - 23, y - 24], [x + 24, y - 24]], "#b9bd9177", 2);
         if (!used) {
-          glow10(c, x, y - 23, 25, "#ead49025");
+          glow11(c, x, y - 23, 25, "#ead49025");
           c.fillStyle = "#ead7a4";
           c.fillRect(x - 3, y - 26, 6, 10);
         }
       } else if (o.kind === "ore" && !used) {
-        for (let i = 0; i < 5; i++) poly9(c, [[x - 30 + i * 12, y], [x - 25 + i * 12, y - 25 - noise3(i) * 22], [x - 8 + i * 12, y]], i % 2 ? col + "88" : "#687b78", col + "66");
+        for (let i = 0; i < 5; i++) poly10(c, [[x - 30 + i * 12, y], [x - 25 + i * 12, y - 25 - noise4(i) * 22], [x - 8 + i * 12, y]], i % 2 ? col + "88" : "#687b78", col + "66");
       } else if (o.kind === "shrine") {
-        poly9(c, [[x - 22, y], [x - 16, y - 48], [x, y - 70], [x + 16, y - 48], [x + 22, y]], "#4e6563", "#93bcb166");
-        glow10(c, x, y - 42, 35, g.shrines.has(key) ? "#f9e4aa44" : "#a0dfd01a");
+        poly10(c, [[x - 22, y], [x - 16, y - 48], [x, y - 70], [x + 16, y - 48], [x + 22, y]], "#4e6563", "#93bcb166");
+        glow11(c, x, y - 42, 35, g.shrines.has(key) ? "#f9e4aa44" : "#a0dfd01a");
         text2(c, "\u25C7", x, y - 32, g.shrines.has(key) ? "#ffe9b0" : "#80a79c", 25);
       }
     }
@@ -11418,23 +11941,23 @@
       c.scale(e.face, 1);
       if (e.flash) c.globalAlpha = 0.5;
       if (e.kind === "thornling") {
-        for (const side of [-1, 1]) poly9(c, [[0, -20], [side * 34, -65], [side * 30, -15]], "#66896a", col + "99");
-        oval10(c, 0, -28, 19, 23, "#647e61");
-        poly9(c, [[-20, -35], [0, -65], [19, -35]], col);
+        for (const side of [-1, 1]) poly10(c, [[0, -20], [side * 34, -65], [side * 30, -15]], "#66896a", col + "99");
+        oval11(c, 0, -28, 19, 23, "#647e61");
+        poly10(c, [[-20, -35], [0, -65], [19, -35]], col);
       } else if (["ashwing", "stormkite", "inkfin"].includes(e.kind)) {
         const flap = Math.sin(t * 12 + e.id) * 18;
-        for (const side of [-1, 1]) poly9(c, [[0, -20], [side * 55, -60 + flap], [side * 40, -12], [side * 12, -2]], col + "88", col);
-        poly9(c, [[-15, -45], [12, -45], [23, -22], [0, -3], [-17, -20]], "#435167");
+        for (const side of [-1, 1]) poly10(c, [[0, -20], [side * 55, -60 + flap], [side * 40, -12], [side * 12, -2]], col + "88", col);
+        poly10(c, [[-15, -45], [12, -45], [23, -22], [0, -3], [-17, -20]], "#435167");
       } else if (e.kind === "frostmite") {
-        for (let i = 0; i < 5; i++) poly9(c, [[-30 + i * 12, -5], [-24 + i * 12, -35 - i % 2 * 15], [-10 + i * 12, -6]], col + "88", col);
-        for (const s of [-1, 1]) line10(c, [[s * 12, -5], [s * 30, 1]], "#b5cfdf", 3);
+        for (let i = 0; i < 5; i++) poly10(c, [[-30 + i * 12, -5], [-24 + i * 12, -35 - i % 2 * 15], [-10 + i * 12, -6]], col + "88", col);
+        for (const s of [-1, 1]) line11(c, [[s * 12, -5], [s * 30, 1]], "#b5cfdf", 3);
       } else {
-        glow10(c, 0, -40, 40, col + "22");
-        poly9(c, [[-19, -16], [-11, -60], [7, -78], [24, -38], [12, -5], [0, -19]], "#8d628d", col);
-        for (let i = 0; i < 4; i++) line10(c, [[-10 + i * 7, -5], [-20 + i * 12, Math.sin(t * 7 + i) * 9]], col + "55", 2);
+        glow11(c, 0, -40, 40, col + "22");
+        poly10(c, [[-19, -16], [-11, -60], [7, -78], [24, -38], [12, -5], [0, -19]], "#8d628d", col);
+        for (let i = 0; i < 4; i++) line11(c, [[-10 + i * 7, -5], [-20 + i * 12, Math.sin(t * 7 + i) * 9]], col + "55", 2);
       }
-      oval10(c, 5, -32, 3, 4, "#fff0cd");
-      oval10(c, 15, -32, 3, 4, "#fff0cd");
+      oval11(c, 5, -32, 3, 4, "#fff0cd");
+      oval11(c, 15, -32, 3, 4, "#fff0cd");
       if (e.state === "windup") text2(c, "!", 0, -83, "#ffce91", 22);
       c.restore();
     }
@@ -11453,36 +11976,36 @@
       const breathe = Math.sin(t * 2) * 3, wind = e.state === "windup", rage = e.phase >= 2;
       c.translate(0, breathe + (e.state === "recover" ? 8 : 0));
       c.rotate(e.state === "charge" ? 0.1 : wind ? -0.045 : 0);
-      glow10(c, 0, -70, 160, col + (rage ? "22" : "10"));
+      glow11(c, 0, -70, 160, col + (rage ? "22" : "10"));
       if (e.boss === "briar" || e.boss === "hourglass") {
         for (const side of [-1, 1]) {
-          line10(c, [[side * 35, -85], [side * 58, -38], [side * 72, 0]], e.boss === "briar" ? "#607e65" : "#8ca9b6", 15);
-          line10(c, [[side * 20, -132], [side * 40, -200], [side * 73, -242]], col, 7);
-          for (let i = 0; i < 3; i++) line10(c, [[side * (42 + i * 10), -200 - i * 10], [side * (67 + i * 13), -215 - i * 20]], col, 4);
+          line11(c, [[side * 35, -85], [side * 58, -38], [side * 72, 0]], e.boss === "briar" ? "#607e65" : "#8ca9b6", 15);
+          line11(c, [[side * 20, -132], [side * 40, -200], [side * 73, -242]], col, 7);
+          for (let i = 0; i < 3; i++) line11(c, [[side * (42 + i * 10), -200 - i * 10], [side * (67 + i * 13), -215 - i * 20]], col, 4);
         }
-        poly9(c, [[-48, -110], [-22, -151], [34, -140], [60, -91], [24, -48], [-34, -56]], e.boss === "briar" ? "#54745b" : "#536b88", col + "77");
-        oval10(c, 5, -146, 31, 33, e.boss === "briar" ? "#8caa77" : "#bad3db");
-        for (const side of [-1, 1]) oval10(c, side * 13, -153, 4, 7, "#ffebbc");
-        if (e.boss === "briar") for (let i = 0; i < 7; i++) poly9(c, [[-49 + i * 14, -103], [-55 + i * 14, -147 - i % 2 * 15], [-27 + i * 14, -124]], i % 2 ? "#b8c891" : "#7c9c75");
+        poly10(c, [[-48, -110], [-22, -151], [34, -140], [60, -91], [24, -48], [-34, -56]], e.boss === "briar" ? "#54745b" : "#536b88", col + "77");
+        oval11(c, 5, -146, 31, 33, e.boss === "briar" ? "#8caa77" : "#bad3db");
+        for (const side of [-1, 1]) oval11(c, side * 13, -153, 4, 7, "#ffebbc");
+        if (e.boss === "briar") for (let i = 0; i < 7; i++) poly10(c, [[-49 + i * 14, -103], [-55 + i * 14, -147 - i % 2 * 15], [-27 + i * 14, -124]], i % 2 ? "#b8c891" : "#7c9c75");
         else {
           c.strokeStyle = "#e0deb7";
           c.lineWidth = 2;
           c.beginPath();
-          c.arc(4, -144, 40, 0, TAU13);
+          c.arc(4, -144, 40, 0, TAU14);
           c.stroke();
-          line10(c, [[4, -144], [4, -169], [19, -144]], "#e7dcae", 2);
+          line11(c, [[4, -144], [4, -169], [19, -144]], "#e7dcae", 2);
         }
       } else if (e.boss === "bell") {
-        for (const side of [-1, 1]) line10(c, [[side * 27, -38], [side * 47, -4]], "#564455", 16);
-        poly9(c, [[-76, -30], [-53, -83], [-40, -155], [0, -193], [40, -155], [54, -83], [78, -30]], "#866252", "#e2aa7977");
-        line10(c, [[-73, -44], [75, -44]], col, 5);
-        for (let i = 0; i < 5; i++) line10(c, [[-33 + i * 16, -143], [-42 + i * 21, -62]], "#322e3c", 7);
+        for (const side of [-1, 1]) line11(c, [[side * 27, -38], [side * 47, -4]], "#564455", 16);
+        poly10(c, [[-76, -30], [-53, -83], [-40, -155], [0, -193], [40, -155], [54, -83], [78, -30]], "#866252", "#e2aa7977");
+        line11(c, [[-73, -44], [75, -44]], col, 5);
+        for (let i = 0; i < 5; i++) line11(c, [[-33 + i * 16, -143], [-42 + i * 21, -62]], "#322e3c", 7);
         for (const side of [-1, 1]) {
-          line10(c, [[side * 40, -115], [side * 90, -88], [side * 95, -12]], "#b27a59", 17);
-          poly9(c, [[side * 85, -18], [side * 118, -33], [side * 132, -4], [side * 86, 0]], "#57525b", col + "99");
+          line11(c, [[side * 40, -115], [side * 90, -88], [side * 95, -12]], "#b27a59", 17);
+          poly10(c, [[side * 85, -18], [side * 118, -33], [side * 132, -4], [side * 86, 0]], "#57525b", col + "99");
         }
-        glow10(c, 0, -108, 40, "#ff8d3f66");
-        oval10(c, 0, -109, 8, 20, "#ffe2a1");
+        glow11(c, 0, -108, 40, "#ff8d3f66");
+        oval11(c, 0, -109, 8, 20, "#ffe2a1");
       } else if (e.boss === "leviathan") {
         for (let i = 0; i < 7; i++) {
           const xx = -70 + i * 23;
@@ -11493,39 +12016,39 @@
           c.lineWidth = 13;
           c.stroke();
         }
-        poly9(c, [[-60, -68], [-42, -143], [0, -203], [43, -145], [63, -68], [28, -45], [-25, -45]], "#4c6f96", col + "88");
+        poly10(c, [[-60, -68], [-42, -143], [0, -203], [43, -145], [63, -68], [28, -45], [-25, -45]], "#4c6f96", col + "88");
         for (const side of [-1, 1]) {
-          poly9(c, [[side * 32, -145], [side * 105, -160], [side * 87, -105], [side * 40, -71]], "#597da380", col + "88");
-          oval10(c, side * 18, -115, 7, 11, "#d4f8e4");
+          poly10(c, [[side * 32, -145], [side * 105, -160], [side * 87, -105], [side * 40, -71]], "#597da380", col + "88");
+          oval11(c, side * 18, -115, 7, 11, "#d4f8e4");
         }
         text2(c, "\u224B", 0, -155, "#b1e7e6", 32);
       } else if (e.boss === "conductor") {
-        for (const side of [-1, 1]) for (let i = 0; i < 5; i++) poly9(c, [[side * 15, -92], [side * (70 + i * 17), -201 + i * 12 + Math.sin(t * 4) * 8], [side * (88 + i * 14), -145 + i * 10], [side * 35, -42]], i % 2 ? "#85729f" : "#65597e", col + "44");
-        poly9(c, [[-33, -83], [-12, -147], [24, -146], [43, -84], [4, -36]], "#655784", col + "88");
-        oval10(c, 3, -163, 25, 28, "#a296b9");
-        poly9(c, [[-13, -177], [-17, -210], [8, -186], [30, -213], [24, -169]], "#d5c5cf");
-        oval10(c, 14, -161, 4, 6, "#fff0bd");
-        line10(c, [[32, -108], [81, -64], [110, -172]], col, 4);
+        for (const side of [-1, 1]) for (let i = 0; i < 5; i++) poly10(c, [[side * 15, -92], [side * (70 + i * 17), -201 + i * 12 + Math.sin(t * 4) * 8], [side * (88 + i * 14), -145 + i * 10], [side * 35, -42]], i % 2 ? "#85729f" : "#65597e", col + "44");
+        poly10(c, [[-33, -83], [-12, -147], [24, -146], [43, -84], [4, -36]], "#655784", col + "88");
+        oval11(c, 3, -163, 25, 28, "#a296b9");
+        poly10(c, [[-13, -177], [-17, -210], [8, -186], [30, -213], [24, -169]], "#d5c5cf");
+        oval11(c, 14, -161, 4, 6, "#fff0bd");
+        line11(c, [[32, -108], [81, -64], [110, -172]], col, 4);
       } else {
         for (let i = 0; i < 6; i++) {
-          const ang = i * TAU13 / 6 + t * 0.3;
-          line10(c, [[Math.cos(ang) * 30, -110 + Math.sin(ang) * 30], [Math.cos(ang) * 115, -110 + Math.sin(ang) * 115]], col + "55", 3);
-          oval10(c, Math.cos(ang) * 115, -110 + Math.sin(ang) * 115, 6, 6, col + "88");
+          const ang = i * TAU14 / 6 + t * 0.3;
+          line11(c, [[Math.cos(ang) * 30, -110 + Math.sin(ang) * 30], [Math.cos(ang) * 115, -110 + Math.sin(ang) * 115]], col + "55", 3);
+          oval11(c, Math.cos(ang) * 115, -110 + Math.sin(ang) * 115, 6, 6, col + "88");
         }
-        poly9(c, [[-68, -6], [-38, -99], [-32, -174], [0, -205], [33, -176], [37, -101], [70, -6], [22, -34], [0, -9], [-26, -33]], "#684263", col + "88");
-        oval10(c, 0, -156, 23, 27, "#241b36");
-        oval10(c, 0, -155, 11, 15, "#ffe9c0");
-        poly9(c, [[-34, -197], [-47, -235], [-15, -219], [0, -247], [15, -218], [46, -235], [34, -197]], "#b1859b", "#efbece");
+        poly10(c, [[-68, -6], [-38, -99], [-32, -174], [0, -205], [33, -176], [37, -101], [70, -6], [22, -34], [0, -9], [-26, -33]], "#684263", col + "88");
+        oval11(c, 0, -156, 23, 27, "#241b36");
+        oval11(c, 0, -155, 11, 15, "#ffe9c0");
+        poly10(c, [[-34, -197], [-47, -235], [-15, -219], [0, -247], [15, -218], [46, -235], [34, -197]], "#b1859b", "#efbece");
       }
       if (wind) {
-        glow10(c, 0, -70, 90, "#ffcc7c33");
+        glow11(c, 0, -70, 90, "#ffcc7c33");
         text2(c, "!", 0, -260, "#ffe4a0", 34);
       }
       if (rage) {
         c.strokeStyle = col + "55";
         c.lineWidth = 1;
         c.beginPath();
-        c.ellipse(0, -50, 100 + Math.sin(t * 8) * 5, 20, 0, 0, TAU13);
+        c.ellipse(0, -50, 100 + Math.sin(t * 8) * 5, 20, 0, 0, TAU14);
         c.stroke();
       }
       c.restore();
@@ -11548,41 +12071,41 @@
         c.lineWidth = 15;
         c.stroke();
       } else if (["trail", "bossTrail"].includes(e.type)) {
-        if (e.type === "bossTrail") oval10(c, e.x, e.y - 60, 42, 65, e.color + "22");
+        if (e.type === "bossTrail") oval11(c, e.x, e.y - 60, 42, 65, e.color + "22");
       } else if (["land", "jump"].includes(e.type)) {
         for (let i = 0; i < 6; i++) {
           const xx = e.x + (i - 2.5) * (23 - e.life) * 2;
-          oval10(c, xx, e.y - 2 - Math.sin(i) * 5, 3, 2, b.color + "77");
+          oval11(c, xx, e.y - 2 - Math.sin(i) * 5, 3, 2, b.color + "77");
         }
       } else {
         const radius = (35 - e.life) * 2 + 16, col = ["heal", "swap"].includes(e.type) ? "#c9f7c7" : e.type === "mist" ? "#c7a3e9" : b.color;
         if (radius > 0) {
-          glow10(c, e.x, e.y, radius, col + "22");
+          glow11(c, e.x, e.y, radius, col + "22");
           c.strokeStyle = col + "99";
           c.lineWidth = 2;
           c.beginPath();
-          c.arc(e.x, e.y, radius * 0.65, 0, TAU13);
+          c.arc(e.x, e.y, radius * 0.65, 0, TAU14);
           c.stroke();
           for (let i = 0; i < 8; i++) {
-            const angle = i * TAU13 / 8;
-            line10(c, [[e.x + Math.cos(angle) * radius * 0.5, e.y + Math.sin(angle) * radius * 0.5], [e.x + Math.cos(angle) * radius, e.y + Math.sin(angle) * radius]], col + "88", 2);
+            const angle = i * TAU14 / 8;
+            line11(c, [[e.x + Math.cos(angle) * radius * 0.5, e.y + Math.sin(angle) * radius * 0.5], [e.x + Math.cos(angle) * radius, e.y + Math.sin(angle) * radius]], col + "88", 2);
           }
         }
       }
       c.restore();
     }
-    renderHome(clock, ids, { reducedMotion: reducedMotion2 = false } = {}) {
+    renderHome(clock2, ids, { reducedMotion: reducedMotion2 = false, biome = "moss" } = {}) {
       const { c, w, h } = fitCanvas(this.canvas);
       if (!w || !h) return;
-      const t = reducedMotion2 ? 0 : clock / 1e3;
+      const t = reducedMotion2 ? 0 : clock2 / 1e3;
       c.save();
       const scale = h / 660;
       c.scale(scale, scale);
-      const ww = w / scale;
-      this.backdrop(c, BIOMES.moss, ww, 660, Math.sin(t * 0.08) * 70, t);
-      this.platform(c, { x: 0, y: 570, w: ww, h: 200 }, BIOMES.moss, t);
+      const ww = w / scale, theme = BIOMES[biome] || BIOMES.moss, homeScene = { roomId: "moss-path", room: { id: "moss-path", biome, objects: [], platforms: [] }, platforms: [], worldWidth: ww, player: { x: ww * 0.65, y: 570 }, enemies: [], combat: { settings: { reducedMotion: reducedMotion2 } } };
+      if (!drawMourningwildBackdrop(c, homeScene, Math.sin(t * 0.08) * 70, 0, ww, 660, t)) this.backdrop(c, theme, ww, 660, Math.sin(t * 0.08) * 70, t);
+      this.platform(c, { x: 0, y: 570, w: ww, h: 200 }, theme, t, homeScene);
       const mid = ww * 0.65;
-      glow10(c, mid, 260, 185, "#dfffdc12");
+      glow11(c, mid, 260, 185, "#dfffdc12");
       c.strokeStyle = "#89af9433";
       c.lineWidth = 8;
       c.beginPath();
@@ -11591,21 +12114,21 @@
       c.strokeStyle = "#b8d4af22";
       c.lineWidth = 1;
       c.beginPath();
-      c.arc(mid, 265, 140, 0, TAU13);
+      c.arc(mid, 265, 140, 0, TAU14);
       c.stroke();
       for (let i = 0; i < 12; i++) {
-        const ang = i * TAU13 / 12 + t * 0.03, x = mid + Math.cos(ang) * 140, y = 265 + Math.sin(ang) * 140;
-        poly9(c, [[x, y - 5], [x + 3, y], [x, y + 5], [x - 3, y]], "#d7e7b466");
+        const ang = i * TAU14 / 12 + t * 0.03, x = mid + Math.cos(ang) * 140, y = 265 + Math.sin(ang) * 140;
+        poly10(c, [[x, y - 5], [x + 3, y], [x, y + 5], [x - 3, y]], "#d7e7b466");
       }
-      const positions = [{ x: mid - 105, y: 544, s: 0.83, face: 1 }, { x: mid + 100, y: 552, s: 0.72, face: -1 }, { x: mid + 15, y: 465, s: 0.58, face: 1 }];
+      const positions = [{ x: mid - 105, y: 570, s: 0.83, face: 1 }, { x: mid + 115, y: 558, s: 0.72, face: -1 }, { x: mid + 15, y: 565, s: 0.72, face: 1 }];
       [2, 0, 1].forEach((i) => {
         const p = positions[i];
         drawCreature(c, findFighter(ids[i]), p.x, p.y, p.s, p.face, { state: "idle" }, t, { aura: true, reducedMotion: reducedMotion2 });
       });
       for (let i = 0; i < 30; i++) {
-        const x = noise3(i) * ww, y = 50 + noise3(i + 22) * 480 + Math.sin(t + i) * 8;
-        glow10(c, x, y, 6, "#e4ffbc22");
-        oval10(c, x, y, 1, 1, "#e3f8be88");
+        const x = noise4(i) * ww, y = 50 + noise4(i + 22) * 480 + Math.sin(t + i) * 8;
+        glow11(c, x, y, 6, "#e4ffbc22");
+        oval11(c, x, y, 1, 1, "#e3f8be88");
       }
       const shade = c.createLinearGradient(0, 0, ww, 0);
       shade.addColorStop(0, "#0b172b88");
@@ -11660,6 +12183,505 @@
     return `<div class="dimension-tabs" aria-label="Choose a dimension">${tabs}</div><div class="atlas-heading"><div><p class="eyebrow">${region === "sanctuary" ? "THE SIXFOLD NEXUS" : escape2(chapter?.title || "DIMENSIONAL DUNGEON")}</p><h3>${biome.name}</h3></div><span>${rooms.filter((r) => visited(r.id)).length} / ${rooms.length} ROOMS MAPPED</span></div><div class="dungeon-atlas" style="--dimension:${biome.color}" aria-label="${escape2(biome.name)} room map"><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">${connections.join("")}</svg>${nodes}${gateNodes}<span class="atlas-depth-label">HIGHER CHAMBERS<br>\u2502<br>DEEPER CHAMBERS</span></div><div class="atlas-legend"><span><b>\u25CF</b> Your location</span><span><b>\u2726</b> Wellspring</span><span><b>\u2B1F</b> Camp station</span><span><b>\u25C8</b> Guardian</span><span><b>\u25C7</b> Uncharted passage</span><span>Routes appear as you explore</span></div>${detail}${known && points.length ? `<p class="atlas-spring-note"><span>\u2726</span> ${points.filter((p) => !p.used).length} / ${points.length} wellsprings remain in this chamber. Walk through one for full-party recovery; it will become dormant until your next attempt.</p>` : ""}${chapter ? `<p class="atlas-story">${escape2(chapter.story)}</p>` : ""}`;
   }
 
+  // src/opening-cinematic.js
+  var OPENING_DURATION = 12e3;
+  var ACT_DURATION = 4e3;
+  var TAU15 = Math.PI * 2;
+  var clamp16 = (n2, a = 0, b = 1) => Math.max(a, Math.min(b, n2));
+  var finite8 = (n2, fallback = 0) => Number.isFinite(n2) ? n2 : fallback;
+  var smooth3 = (n2) => {
+    n2 = clamp16(n2);
+    return n2 * n2 * (3 - 2 * n2);
+  };
+  var noise5 = (n2) => {
+    const v = Math.sin(n2 * 127.1 + 37) * 43758.5453;
+    return v - Math.floor(v);
+  };
+  var BEATS = Object.freeze([
+    Object.freeze({ kicker: "PROLOGUE \xB7 THE NINETY-NINTH SILENCE", title: "A world forgot its heartbeat.", line: "Ninety-nine expeditions entered the rift. None returned with a name." }),
+    Object.freeze({ kicker: "THE LAST LANTERN \xB7 JOURNEY 100", title: "Then three hearts answered.", line: "Professor Vell kept one lantern burning. Tonight, it burns for you." }),
+    Object.freeze({ kicker: "MOURNINGWILD \xB7 THE FIRST MEMORY", title: "Every beginning is a bond.", line: "Find the Briar Matron. Bring the first memory home." })
+  ]);
+  function openingBeat(elapsedMs = 0) {
+    const elapsed = clamp16(finite8(elapsedMs), 0, OPENING_DURATION), index = Math.min(2, Math.floor(elapsed / ACT_DURATION));
+    return { index, ...BEATS[index], progress: clamp16((elapsed - index * ACT_DURATION) / ACT_DURATION) };
+  }
+  function line12(c, points, color, width = 1) {
+    c.beginPath();
+    points.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y));
+    c.strokeStyle = color;
+    c.lineWidth = width;
+    c.lineCap = "round";
+    c.lineJoin = "round";
+    c.stroke();
+  }
+  function poly11(c, points, color, edge, width = 1) {
+    c.beginPath();
+    points.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y));
+    c.closePath();
+    if (color) {
+      c.fillStyle = color;
+      c.fill();
+    }
+    if (edge) {
+      c.strokeStyle = edge;
+      c.lineWidth = width;
+      c.lineJoin = "round";
+      c.stroke();
+    }
+  }
+  function oval12(c, x, y, rx, ry, color, edge, width = 1) {
+    c.beginPath();
+    c.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), 0, 0, TAU15);
+    if (color) {
+      c.fillStyle = color;
+      c.fill();
+    }
+    if (edge) {
+      c.strokeStyle = edge;
+      c.lineWidth = width;
+      c.stroke();
+    }
+  }
+  function curve6(c, points, color, width = 1) {
+    c.beginPath();
+    c.moveTo(points[0], points[1]);
+    c.bezierCurveTo(...points.slice(2));
+    c.strokeStyle = color;
+    c.lineWidth = width;
+    c.lineCap = "round";
+    c.stroke();
+  }
+  function glow12(c, x, y, r, color, power = 0.2) {
+    c.save();
+    c.globalAlpha *= clamp16(power);
+    const g = c.createRadialGradient(x, y, 0, x, y, Math.max(1, r));
+    g.addColorStop(0, color);
+    g.addColorStop(0.42, color);
+    g.addColorStop(1, "transparent");
+    oval12(c, x, y, r, r, g);
+    c.restore();
+  }
+  function gradient(c, x, y, x2, y2, ...colors) {
+    const g = c.createLinearGradient(x, y, x2, y2);
+    colors.forEach((v, i) => g.addColorStop(i / (colors.length - 1), v));
+    return g;
+  }
+  function diamond3(c, x, y, r, color, edge) {
+    poly11(c, [[x, y - r], [x + r * 0.6, y], [x, y + r], [x - r * 0.6, y]], color, edge);
+  }
+  function arc(c, x, y, r, a, b, color, width = 1) {
+    c.beginPath();
+    c.arc(x, y, r, a, b);
+    c.strokeStyle = color;
+    c.lineWidth = width;
+    c.stroke();
+  }
+  function leaf3(c, x, y, length, angle, col) {
+    c.save();
+    c.translate(x, y);
+    c.rotate(angle);
+    c.beginPath();
+    c.moveTo(0, 0);
+    c.bezierCurveTo(-length * 0.6, -length * 0.25, -length * 0.4, -length * 0.85, 0, -length);
+    c.bezierCurveTo(length * 0.5, -length * 0.7, length * 0.5, -length * 0.1, 0, 0);
+    c.fillStyle = col;
+    c.fill();
+    line12(c, [[0, -2], [0, -length * 0.85]], "#b5d6a433", 0.7);
+    c.restore();
+  }
+  function dust(c, w, t, col, count = 55, wind = 1) {
+    for (let i = 0; i < count; i++) {
+      const x = noise5(i + 90) * w + Math.sin(t * 0.2 + i) * 10 * wind, y = 95 + noise5(i + 190) * 580 + Math.sin(t * 0.4 + i * 3) * 11 * wind;
+      c.save();
+      c.globalAlpha *= 0.2 + noise5(i + 290) * 0.65;
+      oval12(c, x, y, 0.7 + noise5(i + 390) * 1.7, 0.7 + noise5(i + 390) * 1.7, col);
+      c.restore();
+    }
+  }
+  function background(c, w, top, base) {
+    c.fillStyle = gradient(c, 0, 0, 0, 900, top, base, "#07161c");
+    c.fillRect(0, 0, w, 900);
+  }
+  function stoneArch(c, x, y, rx, ry, thick, color, edge) {
+    c.beginPath();
+    c.moveTo(x - rx, y + 180);
+    c.lineTo(x - rx, y);
+    c.bezierCurveTo(x - rx, y - ry * 0.72, x - rx * 0.48, y - ry, x, y - ry);
+    c.bezierCurveTo(x + rx * 0.48, y - ry, x + rx, y - ry * 0.72, x + rx, y);
+    c.lineTo(x + rx, y + 180);
+    c.strokeStyle = color;
+    c.lineWidth = thick;
+    c.stroke();
+    c.beginPath();
+    c.moveTo(x - rx + thick * 0.35, y + 180);
+    c.lineTo(x - rx + thick * 0.35, y);
+    c.bezierCurveTo(x - rx + thick * 0.35, y - ry * 0.67, x - rx * 0.4, y - ry + thick * 0.35, x, y - ry + thick * 0.35);
+    c.bezierCurveTo(x + rx * 0.4, y - ry + thick * 0.35, x + rx - thick * 0.35, y - ry * 0.67, x + rx - thick * 0.35, y);
+    c.lineTo(x + rx - thick * 0.35, y + 180);
+    c.strokeStyle = edge;
+    c.lineWidth = 2;
+    c.stroke();
+  }
+  function root(c, x, y, side, col, width = 24, t = 0) {
+    const sway = Math.sin(t * 0.55 + x) * 4;
+    curve6(c, [x, y, x + side * 175, y - 85, x + side * 160 + sway, y - 290, x + side * 385, y - 380], col, width);
+    curve6(c, [x + side * 115, y - 130, x + side * 45, y - 285, x + side * 145, y - 405, x + side * 65, y - 565], col, width * 0.56);
+    curve6(c, [x + side * 183, y - 293, x + side * 260, y - 305, x + side * 238, y - 475, x + side * 355, y - 470], col, width * 0.37);
+  }
+  function lantern2(c, x, y, size, t = 0, power = 1) {
+    glow12(c, x, y, size * 6, "#f0d391", 0.12 * power);
+    glow12(c, x, y, size * 2, "#ffe7a5", 0.24 * power);
+    line12(c, [[x, y - size * 2.5], [x, y - size * 1.25]], "#b3ae7e", size * 0.12);
+    poly11(c, [[x - size * 0.62, y - size * 0.95], [x - size * 0.45, y + size * 0.9], [x, y + size * 1.18], [x + size * 0.45, y + size * 0.9], [x + size * 0.62, y - size * 0.95], [x, y - size * 1.3]], "#192d30", "#a7ac7b", size * 0.1);
+    poly11(c, [[x - size * 0.43, y - size * 0.78], [x - size * 0.3, y + size * 0.72], [x, y + size * 0.92], [x + size * 0.3, y + size * 0.72], [x + size * 0.43, y - size * 0.78]], "#f5d38f");
+    const flame2 = 0.86 + Math.sin(t * 3.1 + x) * 0.06;
+    oval12(c, x, y, size * 0.16, size * 0.63 * flame2, "#fff3c4");
+    line12(c, [[x - size * 0.5, y - size * 0.82], [x + size * 0.5, y - size * 0.82]], "#c7c092", size * 0.12);
+    line12(c, [[x, y - size * 0.92], [x, y + size * 0.95]], "#d4c899", size * 0.08);
+  }
+  function fracturedHeart(c, w, progress, t, reduced) {
+    const cx = w * 0.5, cy = 390, spread = reduced ? 1 : smooth3(progress), motion = reduced ? 0 : t;
+    background(c, w, "#070e1c", "#102731");
+    glow12(c, cx, cy, 520, "#53787b", 0.11);
+    glow12(c, cx, cy, 240, "#e2d6ad", 0.06);
+    for (const side of [-1, 1]) for (let layer = 2; layer >= 0; layer--) {
+      const x = cx + side * (370 + layer * 190), y = 500 + layer * 35;
+      stoneArch(c, x, y, 74 + layer * 30, 310 + layer * 30, 20, "#18303755", "#8cb6a415");
+    }
+    for (let i = 0; i < 68; i++) {
+      const x = noise5(i + 77) * w, y = 85 + noise5(i + 8) * 520;
+      c.save();
+      c.globalAlpha *= 0.1 + noise5(i + 135) * 0.5;
+      diamond3(c, x, y, 1 + noise5(i + 67) * 2, "#a4c4bd");
+      c.restore();
+    }
+    for (let i = 0; i < 17; i++) {
+      const a = i * TAU15 / 17 + motion * 0.018, r = 390 + noise5(i + 44) * 120, x = cx + Math.cos(a) * r, yy = cy + Math.sin(a) * r * 0.66;
+      c.save();
+      c.translate(x, yy);
+      c.rotate(a + 0.5);
+      poly11(c, [[-9, -19], [8, -15], [13, 6], [3, 18], [-13, 13]], "#6e8f8430", "#bdd5b829", 1);
+      line12(c, [[-5, -7], [5, -5]], "#c8d6b73b", 1);
+      line12(c, [[-4, 2], [6, 4]], "#c8d6b729", 1);
+      c.restore();
+    }
+    c.save();
+    c.translate(cx, cy);
+    if (!reduced) c.scale(1 + progress * 0.025, 1 + progress * 0.025);
+    const colors = ["#b9dba0", "#e6ad77", "#8edbd6", "#c3ace2", "#bfdeed", "#e4a9c4"];
+    for (let i = 0; i < 6; i++) {
+      const a = -Math.PI / 2 + i * TAU15 / 6, angle = a + Math.sin(motion * 0.25 + i) * 0.025, rx = Math.cos(angle) * (253 + spread * 18), ry = Math.sin(angle) * (220 + spread * 18);
+      arc(c, 0, 0, 205 + i % 2 * 9, a + 0.11, a + TAU15 / 6 - 0.13, colors[i] + "66", 4);
+      arc(c, 0, 0, 223, a + 0.14, a + TAU15 / 6 - 0.16, colors[i] + "22", 1);
+      c.save();
+      c.translate(rx, ry);
+      c.rotate(angle + Math.PI / 2);
+      poly11(c, [[-29, 18], [-25, -14], [-12, -39], [11, -39], [29, -14], [24, 18]], "#1d363c", colors[i] + "99", 1.5);
+      poly11(c, [[-16, 11], [-14, -11], [0, -27], [14, -11], [15, 11]], colors[i] + "19", colors[i] + "66", 1);
+      diamond3(c, 0, -8, 6, colors[i]);
+      c.restore();
+      const inner = 159 + spread * 15;
+      line12(c, [[Math.cos(angle) * inner, Math.sin(angle) * inner], [Math.cos(angle) * 188, Math.sin(angle) * 188]], colors[i] + "55", 1);
+      c.save();
+      c.globalAlpha *= 0.65;
+      c.fillStyle = colors[i];
+      c.font = "500 12px Barlow, sans-serif";
+      c.textAlign = "center";
+      c.fillText(["I", "II", "III", "IV", "V", "VI"][i], Math.cos(angle) * 296, Math.sin(angle) * 263 + 5);
+      c.restore();
+    }
+    for (let i = 0; i < 4; i++) arc(c, 0, 0, 125 + i * 12, 0.2 + i * 0.9 + motion * 0.025, 0.2 + i * 0.9 + motion * 0.025 + 1.05, "#dfd4ac44", i === 0 ? 2 : 1);
+    glow12(c, 0, 0, 165, "#f4de9c", 0.1 + Math.sin(motion * 1.6) * 0.02);
+    const rift = 8 + spread * 13;
+    poly11(c, [[-8 - rift, -131], [-89 - rift, -38], [-53 - rift, 75], [-8 - rift, 129], [-26 - rift, 20], [-8 - rift, -19]], gradient(c, -100, -130, 0, 130, "#c4d7b2", "#557f7c", "#203f4c"), "#d0dfc1", 1.4);
+    poly11(c, [[9 + rift, -131], [90 + rift, -38], [53 + rift, 75], [9 + rift, 129], [26 + rift, 20], [8 + rift, -19]], gradient(c, 0, -130, 110, 130, "#e4d9ae", "#688d80", "#234650"), "#d0dfc1", 1.4);
+    poly11(c, [[-38, -37], [0, -91], [37, -37], [0, 81]], "#eed6a366", "#f8e7b8aa", 1.3);
+    line12(c, [[-10, -65], [14, -32], [-11, 4], [11, 30], [0, 65]], "#fff4cc", 2);
+    for (let i = 0; i < 15; i++) {
+      const a = i * 2.399 + motion * 0.09, r = 132 + noise5(i + 91) * 80 + spread * 17, x = Math.cos(a) * r, y = Math.sin(a) * r * 0.83;
+      c.save();
+      c.translate(x, y);
+      c.rotate(a + motion * 0.05);
+      poly11(c, [[-4, -9], [8, -5], [4, 10], [-7, 3]], i % 3 ? "#a8c6b5" : "#efd9a6", "#dae3ca77", 0.7);
+      c.restore();
+    }
+    c.restore();
+    for (const side of [-1, 1]) {
+      curve6(c, [cx + side * 70, 666, cx + side * 80, 602, cx + side * 300, 615, cx + side * 305, 535], "#294a4655", 14);
+      curve6(c, [cx + side * 84, 661, cx + side * 90, 616, cx + side * 251, 615, cx + side * 275, 565], "#91b3a52b", 1);
+    }
+    c.save();
+    c.fillStyle = "#b2c7bb55";
+    c.font = "500 10px Barlow, sans-serif";
+    c.textAlign = "center";
+    c.fillText("XCIX  /  THE SIGNAL WENT QUIET", cx, 693);
+    c.restore();
+    dust(c, w, motion, "#cbd6bf", 40, reduced ? 0 : 1);
+  }
+  function vell(c, x, y, t) {
+    c.save();
+    c.translate(x, y);
+    oval12(c, 0, 1, 29, 6, "#06121788");
+    poly11(c, [[-25, -113], [-7, -138], [19, -119], [34, -20], [20, -1], [-30, -1], [-35, -27]], "#162b31", "#839b8666", 1.5);
+    poly11(c, [[-22, -112], [-8, -131], [12, -116], [4, -51], [-15, -11], [-29, -16]], "#24423e");
+    oval12(c, -1, -150, 15, 20, "#789187");
+    poly11(c, [[-26, -148], [-15, -182], [14, -183], [27, -154], [10, -158]], "#344e48", "#879b803b", 1.2);
+    line12(c, [[13, -105], [38, -87], [66, -94]], "#6b8173", 8);
+    oval12(c, 65, -94, 5, 6, "#c4b894");
+    line12(c, [[-9, -90], [-39, -62], [-47, -70]], "#435e51", 7);
+    poly11(c, [[-55, -87], [-33, -80], [-34, -54], [-59, -64]], "#b6ae8c", "#e1d7ae55", 1);
+    line12(c, [[-16, -2], [-17, 5]], "#132c32", 8);
+    line12(c, [[14, -2], [18, 4]], "#132c32", 8);
+    lantern2(c, 70, -66, 13, t, 1.2);
+    c.restore();
+  }
+  function meeting(c, w, progress, t, reduced, party2) {
+    const cx = w * 0.5, motion = reduced ? 0 : t, p = reduced ? 1 : progress;
+    background(c, w, "#0b1a23", "#1d3c39");
+    glow12(c, cx + 100, 375, 490, "#668f70", 0.12);
+    glow12(c, cx - 170, 500, 300, "#e3c58b", 0.07);
+    for (let layer = 2; layer >= 0; layer--) for (const side of [-1, 1]) {
+      const x = cx + side * (450 + layer * 95), y = 660;
+      root(c, x, y, -side, ["#102b2f", "#163235", "#244238"][2 - layer], 35 - layer * 6, motion);
+    }
+    stoneArch(c, cx + 150, 550, 300, 375, 36, "#3b55413b", "#b4c79828");
+    stoneArch(c, cx + 150, 550, 270, 343, 14, "#0b232a77", "#9abc8e22");
+    for (const side of [-1, 1]) {
+      const x = cx + side * 540;
+      poly11(c, [[x - 75, 685], [x - 65, 544], [x, 503], [x + 70, 550], [x + 79, 685]], "#203e39", "#7d9a7844", 2);
+      poly11(c, [[x - 91, 549], [x - 35, 485], [x + 11, 472], [x + 94, 550]], "#354f3e", "#9aae7a44", 2);
+      c.fillStyle = "#0a242b";
+      c.fillRect(x - 20, 585, 40, 100);
+      lantern2(c, x + 40, 574, 9, motion, 0.8);
+    }
+    for (let i = 0; i < 9; i++) {
+      const x = cx - 480 + i * 116, y = 230 + Math.sin(i * 0.8) * 55;
+      curve6(c, [x, 82, x - 17, 157, x + 14, 191, x, y - 28], "#62865c55", 2);
+      lantern2(c, x, y, 8 + noise5(i + 88) * 4, motion, 0.75);
+    }
+    c.fillStyle = gradient(c, 0, 672, 0, 790, "#54705b", "#1b3b35", "#0a222b");
+    c.fillRect(0, 682, w, 160);
+    line12(c, [[0, 682], [w, 682]], "#a0b58b66", 2);
+    for (let i = -1; i < w / 120 + 1; i++) {
+      const x = i * 120;
+      poly11(c, [[x, 684], [x + 92, 684], [x + 124, 714], [x + 16, 714]], "#a2b78b12", "#9aad8024", 1);
+    }
+    glow12(c, cx - 290, 600, 260, "#efd390", 0.11);
+    vell(c, cx - 425, 683, motion);
+    const arrive = reduced ? 1 : smooth3(p / 0.62), enter = (1 - arrive) * 96;
+    const slots = [{ x: cx - 180 - enter, y: 680, s: 0.62, face: 1 }, { x: cx + 60 - enter * 0.68, y: 688, s: 0.68, face: -1 }, { x: cx + 302 - enter * 0.4, y: 669, s: 0.6, face: -1 }];
+    for (const i of [2, 0, 1]) {
+      const pos = slots[i], moving = !reduced && p < 0.61;
+      drawCreature(c, party2[i], pos.x, pos.y, pos.s, pos.face, { state: moving ? "walk" : "idle", walk: moving ? motion * 5 + i : 0 }, motion, { speed: moving ? 0.38 : 0, reducedMotion: reduced, shadow: true, aura: false });
+    }
+    for (let i = 0; i < 14; i++) {
+      const x = cx - 550 + i * 82, y = 682 + Math.sin(i * 2) * 4;
+      leaf3(c, x, y, 12 + noise5(i + 14) * 10, (noise5(i + 61) - 0.5) * 1.2, "#6e966655");
+    }
+    dust(c, w, motion, "#e5dcaa", 57, reduced ? 0 : 1);
+    c.save();
+    c.globalAlpha *= 0.13;
+    c.fillStyle = gradient(c, 0, 630, 0, 760, "transparent", "#99bca4", "transparent");
+    c.fillRect(0, 630, w, 130);
+    c.restore();
+  }
+  function dawn(c, w, progress, t, reduced, party2) {
+    const cx = w * 0.5, motion = reduced ? 0 : t, p = reduced ? 1 : progress, zoom = reduced ? 1 : 1 + p * 0.035;
+    background(c, w, "#16323d", "#42665a");
+    c.save();
+    c.translate(cx, 430);
+    c.scale(zoom, zoom);
+    c.translate(-cx, -430);
+    const sunX = cx + 270, sunY = 243;
+    glow12(c, sunX, sunY, 420, "#b6d3ad", 0.15);
+    glow12(c, sunX, sunY, 210, "#f0dfaf", 0.21);
+    oval12(c, sunX, sunY, 76, 76, "#d5d9ad44");
+    arc(c, sunX, sunY, 93, 0.2, TAU15 - 0.3, "#e5deae44", 1);
+    for (let i = -1; i < 5; i++) {
+      const x = cx - 500 + i * 235, y = 565;
+      poly11(c, [[x - 60, y], [x - 49, 252 - noise5(i + 3) * 90], [x - 17, 231 - noise5(i + 3) * 90], [x + 25, 258 - noise5(i + 3) * 90], [x + 48, y]], "#1c3c3e");
+      for (let j = 0; j < 3; j++) curve6(c, [x - 36 + j * 17, 610, x - 28 + j * 17, 470, x - 45 + j * 17, 390, x - 22 + j * 17, 290], "#54745c33", 2);
+    }
+    stoneArch(c, cx + 120, 535, 160, 295, 34, "#42644c", "#a2b89366");
+    stoneArch(c, cx + 120, 535, 132, 260, 15, "#17373a", "#7fa58166");
+    c.fillStyle = "#0d2931";
+    c.fillRect(cx + 39, 412, 162, 176);
+    glow12(c, cx + 120, 437, 100, "#b7dba4", 0.19);
+    for (const side of [-1, 1]) curve6(c, [cx + 120 + side * 85, 588, cx + 120 + side * 123, 429, cx + 120 + side * 112, 350, cx + 120, 286], "#7f9d6d", 13);
+    diamond3(c, cx + 120, 437, 43, "#527b6244", "#c2dca566");
+    diamond3(c, cx + 120, 437, 25, "#b2dba077");
+    for (let i = 0; i < 6; i++) {
+      const a = i * TAU15 / 6 + Math.PI / 6;
+      leaf3(c, cx + 120 + Math.cos(a) * 54, 438 + Math.sin(a) * 54, 18, a, "#8eae7644");
+    }
+    for (const side of [-1, 1]) {
+      root(c, cx + side * 620, 696, -side, "#294b3e", 49, motion);
+      root(c, cx + side * 700, 719, -side, "#1c3b36", 31, motion);
+      for (let i = 0; i < 7; i++) {
+        const x = cx + side * (530 + i * 26), y = 365 - i * 41;
+        leaf3(c, x, y, 30 + i % 3 * 14, side * (0.7 + i * 0.13), "#76976c44");
+      }
+    }
+    c.save();
+    c.globalAlpha *= 0.035;
+    c.fillStyle = "#fff0c8";
+    for (let i = 0; i < 5; i++) {
+      const x = sunX - 180 + i * 90;
+      c.beginPath();
+      c.moveTo(x, 66);
+      c.lineTo(x + 27, 66);
+      c.lineTo(x - 190, 684);
+      c.lineTo(x - 260, 684);
+      c.closePath();
+      c.fill();
+    }
+    c.restore();
+    c.fillStyle = gradient(c, 0, 648, 0, 760, "#526b4b", "#294b3d", "#102b30");
+    poly11(c, [[-90, 707], [cx - 480, 674], [cx - 190, 689], [cx + 60, 670], [cx + 360, 685], [w + 100, 665], [w + 100, 835], [-90, 835]], c.fillStyle);
+    line12(c, [[0, 699], [cx - 480, 674], [cx - 190, 689], [cx + 60, 670], [cx + 360, 685], [w, 674]], "#afc38b77", 3);
+    for (let i = 0; i < 20; i++) {
+      const x = noise5(i + 61) * w, y = 687 + noise5(i + 73) * 17;
+      leaf3(c, x, y, 11 + noise5(i + 81) * 14, (noise5(i + 40) - 0.5) * 1.9, "#8eaf7344");
+    }
+    const slots = [{ x: cx - 225, y: 685, s: 0.64, face: 1 }, { x: cx + 18, y: 675, s: 0.69, face: 1 }, { x: cx + 260, y: 684, s: 0.61, face: -1 }];
+    for (const i of [2, 0, 1]) {
+      const q = slots[i];
+      glow12(c, q.x, q.y - 65, 108, party2[i].accent, 0.045);
+      drawCreature(c, party2[i], q.x, q.y, q.s, q.face, { state: "idle" }, motion, { reducedMotion: reduced, shadow: true, aura: false });
+    }
+    for (const [x, y] of [[cx - 500, 584], [cx + 510, 555]]) {
+      line12(c, [[x, 684], [x, y - 48]], "#658865", 3);
+      curve6(c, [x, y - 48, x + 12, y - 64, x + 39, y - 64, x + 42, y - 43], "#9eb78c", 3);
+      lantern2(c, x + 42, y - 22, 11, motion, 0.9);
+    }
+    dust(c, w, motion, "#d2e6ac", 63, reduced ? 0 : 1);
+    c.restore();
+  }
+  var SCENES2 = [fracturedHeart, meeting, dawn];
+  function drawOpeningCinematic(c, width, height, elapsedMs = 0, partyIds = [], { reducedMotion: reducedMotion2 = false } = {}) {
+    if (!c || !Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return;
+    const elapsed = clamp16(finite8(elapsedMs), 0, OPENING_DURATION), beat = openingBeat(elapsed), scale = height / 900, w = width / scale;
+    const ids = Array.isArray(partyIds) ? partyIds : [], party2 = [0, 1, 2].map((i) => findFighter(ids[i] ?? ["pyrojaw", "voltantis", "zephyrix"][i]));
+    const time = reducedMotion2 ? 0 : elapsed / 1e3;
+    c.save();
+    try {
+      c.beginPath();
+      c.rect(0, 0, width, height);
+      c.clip();
+      c.scale(scale, scale);
+      const compositionScale = Math.min(1, w / 1390);
+      c.fillStyle = "#071820";
+      c.fillRect(0, 0, w, 900);
+      c.save();
+      c.translate(0, 690 * (1 - compositionScale));
+      c.scale(compositionScale, compositionScale);
+      const sceneWidth = w / compositionScale;
+      const blend = reducedMotion2 ? 1 : smooth3(beat.progress * ACT_DURATION / 650);
+      if (beat.index > 0 && blend < 1) SCENES2[beat.index - 1](c, sceneWidth, 1, time, false, party2);
+      c.save();
+      if (beat.index > 0) c.globalAlpha *= blend;
+      SCENES2[beat.index](c, sceneWidth, beat.progress, time, reducedMotion2, party2);
+      c.restore();
+      c.restore();
+      c.fillStyle = gradient(c, 0, 624, 0, 900, "#06131a00", "#06131acf", "#06131a");
+      c.fillRect(0, 624, w, 276);
+      c.fillStyle = "#050e16";
+      c.fillRect(0, 0, w, 47);
+      c.fillRect(0, 842, w, 58);
+      line12(c, [[0, 47], [w, 47]], "#c6d3a51c", 1);
+      line12(c, [[0, 842], [w, 842]], "#c6d3a51c", 1);
+      for (const x of [28, w - 28]) {
+        line12(c, [[x, 70], [x, 87]], "#c9d4b244", 1);
+        line12(c, [[x - 5, 78], [x + 5, 78]], "#c9d4b244", 1);
+      }
+    } finally {
+      c.restore();
+    }
+  }
+
+  // src/landing.js
+  var REALMS = {
+    moss: { number: "01", name: "Mourningwild", icon: "\u2767", color: "#b9dfae", story: "Beneath the old forest, something is learning to remember." },
+    forge: { number: "02", name: "Cinder Cathedral", icon: "\u265C", color: "#ffbc8c", story: "The city still burns. Its bells are breathing in the dark." },
+    reef: { number: "03", name: "The Drowned Archive", icon: "\u2248", color: "#9be8e5", story: "A thousand untold stories sleep beneath the turning tide." },
+    storm: { number: "04", name: "Thundersong Spires", icon: "\u03DF", color: "#d5c4ff", story: "Listen between the thunder. Every lost voice leaves a song." },
+    frost: { number: "05", name: "Pale Meridian", icon: "\u2744", color: "#d0f1ff", story: "Beyond the white horizon, a single moment refuses to end." },
+    rift: { number: "06", name: "The Hollow Crown", icon: "\u25C8", color: "#f5b4d6", story: "At the end of every road, the Worldheart waits for its family." }
+  };
+  function initLanding({ onBiome = () => {
+  }, onReplay = () => {
+  } } = {}) {
+    const root2 = document.getElementById("home-screen");
+    if (!root2) return { update() {
+    }, destroy() {
+    } };
+    const tabs = [...root2.querySelectorAll("[data-landing-tab]")], listeners = [];
+    const listen = (node, event, fn) => {
+      node.addEventListener(event, fn);
+      listeners.push(() => node.removeEventListener(event, fn));
+    };
+    let activeBiome = "moss";
+    function selectTab(name, { focus = false } = {}) {
+      for (const tab of tabs) {
+        const selected = tab.dataset.landingTab === name;
+        tab.setAttribute("aria-selected", String(selected));
+        tab.tabIndex = selected ? 0 : -1;
+        const panel = document.getElementById(tab.getAttribute("aria-controls"));
+        if (panel) panel.hidden = !selected;
+        if (selected && focus) tab.focus({ preventScroll: true });
+      }
+      root2.dataset.journal = name;
+    }
+    function previewBiome(id) {
+      const realm = REALMS[id];
+      if (!realm || root2.dataset.biome === id) return;
+      activeBiome = id;
+      root2.dataset.biome = id;
+      root2.style.setProperty("--landing-color", realm.color);
+      document.getElementById("landing-realm-name").textContent = realm.name;
+      document.getElementById("landing-realm-number").textContent = "GATE " + realm.number + " / 06";
+      document.getElementById("landing-realm-icon").textContent = realm.icon;
+      document.getElementById("landing-realm-story").textContent = realm.story;
+      root2.querySelectorAll(".biome-card").forEach((card) => card.classList.toggle("previewed", card.dataset.mapRegion === id));
+      onBiome(id);
+    }
+    for (const tab of tabs) {
+      listen(tab, "click", () => selectTab(tab.dataset.landingTab));
+      listen(tab, "keydown", (event) => {
+        let index = tabs.indexOf(tab);
+        if (event.key === "ArrowRight") index = (index + 1) % tabs.length;
+        else if (event.key === "ArrowLeft") index = (index + tabs.length - 1) % tabs.length;
+        else if (event.key === "Home") index = 0;
+        else if (event.key === "End") index = tabs.length - 1;
+        else return;
+        event.preventDefault();
+        selectTab(tabs[index].dataset.landingTab, { focus: true });
+      });
+    }
+    const realms = document.getElementById("biome-cards");
+    for (const event of ["pointerover", "focusin"]) listen(realms, event, (e) => {
+      const card = e.target.closest("[data-map-region]");
+      if (card && realms.contains(card)) previewBiome(card.dataset.mapRegion);
+    });
+    listen(document.getElementById("replay-intro"), "click", () => onReplay());
+    selectTab("kindred");
+    previewBiome("moss");
+    return {
+      update({ saved: saved2 = null, party: party2 = [], reducedMotion: reducedMotion2 = false } = {}) {
+        root2.classList.toggle("motion-paused", !!reducedMotion2);
+        const count = Math.min(6, Array.isArray(saved2?.fragments) ? saved2.fragments.length : 0);
+        document.getElementById("landing-fragments").textContent = String(count).padStart(2, "0") + " / 06";
+        document.getElementById("landing-status").textContent = saved2 ? "JOURNEY IN PROGRESS" : "UNWRITTEN JOURNEY";
+        root2.dataset.partyCount = String(party2.length || 3);
+        root2.querySelectorAll(".biome-card").forEach((card) => card.classList.toggle("previewed", card.dataset.mapRegion === activeBiome));
+      },
+      destroy() {
+        listeners.forEach((off) => off());
+      }
+    };
+  }
+
   // src/main.js
   var $ = (id) => document.getElementById(id);
   var readSave = () => {
@@ -11672,6 +12694,9 @@
   };
   var rpgTab = "quests";
   var orientationBlocked = false;
+  var opening = null;
+  var landing = null;
+  var landingBiome = "moss";
   var saved = readSave();
   var party = [...DEFAULT_PARTY];
   var game = null;
@@ -11694,6 +12719,14 @@
   var renderer = new WorldRenderer(canvas);
   var heroRenderer = new WorldRenderer($("hero-scene"));
   var modal = $("overlay");
+  var intro = document.createElement("dialog");
+  intro.id = "intro-screen";
+  intro.hidden = true;
+  intro.setAttribute("aria-modal", "true");
+  intro.setAttribute("aria-labelledby", "intro-title");
+  intro.setAttribute("aria-describedby", "intro-line");
+  intro.innerHTML = '<canvas id="intro-canvas" aria-hidden="true"></canvas><button id="intro-skip" aria-label="Skip opening cinematic">SKIP STORY <span>\u2197</span></button><div class="intro-caption" aria-live="polite"><p id="intro-kicker"></p><h2 id="intro-title"></h2><p id="intro-line"></p><div class="intro-progress" aria-hidden="true"><i id="intro-progress-fill"></i></div></div>';
+  document.body.append(intro);
   var preview = new RPGCampaign(DEFAULT_PARTY);
   var state = () => game || preview;
   var bossCounterLabel = (counter) => ({ "get-close": "GET CLOSE", behind: "GET BEHIND", platform: "TAKE HIGH GROUND", dodge: "DASH CLEAR", jump: "JUMP", retreat: "MOVE AWAY", minions: "DEFEAT SUMMONS", shield: "PARRY / SHIELD" })[counter] || "WATCH THE TELL";
@@ -11711,6 +12744,7 @@
   }
   function updateContinue() {
     saved = readSave() || saved;
+    landing?.update({ saved, party, reducedMotion: reducedMotion() });
     $("continue-button").hidden = !saved;
     if (saved) {
       $("continue-button").textContent = "CONTINUE JOURNEY \u2192";
@@ -11750,14 +12784,15 @@
     $("home-screen").inert = blocked;
     document.querySelector(".topbar").inert = blocked;
     modal.inert = blocked;
+    intro.inert = blocked;
     if (game) {
       if (changed) clearInputs();
-      game.paused = blocked || modal.open || game.phase === "gameover";
+      game.paused = blocked || modal.open || !!opening || game.phase === "gameover";
     }
     if (changed) {
       accumulator = 0;
       if (blocked) $("landscape-button").focus({ preventScroll: true });
-      else (modal.open ? overlayFocus() : active ? canvas : $("start-button")).focus({ preventScroll: true });
+      else (opening ? $("intro-skip") : modal.open ? overlayFocus() : active ? canvas : $("start-button")).focus({ preventScroll: true });
     }
   }
   window.addEventListener("resize", syncMobileLayout);
@@ -11860,9 +12895,11 @@
     if (game.phase === "gameover") openOverlay("gameover");
     else if (game.trueEnding) openOverlay("trueending");
     else if (game.finished && !game.ending) openOverlay("ending");
+    if (!resume) beginOpening("expedition");
     syncMobileLayout();
   }
   function returnHome() {
+    if (opening) finishOpening();
     if (game) game.save();
     clearInputs();
     closeOverlay(true);
@@ -11876,6 +12913,53 @@
     updateContinue();
     $("start-button").focus({ preventScroll: true });
   }
+  function beginOpening(mode = "replay") {
+    if (opening || orientationBlocked) return;
+    closeOverlay(true);
+    clearInputs();
+    opening = { mode, elapsed: 0, beat: -1, suspended: document.hidden };
+    if (game) game.paused = true;
+    accumulator = 0;
+    last = performance.now();
+    intro.hidden = false;
+    document.body.classList.add("intro-playing");
+    intro.showModal();
+    renderOpening();
+    $("intro-skip").focus({ preventScroll: true });
+  }
+  function renderOpening() {
+    if (!opening) return;
+    const beat = openingBeat(opening.elapsed), { c, w, h } = fitCanvas($("intro-canvas"));
+    drawOpeningCinematic(c, w, h, opening.elapsed, game ? game.party.map((m) => m.data.id) : party, { reducedMotion: reducedMotion() });
+    if (beat.index !== opening.beat) {
+      opening.beat = beat.index;
+      $("intro-kicker").textContent = beat.kicker;
+      $("intro-title").textContent = beat.title;
+      $("intro-line").textContent = beat.line;
+      if (sound) tone(beat.index === 2 ? "heal" : "relic");
+    }
+    $("intro-progress-fill").style.width = Math.min(100, opening.elapsed / OPENING_DURATION * 100) + "%";
+  }
+  function finishOpening() {
+    if (!opening || orientationBlocked) return;
+    const mode = opening.mode;
+    opening = null;
+    intro.close();
+    intro.hidden = true;
+    document.body.classList.remove("intro-playing");
+    clearInputs();
+    accumulator = 0;
+    last = performance.now();
+    if (game) {
+      game.paused = modal.open || orientationBlocked || game.phase === "gameover";
+      canvas.focus({ preventScroll: true });
+    } else (mode === "replay" ? $("replay-intro") || $("start-button") : $("start-button")).focus({ preventScroll: true });
+  }
+  $("intro-skip").onclick = finishOpening;
+  intro.addEventListener("cancel", (e) => {
+    e.preventDefault();
+    finishOpening();
+  });
   function reducedMotion() {
     return game?.combat?.settings?.reducedMotion ?? saved?.combat?.settings?.reducedMotion ?? window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   }
@@ -11883,13 +12967,13 @@
     document.querySelectorAll("[data-portrait]").forEach((c) => paintPortrait(c, findFighter(c.dataset.portrait), { hero: c.dataset.hero === "true", reducedMotion: reducedMotion() }));
   }
   var lastPortraitClock = 0;
-  function animatePortraits(clock) {
-    if (reducedMotion() || clock - lastPortraitClock < 100) return;
-    lastPortraitClock = clock;
+  function animatePortraits(clock2) {
+    if (reducedMotion() || clock2 - lastPortraitClock < 100) return;
+    lastPortraitClock = clock2;
     document.querySelectorAll('[data-portrait][data-hero="true"]').forEach((c) => {
       const r = c.getBoundingClientRect();
       if (!r.width || !r.height || r.bottom < 0 || r.top > innerHeight) return;
-      paintPortrait(c, findFighter(c.dataset.portrait), { hero: true, time: clock / 1e3 });
+      paintPortrait(c, findFighter(c.dataset.portrait), { hero: true, time: clock2 / 1e3 });
     });
   }
   function renderHomeParty() {
@@ -11898,6 +12982,7 @@
       return `<button class="companion-card" data-build-party style="--creature-glow:${d.color}"><div class="companion-copy"><small>COMPANION 0${i + 1}</small><h3>${d.name}</h3><p>${d.role}</p><span>${d.types.join(" / ").toUpperCase()} &nbsp; \u2197</span></div><canvas data-portrait="${id}" aria-label="${d.name}"></canvas></button>`;
     }).join("");
     renderPortraits();
+    landing?.update({ saved, party, reducedMotion: reducedMotion() });
   }
   $("biome-cards").innerHTML = CHAPTERS.map((ch, i) => {
     const b = BIOMES[ch.id];
@@ -11927,7 +13012,7 @@
     if (modal.open) modal.close();
     overlayType = "";
     if (game) {
-      game.paused = orientationBlocked || game.phase === "gameover";
+      game.paused = orientationBlocked || !!opening || game.phase === "gameover";
       if (!orientationBlocked) canvas.focus({ preventScroll: true });
     }
     clearInputs();
@@ -11994,8 +13079,8 @@
     return heading("Learn the <em>rhythm.</em>", "J: 0.2s \xB7 K: 0.6s \xB7 L: 1.5s. Time your follow-ups; each power has its own cooldown. Every hit refills Focus; every quiet moment can restore a heart.") + `<div class="controls-grid">${rows.map(([a, b]) => `<div class="control-row"><span>${a}</span><kbd>${b}</kbd></div>`).join("")}</div><p class="modal-note">Defeat the Briar Matron for wall jumps, Saint Bellows for grappling, the Leviathan for the Tideglass Seal, the Conductor for a double jump, and the Hourglass Stag for Rift Step. Return with new abilities to reach high chambers, buried vaults, and looping shortcuts. The map records explored passages; navigation is yours.</p><button class="secondary" data-overlay="arsenal">KINETIC ARSENAL \xB7 ALL POWERS & COMBAT ROUTES \u2197</button>`;
   }
   function dialogueHTML() {
-    const line11 = dialogue[dialogueIndex] || ["The Worldheart", "Listen."];
-    return `<div class="dialogue-body"><div class="dialogue-sigil">\u2727</div><div><h2 id="overlay-title">${line11[0]}</h2><p>${line11[1]}</p></div></div><div class="dialogue-footer"><span>${String(dialogueIndex + 1).padStart(2, "0")} / ${String(dialogue.length).padStart(2, "0")} &nbsp; \xB7 &nbsp; E / SPACE TO CONTINUE</span><button class="primary" data-dialogue-next>${dialogueIndex === dialogue.length - 1 ? "FOLLOW THE PULSE" : "LISTEN"} <span>\u2192</span></button></div>`;
+    const line13 = dialogue[dialogueIndex] || ["The Worldheart", "Listen."];
+    return `<div class="dialogue-body"><div class="dialogue-sigil">\u2727</div><div><h2 id="overlay-title">${line13[0]}</h2><p>${line13[1]}</p></div></div><div class="dialogue-footer"><span>${String(dialogueIndex + 1).padStart(2, "0")} / ${String(dialogue.length).padStart(2, "0")} &nbsp; \xB7 &nbsp; E / SPACE TO CONTINUE</span><button class="primary" data-dialogue-next>${dialogueIndex === dialogue.length - 1 ? "FOLLOW THE PULSE" : "LISTEN"} <span>\u2192</span></button></div>`;
   }
   function nextDialogue() {
     if (dialogueIndex < dialogue.length - 1) {
@@ -12134,6 +13219,14 @@
     game?.setInputs({ left: held.has("KeyA") || held.has("ArrowLeft"), right: held.has("KeyD") || held.has("ArrowRight"), up: held.has("KeyW") || held.has("ArrowUp"), down: held.has("KeyS") || held.has("ArrowDown") });
   }
   window.addEventListener("keydown", (e) => {
+    if (opening) {
+      if (orientationBlocked) return;
+      if (["Space", "Enter", "Escape", "KeyE"].includes(e.code)) {
+        e.preventDefault();
+        if (!e.repeat) finishOpening();
+      } else if (keyAction[e.code] || /^(Key[WASD]|Arrow(Left|Right|Up|Down))$/.test(e.code)) e.preventDefault();
+      return;
+    }
     if (orientationBlocked) {
       if (keyAction[e.code]) e.preventDefault();
       return;
@@ -12177,11 +13270,27 @@
     if (e.code === "KeyL") game?.releaseSpecial();
     if (e.code === "KeyG") game?.releaseShield();
   });
+  window.addEventListener("focus", () => {
+    if (opening) {
+      opening.suspended = document.hidden;
+      last = performance.now();
+    }
+  });
   window.addEventListener("blur", () => {
+    if (opening) {
+      opening.suspended = true;
+      clearInputs();
+      return;
+    }
     if (game && !modal.open) openOverlay("pause");
     else clearInputs();
   });
   document.addEventListener("visibilitychange", () => {
+    if (opening) {
+      opening.suspended = document.hidden;
+      last = performance.now();
+      return;
+    }
     if (document.hidden && game && !modal.open) openOverlay("pause");
   });
   window.addEventListener("beforeunload", () => game?.save());
@@ -12353,7 +13462,7 @@
     };
     b.addEventListener("pointerdown", (e) => {
       e.preventDefault();
-      if (orientationBlocked || modal.open || !game) return;
+      if (orientationBlocked || modal.open || opening || !game) return;
       b.setPointerCapture(e.pointerId);
       const h = b.dataset.hold;
       if (h === "heal") game?.input("heal");
@@ -12387,10 +13496,15 @@
     tone("relic");
     canvas.focus({ preventScroll: true });
   };
-  function frame(clock) {
-    const delta = Math.min(100, clock - (last || clock));
-    last = clock;
-    if (view === "game" && game) {
+  function frame(clock2) {
+    const delta = Math.min(100, clock2 - (last || clock2));
+    last = clock2;
+    if (opening) {
+      accumulator = 0;
+      if (!orientationBlocked && !document.hidden && !opening.suspended) opening.elapsed = Math.min(OPENING_DURATION, opening.elapsed + delta);
+      renderOpening();
+      if (opening.elapsed >= OPENING_DURATION) finishOpening();
+    } else if (view === "game" && game) {
       accumulator += delta;
       let steps = 0;
       while (accumulator >= 1e3 / 60 && steps++ < 6) {
@@ -12398,19 +13512,22 @@
         if (noticeFrames > 0) noticeFrames--;
         accumulator -= 1e3 / 60;
       }
-      renderer.render(game, clock);
-      if (clock - lastHud > 80) {
+      renderer.render(game, clock2);
+      if (clock2 - lastHud > 80) {
         renderHud();
-        lastHud = clock;
+        lastHud = clock2;
       }
       if (game.tick && game.tick % 600 === 0 && !game.paused) game.save();
       if (game.phase === "gameover" && overlayType !== "gameover") openOverlay("gameover");
       if (game.phase === "playing" && rewardQueue.length && !modal.open && game.enemies.every((e) => !e.boss || e.hp <= 0)) openOverlay("reward");
-    } else heroRenderer.renderHome(clock, party, { reducedMotion: reducedMotion() });
-    animatePortraits(clock);
+    } else heroRenderer.renderHome(clock2, party, { reducedMotion: reducedMotion(), biome: landingBiome });
+    animatePortraits(clock2);
     requestAnimationFrame(frame);
   }
-  window.kinetic = { snapshot: () => game ? game.snapshot() : { phase: "selection", mode: "campaign", party: [...party], hasSave: !!saved }, version: "4.0.0" };
+  window.kinetic = { snapshot: () => ({ ...game ? game.snapshot() : { phase: "selection", mode: "campaign", party: [...party], hasSave: !!saved }, intro: { active: !!opening, elapsed: opening?.elapsed || 0, beat: opening ? openingBeat(opening.elapsed).index : 0, mode: opening?.mode || null, paused: !!opening && (orientationBlocked || document.hidden || opening.suspended) }, home: { biome: landingBiome } }), version: "4.0.0" };
+  landing = initLanding({ onBiome: (biome) => {
+    if (BIOMES[biome]) landingBiome = biome;
+  }, onReplay: () => beginOpening("replay") });
   renderHomeParty();
   updateContinue();
   syncMobileLayout();

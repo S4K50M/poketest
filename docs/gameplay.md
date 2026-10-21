@@ -4,7 +4,11 @@
 
 ## First expedition
 
-Choose three distinct companions and begin at the Last Lantern. Move toward Professor Vell, use E to read the opening dialogue, and enter the Mourningwild portal. Restore guardian fragments to open the next chapter. Walking into a glowing Wellspring automatically restores every companion’s health and Focus and binds your respawn point. Camps provide utility services without healing. M opens the atlas; N opens quests, talents, equipment, bonds, covenants, and history.
+Choose three distinct companions, watch or skip the opening cinematic, and begin at the Last Lantern. Move toward Professor Vell, use E to read the opening dialogue, and enter the Mourningwild portal. Restore guardian fragments to open the next chapter. Walking into a glowing Wellspring automatically restores every companion’s health and Focus and binds your respawn point. Camps provide utility services without healing. M opens the atlas; N opens quests, talents, equipment, bonds, covenants, and history.
+
+The title screen fits one viewport. Its companion and realm panels provide preparation and world previews without a scrolling marketing page; menus still open in dialogs. Continue resumes the saved checkpoint without replaying the opening. **Watch the Prologue** lets you revisit it from the title screen.
+
+The Last Lantern and Mourningwild use dedicated scenery: a warm lantern settlement, root-lined passages, deeper forest galleries, high canopy ruins, a forgotten vault, and the Matron’s living chamber. Bright platform edges still mark real landings, with the continuous lower floor and recovery shelves intact.
 
 ## Controls
 
@@ -46,7 +50,7 @@ The eight supplied identities retain their different anatomy and elemental skill
 - **Lumivern:** four moon-patterned wings, a lantern heart, seeking light needles, and a solar cone.
 - **Chronowl:** six feathered wings, an hourglass crown, a stasis ring, and an ice dash.
 
-Minions include shell enemies that need a heavy hit, static grubs that punish close attacks, burrowing ambushers, slippery water creatures, ranged thorn sprites, furnace bats, ink rays, storm birds, frost crawlers, and teleporting rift echoes. Guardians have 2.2 times their previous health and three phases, changing rhythm at two-thirds and one-third health. Twelve dimensional minibosses guard court seals and optional vaults. Their attacks combine charges, aimed projectile fans, delayed elemental sigils, leaping slams, and jumpable shockwaves. The final phase chains attacks and shortens recovery. Glass Marauders resist light strikes, Veilwasps attack from the air, Graveburrowers mark an eruption under you, and Chaincasters keep their distance while firing rooting bolts.
+Minions include shell enemies that need a heavy hit, static grubs that punish close attacks, burrowing ambushers, slippery water creatures, ranged thorn sprites, furnace bats, ink rays, storm birds, frost crawlers, and teleporting rift echoes. Main guardians retain 2.2 times their previous health and three phases, changing rhythm at two-thirds and one-third health. Twelve dimensional minibosses guard court seals and optional vaults. All 21 bosses have four named attacks and their own phase sequences: learn their arena hazards, summons, temporary landings, heavy weapon strikes, aerial passes, and late execution moves in the in-game Attack Field Notes or [boss guide](boss-encounters.md). Glass Marauders resist light strikes, Veilwasps attack from the air, Graveburrowers mark an eruption under you, and Chaincasters keep their distance while firing rooting bolts.
 
 ## Inventory and crafting
 
@@ -74,7 +78,9 @@ After fifteen seconds of simulation time in a region path, an uncleared world fr
 
 ## Accessibility and presentation
 
-Use H → Arsenal to toggle reduced motion. It removes camera shake and softens flashes; a new journey initially follows the browser’s motion preference. The sound button toggles optional synthesized effects. Pausing, opening a menu, losing window focus, or hiding the tab stops active gameplay through the UI.
+The 12-second opening tells its story in three scenes and uses the companions you selected. **Skip Story**, Space, Enter, E, or Escape returns control immediately. Gameplay stays paused until it completes or you skip it; held actions do not carry into the first frame. Continue bypasses it, and title-screen replay leaves the expedition save intact. The opening clock pauses during portrait rotation, window blur, or a hidden tab, then resumes from the same point.
+
+Use H → Arsenal to toggle reduced motion. It removes camera shake and softens flashes; a new journey initially follows the browser’s motion preference. The title screen, opening, and first-area scenery also honor reduced motion; the cinematic keeps its story beats while decorative movement stays still. The sound button toggles optional synthesized effects. Pausing, opening a menu, losing window focus, or hiding the tab stops active gameplay through the UI.
 
 For exact timing and art unlocks, see the [combat reference](combat.md). For checkpoint and storage limitations, see [save format](save-format.md).
 

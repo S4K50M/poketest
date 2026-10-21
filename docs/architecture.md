@@ -39,7 +39,7 @@ WorldRenderer follows the player with a camera, then draws biome layers, enclose
 
 Renderers receive presentation copies of enemies rather than adding animation fields to simulation objects. A renderer-local history and corpse cache completes death animation for enemies removed immediately by gameplay. Those visual bodies cannot collide, delay rewards, keep enemies alive, or enter a save. Room changes clear the caches. Entity wrappers preserve Canvas context state and apply whole-body action/recoil effects around the species-specific art.
 
-The UI uses one dialog for menus, dialogue, rewards, and endings. Opening it pauses gameplay and clears held inputs. Blur and tab hiding also pause through the UI. window.kinetic exposes a defensive snapshot and version for inspection, not a mutable game object or a cheat API.
+Menus, dialogue, rewards, and endings use the shared overlay dialog. The entry cinematic has a separate presentation dialog, and the portrait rotation prompt remains the outer interaction gate. Opening a gameplay overlay pauses the simulation and clears held inputs. Blur and tab hiding also pause through the UI. window.kinetic exposes a defensive snapshot and version for inspection, not a mutable game object or a cheat API.
 
 ## Source map
 
@@ -74,6 +74,9 @@ The UI uses one dialog for menus, dialogue, rewards, and endings. Opening it pau
 | [src/boss-encounter-render.js](../src/boss-encounter-render.js) | Encounter hazard, warning, weapon and temporary-platform presentation |
 | [src/world-render.js](../src/world-render.js) | Scene composition, art routing, actor clock, local death visuals, effects and camera |
 | [src/tunnel-render.js](../src/tunnel-render.js) | Enclosed cave layers, geological shelves, lighting, camps and recovery basins |
+| [src/mourningwild-render.js](../src/mourningwild-render.js) | Dedicated sanctuary/first-gate backdrops, landmarks, landing surfaces and foreground layers |
+| [src/opening-cinematic.js](../src/opening-cinematic.js), [src/intro.css](../src/intro.css) | Pure three-act opening timeline, chosen-party Canvas compositions and cinematic dialog layout |
+| [src/landing.js](../src/landing.js), [src/landing.css](../src/landing.css) | Viewport-fitting title screen, dynamic panels and realm previews |
 | [src/recovery.js](../src/recovery.js) | Seeded spring layout, world-seed validation, safe respawn-point validation |
 | [src/main.js](../src/main.js) | Campaign UI, dialogs, atlas, inventory, keyboard/touch controls, fixed-step loop |
 | [src/render.js](../src/render.js) | Shared canvas sizing and portraits |
@@ -91,6 +94,14 @@ The UI uses one dialog for menus, dialogue, rewards, and endings. Opening it pau
 ## Mobile layout ownership
 
 main.js detects coarse-pointer devices and compact viewports, activates the mobile-game layout, and blocks portrait orientation on home, menus, and gameplay. Active gameplay pauses in portrait. The rotate prompt makes the home screen, game, and any existing modal inert; returning to landscape restores the previous modal pause state. Resize transitions clear held actions. Fullscreen/orientation locking is attempted only from the explicit landscape button; manual rotation remains the fallback. src/mobile.css lays out larger combat/movement targets and the priority menu. The viewport remains unrotated so input coordinates, dialogs, and screen readers share the same coordinate space.
+
+## Landing and arrival presentation
+
+The title screen is one viewport, with its main controls and secondary panels composed inside that frame. Its layout rules are scoped away from active gameplay; preparation and world details use the existing dialogs. `landing.js` owns title-screen interaction, while `main.js` owns campaign start/resume and the opening lifecycle.
+
+The opening renderer accepts elapsed presentation time and party IDs. Its three scenes do not run gameplay, award progression, change collision, or write saves. New expeditions play it before control returns to the Last Lantern. Continue bypasses it; title-screen replay returns to the title screen without replacing a save. Input clearing and focus restoration belong to the host UI. Its 12-second elapsed clock advances only while the opening is visible, focused, and allowed by the orientation gate; it resumes from the same elapsed point after a pause. The gameplay accumulator stays empty until the opening finishes or is skipped, so there is no simulation catch-up behind it. Reduced motion keeps a static composition within each story act while retaining scene changes and captions.
+
+The sanctuary and first gate use dedicated scenery passes in `mourningwild-render.js`. Backdrops are screen-space; landmarks, attached platform art, and restrained foreground detail use world space and the scrolling camera. These passes replace overlapping generic cave decoration for handled rooms. Scenery is presentation-only: persistent room IDs, terrain collision, catch landings, boss encounters, and sparse recovery rules remain authoritative in the existing data and simulation.
 
 ## Data registration and extension boundaries
 

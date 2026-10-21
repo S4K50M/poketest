@@ -7,29 +7,34 @@ import { POWERS } from './combat-data.js';
 import { BOSS_ENCOUNTERS } from './boss-encounters.js';
 import { WorldRenderer } from './world-render.js';
 import {regionAtlas} from './exploration-ui.js';
-import { paintPortrait } from './render.js';
+import { paintPortrait, fitCanvas } from './render.js';
+import { OPENING_DURATION, openingBeat, drawOpeningCinematic } from './opening-cinematic.js';
+import { initLanding } from './landing.js';
 import { ROSTER, findFighter } from './roster.js';
 import { MINIONS } from './designs.js';
 import { ROOMS, BIOMES, BOSSES, CHAPTERS, ABILITIES, ITEMS, CHARMS, DEFAULT_PARTY, SAVE_KEY } from './world.js';
 const $=id=>document.getElementById(id);
 const readSave=()=>{try{const s=JSON.parse(localStorage.getItem(SAVE_KEY));return [2,3,4].includes(s?.version)&&Object.hasOwn(ROOMS,s.room)?s:null;}catch{return null;}};
-let rpgTab='quests',orientationBlocked=false;
+let rpgTab='quests',orientationBlocked=false,opening=null,landing=null,landingBiome='moss';
 let saved=readSave(),party=[...DEFAULT_PARTY],game=null,view='home',overlayType='',mapRegion='sanctuary',mapRoom='',dialogue=[],dialogueIndex=0,rewardQueue=[],last=0,accumulator=0,lastHud=0,notice='',noticeFrames=0,sound=false,audioContext=null;
 const held=new Set(),canvas=$('world-canvas'),renderer=new WorldRenderer(canvas),heroRenderer=new WorldRenderer($('hero-scene')),modal=$('overlay');
+const intro=document.createElement('dialog');intro.id='intro-screen';intro.hidden=true;intro.setAttribute('aria-modal','true');intro.setAttribute('aria-labelledby','intro-title');intro.setAttribute('aria-describedby','intro-line');
+intro.innerHTML='<canvas id="intro-canvas" aria-hidden="true"></canvas><button id="intro-skip" aria-label="Skip opening cinematic">SKIP STORY <span>↗</span></button><div class="intro-caption" aria-live="polite"><p id="intro-kicker"></p><h2 id="intro-title"></h2><p id="intro-line"></p><div class="intro-progress" aria-hidden="true"><i id="intro-progress-fill"></i></div></div>';
+document.body.append(intro);
 const preview=new CampaignEngine(DEFAULT_PARTY);
 const state=()=>game||preview;
 const bossCounterLabel=counter=>({'get-close':'GET CLOSE',behind:'GET BEHIND',platform:'TAKE HIGH GROUND',dodge:'DASH CLEAR',jump:'JUMP',retreat:'MOVE AWAY',minions:'DEFEAT SUMMONS',shield:'PARRY / SHIELD'}[counter]||'WATCH THE TELL');
 const escapeHtml=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function store(s){saved=s;try{localStorage.setItem(SAVE_KEY,JSON.stringify(s));notice='';}catch{notice='Browser storage is unavailable. Keep this tab open to preserve the journey.';noticeFrames=300;}updateContinue();}
-function updateContinue(){saved=readSave()||saved;$('continue-button').hidden=!saved;if(saved){$('continue-button').textContent='CONTINUE JOURNEY →';$('save-caption').textContent=`${BIOMES[ROOMS[saved.room]?.biome||'sanctuary'].name} · ${saved.fragments?.length||0}/6 heart fragments · journey saved`;}}
+function updateContinue(){saved=readSave()||saved;landing?.update({saved,party,reducedMotion:reducedMotion()});$('continue-button').hidden=!saved;if(saved){$('continue-button').textContent='CONTINUE JOURNEY →';$('save-caption').textContent=`${BIOMES[ROOMS[saved.room]?.biome||'sanctuary'].name} · ${saved.fragments?.length||0}/6 heart fragments · journey saved`;}}
 function tone(type){if(!sound)return;try{audioContext??=new(window.AudioContext||window.webkitAudioContext)();if(audioContext.state==='suspended')audioContext.resume();const osc=audioContext.createOscillator(),gain=audioContext.createGain(),frequencies={slash:380,hit:110,hurt:65,jump:290,dash:190,heal:640,relic:820,upgrade:740,bossdefeated:530,cast:460,switch:610,grapple:760};osc.type=['hit','hurt','slam'].includes(type)?'triangle':'sine';osc.frequency.setValueAtTime(frequencies[type]||240,audioContext.currentTime);osc.frequency.exponentialRampToValueAtTime((frequencies[type]||240)*.65,audioContext.currentTime+.12);gain.gain.setValueAtTime(.035,audioContext.currentTime);gain.gain.exponentialRampToValueAtTime(.001,audioContext.currentTime+.18);osc.connect(gain).connect(audioContext.destination);osc.start();osc.stop(audioContext.currentTime+.19);}catch{/* Audio is optional. */}}
 function mobileLayout(){return window.matchMedia('(any-pointer: coarse)').matches||navigator.maxTouchPoints>0||innerWidth<=760||innerWidth<=1100&&innerHeight<=600;}
 function syncMobileLayout(){
   const active=view==='game'&&!!game,mobile=mobileLayout(),viewport=window.visualViewport,portrait=(viewport?.height||innerHeight)>(viewport?.width||innerWidth),blocked=mobile&&portrait,changed=blocked!==orientationBlocked;
   orientationBlocked=blocked;document.body.classList.toggle('mobile-game',active&&mobile);document.body.classList.toggle('orientation-blocked',blocked);
-  const rotate=$('rotate-prompt');rotate.hidden=!blocked;if(blocked&&!rotate.open)rotate.showModal();else if(!blocked&&rotate.open)rotate.close();$('game-screen').inert=blocked;$('home-screen').inert=blocked;document.querySelector('.topbar').inert=blocked;modal.inert=blocked;
-  if(game){if(changed)clearInputs();game.paused=blocked||modal.open||game.phase==='gameover';}
-  if(changed){accumulator=0;if(blocked)$('landscape-button').focus({preventScroll:true});else (modal.open?overlayFocus():active?canvas:$('start-button')).focus({preventScroll:true});}
+  const rotate=$('rotate-prompt');rotate.hidden=!blocked;if(blocked&&!rotate.open)rotate.showModal();else if(!blocked&&rotate.open)rotate.close();$('game-screen').inert=blocked;$('home-screen').inert=blocked;document.querySelector('.topbar').inert=blocked;modal.inert=blocked;intro.inert=blocked;
+  if(game){if(changed)clearInputs();game.paused=blocked||modal.open||!!opening||game.phase==='gameover';}
+  if(changed){accumulator=0;if(blocked)$('landscape-button').focus({preventScroll:true});else (opening?$('intro-skip'):modal.open?overlayFocus():active?canvas:$('start-button')).focus({preventScroll:true});}
 }
 window.addEventListener('resize',syncMobileLayout);window.addEventListener('orientationchange',syncMobileLayout);window.visualViewport?.addEventListener('resize',syncMobileLayout);screen.orientation?.addEventListener('change',syncMobileLayout);window.matchMedia('(any-pointer: coarse)').addEventListener('change',syncMobileLayout);
 $('rotate-prompt').addEventListener('cancel',e=>e.preventDefault());
@@ -56,9 +61,25 @@ function events(e){
   if(e.type==='credits')openOverlay('credits');
 }
 function startCampaign(resume=false){
-  closeOverlay(true);rewardQueue=[];game=new CampaignEngine(resume?DEFAULT_PARTY:party,{save:resume?saved:null,onEvent:events,onSave:store});view='game';$('home-screen').hidden=true;$('game-screen').hidden=false;document.body.classList.add('playing');accumulator=0;last=performance.now();lastHud=0;noticeFrames=0;if(!resume||!saved?.combat)game.combat.settings.reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)').matches;game.save();renderHud();canvas.focus({preventScroll:true});window.scrollTo(0,0);if(game.phase==='gameover')openOverlay('gameover');else if(game.trueEnding)openOverlay('trueending');else if(game.finished&&!game.ending)openOverlay('ending');syncMobileLayout();
+  closeOverlay(true);rewardQueue=[];game=new CampaignEngine(resume?DEFAULT_PARTY:party,{save:resume?saved:null,onEvent:events,onSave:store});view='game';$('home-screen').hidden=true;$('game-screen').hidden=false;document.body.classList.add('playing');accumulator=0;last=performance.now();lastHud=0;noticeFrames=0;if(!resume||!saved?.combat)game.combat.settings.reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)').matches;game.save();renderHud();canvas.focus({preventScroll:true});window.scrollTo(0,0);if(game.phase==='gameover')openOverlay('gameover');else if(game.trueEnding)openOverlay('trueending');else if(game.finished&&!game.ending)openOverlay('ending');if(!resume)beginOpening('expedition');syncMobileLayout();
 }
-function returnHome(){if(game)game.save();clearInputs();closeOverlay(true);view='home';$('home-screen').hidden=false;$('game-screen').hidden=true;document.body.classList.remove('playing','game-over','recovery-flash');game=null;syncMobileLayout();renderHomeParty();updateContinue();$('start-button').focus({preventScroll:true});}
+function returnHome(){if(opening)finishOpening();if(game)game.save();clearInputs();closeOverlay(true);view='home';$('home-screen').hidden=false;$('game-screen').hidden=true;document.body.classList.remove('playing','game-over','recovery-flash');game=null;syncMobileLayout();renderHomeParty();updateContinue();$('start-button').focus({preventScroll:true});}
+function beginOpening(mode='replay'){
+  if(opening||orientationBlocked)return;
+  closeOverlay(true);clearInputs();opening={mode,elapsed:0,beat:-1,suspended:document.hidden};if(game)game.paused=true;accumulator=0;last=performance.now();
+  intro.hidden=false;document.body.classList.add('intro-playing');intro.showModal();renderOpening();$('intro-skip').focus({preventScroll:true});
+}
+function renderOpening(){
+  if(!opening)return;const beat=openingBeat(opening.elapsed),{c,w,h}=fitCanvas($('intro-canvas'));
+  drawOpeningCinematic(c,w,h,opening.elapsed,game?game.party.map(m=>m.data.id):party,{reducedMotion:reducedMotion()});
+  if(beat.index!==opening.beat){opening.beat=beat.index;$('intro-kicker').textContent=beat.kicker;$('intro-title').textContent=beat.title;$('intro-line').textContent=beat.line;if(sound)tone(beat.index===2?'heal':'relic');}
+  $('intro-progress-fill').style.width=Math.min(100,opening.elapsed/OPENING_DURATION*100)+'%';
+}
+function finishOpening(){
+  if(!opening||orientationBlocked)return;const mode=opening.mode;opening=null;intro.close();intro.hidden=true;document.body.classList.remove('intro-playing');clearInputs();accumulator=0;last=performance.now();
+  if(game){game.paused=modal.open||orientationBlocked||game.phase==='gameover';canvas.focus({preventScroll:true});}else (mode==='replay'?$('replay-intro')||$('start-button'):$('start-button')).focus({preventScroll:true});
+}
+$('intro-skip').onclick=finishOpening;intro.addEventListener('cancel',e=>{e.preventDefault();finishOpening();});
 function reducedMotion(){return game?.combat?.settings?.reducedMotion??saved?.combat?.settings?.reducedMotion??window.matchMedia('(prefers-reduced-motion: reduce)').matches;}
 function renderPortraits(){document.querySelectorAll('[data-portrait]').forEach(c=>paintPortrait(c,findFighter(c.dataset.portrait),{hero:c.dataset.hero==='true',reducedMotion:reducedMotion()}));}
 let lastPortraitClock=0;
@@ -71,7 +92,7 @@ function animatePortraits(clock){
   });
 }
 function renderHomeParty(){
-  $('home-party').innerHTML=party.map((id,i)=>{const d=findFighter(id);return `<button class="companion-card" data-build-party style="--creature-glow:${d.color}"><div class="companion-copy"><small>COMPANION 0${i+1}</small><h3>${d.name}</h3><p>${d.role}</p><span>${d.types.join(' / ').toUpperCase()} &nbsp; ↗</span></div><canvas data-portrait="${id}" aria-label="${d.name}"></canvas></button>`;}).join('');renderPortraits();
+  $('home-party').innerHTML=party.map((id,i)=>{const d=findFighter(id);return `<button class="companion-card" data-build-party style="--creature-glow:${d.color}"><div class="companion-copy"><small>COMPANION 0${i+1}</small><h3>${d.name}</h3><p>${d.role}</p><span>${d.types.join(' / ').toUpperCase()} &nbsp; ↗</span></div><canvas data-portrait="${id}" aria-label="${d.name}"></canvas></button>`;}).join('');renderPortraits();landing?.update({saved,party,reducedMotion:reducedMotion()});
 }
 $('biome-cards').innerHTML=CHAPTERS.map((ch,i)=>{const b=BIOMES[ch.id];return `<button class="biome-card" data-map-region="${ch.id}" data-icon="${b.icon}" style="--biome:${b.color};--biome-bg:${b.sky[1]}"><small>CHAPTER 0${i+1}</small><h3>${b.name}</h3><p>${b.subtitle}</p></button>`;}).join('');
 function overlayFocus(){return overlayType==='gameover'?modal.querySelector('[data-retry-death]')||modal:$('close-overlay');}
@@ -81,7 +102,7 @@ function openOverlay(type){
   if(type==='map'&&game){mapRegion=game.room.biome;mapRoom=game.roomId;}
   clearInputs();overlayType=type;modal.dataset.view=type;if(game)game.paused=true;renderOverlay();modal.scrollTop=0;if(!modal.open)modal.showModal();overlayFocus().focus({preventScroll:true});
 }
-function closeOverlay(force=false){if(game?.phase==='gameover'&&!force)return;if(modal.open)modal.close();overlayType='';if(game){game.paused=orientationBlocked||game.phase==='gameover';if(!orientationBlocked)canvas.focus({preventScroll:true});}clearInputs();}
+function closeOverlay(force=false){if(game?.phase==='gameover'&&!force)return;if(modal.open)modal.close();overlayType='';if(game){game.paused=orientationBlocked||!!opening||game.phase==='gameover';if(!orientationBlocked)canvas.focus({preventScroll:true});}clearInputs();}
 modal.addEventListener('cancel',e=>{e.preventDefault();if(orientationBlocked||overlayType==='gameover')return;if(overlayType==='dialogue')nextDialogue();else if(overlayType==='reward')dismissReward();else closeOverlay();});
 $('close-overlay').onclick=()=>{if(overlayType==='gameover')return;if(overlayType==='reward')dismissReward();else closeOverlay();};
 function heading(title,description=''){return `<div class="modal-heading"><h2 id="overlay-title">${title}</h2><p>${description}</p></div>`;}
@@ -166,6 +187,7 @@ function renderHud(){
 const keyAction={KeyG:'shield',KeyX:'power',KeyZ:'powerCycle',KeyR:'surge',Space:'jump',ShiftLeft:'dash',ShiftRight:'dash',KeyJ:'light',KeyK:'heavy',KeyL:'special',KeyF:'heal',KeyE:'interact',KeyQ:'switch',Digit1:'slot1',Digit2:'slot2',Digit3:'slot3',KeyV:'potion',KeyT:'tool',KeyC:'toolCycle',KeyU:'grapple',KeyB:'upgrade'};
 function syncMovement(){game?.setInputs({left:held.has('KeyA')||held.has('ArrowLeft'),right:held.has('KeyD')||held.has('ArrowRight'),up:held.has('KeyW')||held.has('ArrowUp'),down:held.has('KeyS')||held.has('ArrowDown')});}
 window.addEventListener('keydown',e=>{
+  if(opening){if(orientationBlocked)return;if(['Space','Enter','Escape','KeyE'].includes(e.code)){e.preventDefault();if(!e.repeat)finishOpening();}else if(keyAction[e.code]||/^(Key[WASD]|Arrow(Left|Right|Up|Down))$/.test(e.code))e.preventDefault();return;}
   if(orientationBlocked){if(keyAction[e.code])e.preventDefault();return;}
   if(modal.open){if(overlayType==='gameover'){if(e.code==='KeyR'&&!e.repeat){e.preventDefault();retryDeath();}return;}if(overlayType==='dialogue'&&['Space','Enter','KeyE'].includes(e.code)){e.preventDefault();if(!e.repeat)nextDialogue();}else if((overlayType==='map'&&e.code==='KeyM'||overlayType==='inventory'&&e.code==='KeyI'||overlayType==='chronicle'&&e.code==='KeyN'||overlayType==='arsenal'&&e.code==='KeyH')&&!e.repeat){e.preventDefault();closeOverlay();}return;}
   if(view!=='game')return;
@@ -174,7 +196,8 @@ window.addEventListener('keydown',e=>{
   if(keyAction[e.code]||/^(Key[WASD]|Arrow(Left|Right|Up|Down))$/.test(e.code)){e.preventDefault();held.add(e.code);syncMovement();if(!e.repeat&&keyAction[e.code])game.input(keyAction[e.code]);}
 });
 window.addEventListener('keyup',e=>{held.delete(e.code);syncMovement();if(e.code==='Space')game?.releaseJump();if(e.code==='KeyF')game?.releaseHeal();if(e.code==='KeyL')game?.releaseSpecial();if(e.code==='KeyG')game?.releaseShield();});
-window.addEventListener('blur',()=>{if(game&&!modal.open)openOverlay('pause');else clearInputs();});document.addEventListener('visibilitychange',()=>{if(document.hidden&&game&&!modal.open)openOverlay('pause');});
+window.addEventListener('focus',()=>{if(opening){opening.suspended=document.hidden;last=performance.now();}});
+window.addEventListener('blur',()=>{if(opening){opening.suspended=true;clearInputs();return;}if(game&&!modal.open)openOverlay('pause');else clearInputs();});document.addEventListener('visibilitychange',()=>{if(opening){opening.suspended=document.hidden;last=performance.now();return;}if(document.hidden&&game&&!modal.open)openOverlay('pause');});
 window.addEventListener('beforeunload',()=>game?.save());
 document.addEventListener('click',e=>{
   const b=e.target.closest('button');if(!b)return;
@@ -219,17 +242,19 @@ document.addEventListener('click',e=>{
 document.addEventListener('change',e=>{const slot=e.target.dataset.partySlot;if(slot===undefined)return;const i=Number(slot),id=e.target.value;if(game)game.replaceParty(i,id);else{const other=party.indexOf(id),old=party[i];party[i]=id;if(other>=0&&other!==i)party[other]=old;renderHomeParty();}renderOverlay();});
 for(const b of document.querySelectorAll('.touch-controls button')){
   const end=e=>{e.preventDefault();const h=b.dataset.hold;if(h==='heal')game?.releaseHeal();else if(h==='shield')game?.releaseShield();else if(h){held.delete({left:'KeyA',right:'KeyD',up:'KeyW',down:'KeyS'}[h]);syncMovement();}if(b.dataset.action==='jump')game?.releaseJump();if(b.dataset.action==='special')game?.releaseSpecial();};
-  b.addEventListener('pointerdown',e=>{e.preventDefault();if(orientationBlocked||modal.open||!game)return;b.setPointerCapture(e.pointerId);const h=b.dataset.hold;if(h==='heal')game?.input('heal');else if(h==='shield')game?.input('shield');else if(h){held.add({left:'KeyA',right:'KeyD',up:'KeyW',down:'KeyS'}[h]);syncMovement();}else game?.input(b.dataset.action);});b.addEventListener('pointerup',end);b.addEventListener('pointercancel',end);
+  b.addEventListener('pointerdown',e=>{e.preventDefault();if(orientationBlocked||modal.open||opening||!game)return;b.setPointerCapture(e.pointerId);const h=b.dataset.hold;if(h==='heal')game?.input('heal');else if(h==='shield')game?.input('shield');else if(h){held.add({left:'KeyA',right:'KeyD',up:'KeyW',down:'KeyS'}[h]);syncMovement();}else game?.input(b.dataset.action);});b.addEventListener('pointerup',end);b.addEventListener('pointercancel',end);
 }
 $('start-button').onclick=()=>openOverlay('party');$('party-button').onclick=()=>openOverlay('party');$('continue-button').onclick=()=>startCampaign(true);$('home-button').onclick=()=>{if(game)openOverlay('pause');else window.scrollTo({top:0,behavior:'smooth'});};$('nav-campaign').onclick=()=>{if(game)closeOverlay();else window.scrollTo({top:0,behavior:'smooth'});};$('nav-map').onclick=$('atlas-button').onclick=()=>openOverlay('map');$('nav-codex').onclick=()=>openOverlay('chronicle');$('guide-button').onclick=$('footer-guide').onclick=()=>openOverlay('guide');$('sound-button').onclick=()=>{sound=!sound;$('sound-button').setAttribute('aria-pressed',String(sound));$('sound-button').style.color=sound?'#e6dcac':'';tone('relic');canvas.focus({preventScroll:true});};
 function frame(clock){
   const delta=Math.min(100,clock-(last||clock));last=clock;
-  if(view==='game'&&game){accumulator+=delta;let steps=0;while(accumulator>=1000/60&&steps++<6){game.step();if(noticeFrames>0)noticeFrames--;accumulator-=1000/60;}renderer.render(game,clock);if(clock-lastHud>80){renderHud();lastHud=clock;}if(game.tick&&game.tick%600===0&&!game.paused)game.save();
+  if(opening){accumulator=0;if(!orientationBlocked&&!document.hidden&&!opening.suspended)opening.elapsed=Math.min(OPENING_DURATION,opening.elapsed+delta);renderOpening();if(opening.elapsed>=OPENING_DURATION)finishOpening();}
+  else if(view==='game'&&game){accumulator+=delta;let steps=0;while(accumulator>=1000/60&&steps++<6){game.step();if(noticeFrames>0)noticeFrames--;accumulator-=1000/60;}renderer.render(game,clock);if(clock-lastHud>80){renderHud();lastHud=clock;}if(game.tick&&game.tick%600===0&&!game.paused)game.save();
     if(game.phase==='gameover'&&overlayType!=='gameover')openOverlay('gameover');
     if(game.phase==='playing'&&rewardQueue.length&&!modal.open&&game.enemies.every(e=>!e.boss||e.hp<=0))openOverlay('reward');
-  }else heroRenderer.renderHome(clock,party,{reducedMotion:reducedMotion()});
+  }else heroRenderer.renderHome(clock,party,{reducedMotion:reducedMotion(),biome:landingBiome});
   animatePortraits(clock);
   requestAnimationFrame(frame);
 }
-window.kinetic={snapshot:()=>game?game.snapshot():{phase:'selection',mode:'campaign',party:[...party],hasSave:!!saved},version:'4.0.0'};
+window.kinetic={snapshot:()=>({...(game?game.snapshot():{phase:'selection',mode:'campaign',party:[...party],hasSave:!!saved}),intro:{active:!!opening,elapsed:opening?.elapsed||0,beat:opening?openingBeat(opening.elapsed).index:0,mode:opening?.mode||null,paused:!!opening&&(orientationBlocked||document.hidden||opening.suspended)},home:{biome:landingBiome}}),version:'4.0.0'};
+landing=initLanding({onBiome:biome=>{if(BIOMES[biome])landingBiome=biome;},onReplay:()=>beginOpening('replay')});
 renderHomeParty();updateContinue();syncMobileLayout();requestAnimationFrame(frame);

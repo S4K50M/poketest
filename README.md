@@ -4,6 +4,8 @@ An original browser action RPG about three creature companions, a fractured Worl
 
 The playable prototype includes:
 
+- An animated title screen that fits the viewport, with companion and realm controls in one responsive interface.
+- A skippable opening cinematic starring your chosen party, followed by a rebuilt Last Lantern and Mourningwild with distinct landmarks, living root vaults, local lighting, and layered forest scenery.
 - **Twenty-one distinct boss encounters and 84 named attacks**, with individual phase sequences, arena hazards, summons, temporary landings, heavy weapon strikes, aerial movement, and execution attacks. Learn their tells and escape routes in the [boss encounter guide](docs/boss-encounters.md).
 - A fully redrawn bestiary: **eleven companions, nineteen wild species, and twenty-one bosses**, with distinct anatomy, inked silhouettes, layered materials, and articulated action animation.
 - Anticipation, impact, recovery, shield, recoil, and death animation; elemental trails, phase effects, and responsive NPC details finish the combat presentation.
@@ -35,7 +37,7 @@ You can also open `index.html` directly. Keep the complete `assets/`, `src/`, an
 
 ## Start playing
 
-Choose three companions, begin the expedition, and walk right to Professor Vell. Use **E** to advance dialogue and enter the first portal. Walk into a glowing **Wellspring** to restore every companion and bind your respawn point; camps provide services without healing.
+Choose three companions, watch or skip the opening cinematic, and walk right to Professor Vell at the Last Lantern. Continue resumes your saved journey without repeating the opening; **Watch the Prologue** on the title screen lets you watch it again. Use **E** to advance dialogue and enter the first portal. Walk into a glowing **Wellspring** to restore every companion and bind your respawn point; camps provide services without healing.
 
 | Input | Action |
 | --- | --- |
@@ -79,4 +81,4 @@ npm test
 
 After changing JavaScript, run `npm run build` before checking and commit the generated `bundle/game.js`. For gameplay, UI, rendering, save, or hosting changes, also run the relevant [Chromium suites](docs/testing.md). Documentation-only changes do not require rebuilding the game.
 
-`npm run test:art` renders the full roster and bestiary as contact sheets and checks the actual game view on desktop and mobile. Art renderers remain presentation-only. `npm run test:bosses` checks the distinct encounter mechanics and their desktop/mobile telegraphs; boss attacks now have their own gameplay timelines. Existing progression and saved boss identities remain compatible.
+`npm run test:arrival` checks the viewport-fitting title screen, opening lifecycle, and first-area presentation. `npm run test:art` renders the full roster and bestiary as contact sheets and checks the actual game view on desktop and mobile. Art renderers remain presentation-only. `npm run test:bosses` checks the distinct encounter mechanics and their desktop/mobile telegraphs; boss attacks now have their own gameplay timelines. Existing progression and saved boss identities remain compatible.

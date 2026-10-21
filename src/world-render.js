@@ -5,6 +5,7 @@ import { drawBossEncounterWorld, drawBossMoveTelegraph, drawBossPlatform, drawBo
 import { drawArenaBoss } from './boss-art.js';
 import {drawChronicleEntity,drawChronicleBoss} from './chronicle-art.js';
 import {drawRPGObject,drawRPGWorld,drawRPGAuras} from './rpg-render.js';
+import { drawMourningwildBackdrop, drawMourningwildLandmarks, drawMourningwildForeground, drawMourningwildPlatform } from './mourningwild-render.js';
 import { fitCanvas } from './render.js';
 import { drawCreature, drawMinion } from './creatures.js';
 import { findFighter } from './roster.js';
@@ -29,12 +30,12 @@ export class WorldRenderer{
     const target=Math.max(0,Math.min(g.worldWidth-view,g.player.x-view*.38+g.player.vx*7));
     if(this.lastRoom!==g.roomId){this.camera=target;this.cameraY=Math.min(0,g.player.y-245);this.lastRoom=g.roomId;this.actorHistory.clear();this.corpses.clear();}this.camera+=(target-this.camera)*.12;this.cameraY+=(Math.min(0,g.player.y-245)-this.cameraY)*.09;
     c.save();c.scale(scale,scale);const impulse=this.fx.camera();c.translate(impulse.x,impulse.y);if(impulse.zoom!==1){c.translate(view/2,330);c.scale(impulse.zoom,impulse.zoom);c.translate(-view/2,-330);}
-    if(isTunnel(g))drawTunnelBackdrop(c,g,this.camera,this.cameraY,view,660,t);else this.backdrop(c,b,view,660,this.camera,t);this.fx.drawAmbient(c,g,this.camera,this.cameraY,view,660,t);
+    const firstArea=drawMourningwildBackdrop(c,g,this.camera,this.cameraY,view,660,t);if(!firstArea){if(isTunnel(g))drawTunnelBackdrop(c,g,this.camera,this.cameraY,view,660,t);else this.backdrop(c,b,view,660,this.camera,t);}this.fx.drawAmbient(c,g,this.camera,this.cameraY,view,660,t);
     c.save();c.translate(-this.camera,-this.cameraY);
-    if(isTunnel(g))drawTunnelStructure(c,g,this.camera,this.cameraY,view,660,t);
+    if(firstArea)drawMourningwildLandmarks(c,g,this.camera,this.cameraY,view,660,t);else if(isTunnel(g))drawTunnelStructure(c,g,this.camera,this.cameraY,view,660,t);
     // Luminous dust lives in the scene instead of following the camera.
     for(let i=0;i<55;i++){const x=noise(i+9)*g.worldWidth,y=70+noise(i+72)*420+Math.sin(t*.5+i)*15;glow(c,x,y,4,b.color+'25');oval(c,x,y,.8,.8,b.color+'99');}
-    for(const p of g.platforms)if(!p.veil)this.platform(c,p,b,t,g);
+    for(const p of g.platforms)if(!p.veil&&p.x+p.w>this.camera-120&&p.x<this.camera+view+120&&p.y+p.h+160>this.cameraY&&p.y<this.cameraY+740)this.platform(c,p,b,t,g);
     for(const pit of g.thorns){
       glow(c,pit.x+pit.w/2,pit.y,Math.min(220,pit.w),b.color+'16');
       for(let i=0;i<pit.w;i+=23)poly(c,[[pit.x+i,pit.y+12],[pit.x+i+12,pit.y-20-noise(i)*14],[pit.x+i+23,pit.y+12]],b.color+'55');
@@ -91,6 +92,7 @@ export class WorldRenderer{
     for(const e of g.effects)this.effect(c,e,t,b);
     this.fx.drawWorld(c,g,t);
     for(const f of g.combat?.fields||[]){if(!Number.isFinite(f.x))continue;const radius=f.radius||100;c.save();c.globalAlpha=Math.min(.6,f.life/25);c.strokeStyle=f.color||b.color;c.lineWidth=2;c.setLineDash(f.type==='time'?[8,12]:[]);c.beginPath();c.ellipse(f.x,f.y,radius*(.9+Math.sin(t*5)*.04),f.type==='gravity'?radius*.6:35,t*.15,0,TAU);c.stroke();glow(c,f.x,f.y,radius,(f.color||b.color)+'14');c.restore();}
+    if(firstArea)drawMourningwildForeground(c,g,this.camera,this.cameraY,view,660,t);
     const near=g.room.objects.filter(o=>Math.abs(o.x-p.x)<90&&Math.abs((o.y??520)-p.y)<95).sort((x,y)=>Math.abs(x.x-p.x)-Math.abs(y.x-p.x))[0];
     if(near){const defeated=id=>g.bossDefeated?.(id)||g.fragments.has(id)||g.defeatedBosses?.has(id),locked=near.need>g.fragments.size||near.ability&&!g.abilities.has(near.ability)||near.boss&&!defeated(near.boss)||near.requiresBoss&&!defeated(near.requiresBoss);text(c,'[ E ]  '+(locked?'SEALED · ':'')+near.name,near.x,(near.y??520)-110,locked?'#b6acbf':'#f6e5bb',11);}
     c.restore();
@@ -136,6 +138,7 @@ export class WorldRenderer{
   }
   platform(c,p,b,t,g){
     if(drawBossPlatform(c,p,t))return;
+    if(g&&drawMourningwildPlatform(c,p,g,t))return;
     if(g&&isTunnel(g)){drawTunnelPlatform(c,p,g.room.biome,t);return;}
     c.fillStyle=b.ground;c.fillRect(p.x,p.y,p.w,p.h);const under=c.createLinearGradient(0,p.y,0,p.y+p.h);under.addColorStop(0,'#06131c00');under.addColorStop(1,'#06101be8');c.fillStyle=under;c.fillRect(p.x,p.y,p.w,p.h);
     line(c,[[p.x,p.y],[p.x+p.w,p.y]],b.color+'55',3);
@@ -227,13 +230,13 @@ export class WorldRenderer{
     else{const radius=(35-e.life)*2+16,col=['heal','swap'].includes(e.type)?'#c9f7c7':e.type==='mist'?'#c7a3e9':b.color;if(radius>0){glow(c,e.x,e.y,radius,col+'22');c.strokeStyle=col+'99';c.lineWidth=2;c.beginPath();c.arc(e.x,e.y,radius*.65,0,TAU);c.stroke();for(let i=0;i<8;i++){const angle=i*TAU/8;line(c,[[e.x+Math.cos(angle)*radius*.5,e.y+Math.sin(angle)*radius*.5],[e.x+Math.cos(angle)*radius,e.y+Math.sin(angle)*radius]],col+'88',2);}}}
     c.restore();
   }
-  renderHome(clock,ids,{reducedMotion=false}={}){
-    const {c,w,h}=fitCanvas(this.canvas);if(!w||!h)return;const t=reducedMotion?0:clock/1000;c.save();const scale=h/660;c.scale(scale,scale);const ww=w/scale;this.backdrop(c,BIOMES.moss,ww,660,Math.sin(t*.08)*70,t);
-    this.platform(c,{x:0,y:570,w:ww,h:200},BIOMES.moss,t);
+  renderHome(clock,ids,{reducedMotion=false,biome='moss'}={}){
+    const {c,w,h}=fitCanvas(this.canvas);if(!w||!h)return;const t=reducedMotion?0:clock/1000;c.save();const scale=h/660;c.scale(scale,scale);const ww=w/scale,theme=BIOMES[biome]||BIOMES.moss,homeScene={roomId:'moss-path',room:{id:'moss-path',biome,objects:[],platforms:[]},platforms:[],worldWidth:ww,player:{x:ww*.65,y:570},enemies:[],combat:{settings:{reducedMotion}}};if(!drawMourningwildBackdrop(c,homeScene,Math.sin(t*.08)*70,0,ww,660,t))this.backdrop(c,theme,ww,660,Math.sin(t*.08)*70,t);
+    this.platform(c,{x:0,y:570,w:ww,h:200},theme,t,homeScene);
     // Ancient Worldheart architecture behind the party.
     const mid=ww*.65;glow(c,mid,260,185,'#dfffdc12');c.strokeStyle='#89af9433';c.lineWidth=8;c.beginPath();c.arc(mid,265,156,Math.PI*.15,Math.PI*1.85);c.stroke();c.strokeStyle='#b8d4af22';c.lineWidth=1;c.beginPath();c.arc(mid,265,140,0,TAU);c.stroke();
     for(let i=0;i<12;i++){const ang=i*TAU/12+t*.03,x=mid+Math.cos(ang)*140,y=265+Math.sin(ang)*140;poly(c,[[x,y-5],[x+3,y],[x,y+5],[x-3,y]],'#d7e7b466');}
-    const positions=[{x:mid-105,y:544,s:.83,face:1},{x:mid+100,y:552,s:.72,face:-1},{x:mid+15,y:465,s:.58,face:1}];
+    const positions=[{x:mid-105,y:570,s:.83,face:1},{x:mid+115,y:558,s:.72,face:-1},{x:mid+15,y:565,s:.72,face:1}];
     [2,0,1].forEach(i=>{const p=positions[i];drawCreature(c,findFighter(ids[i]),p.x,p.y,p.s,p.face,{state:'idle'},t,{aura:true,reducedMotion});});
     for(let i=0;i<30;i++){const x=noise(i)*ww,y=50+noise(i+22)*480+Math.sin(t+i)*8;glow(c,x,y,6,'#e4ffbc22');oval(c,x,y,1,1,'#e3f8be88');}
     const shade=c.createLinearGradient(0,0,ww,0);shade.addColorStop(0,'#0b172b88');shade.addColorStop(.4,'transparent');shade.addColorStop(1,'#0b172b33');c.fillStyle=shade;c.fillRect(0,0,ww,660);c.restore();
