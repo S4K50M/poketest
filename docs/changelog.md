@@ -1,5 +1,23 @@
 # Changelog
 
+## Eight paths through the fracture
+
+- Differentiated all eight starters with health, damage, run speed, jump profiles, articulated identity details, and 40 directional L techniques. Added water/electric/frost, shadow-mark, fracture, and clone combinations across party swaps.
+- Reduced K damage to 21 and increased its shared repeat cooldown to 54 frames; launchers and plunges also deal less damage.
+- Authored individual geometry and landmarks for all 42 rooms, longer later-gate passages, and more varied encounter groups. Added twelve species with different combat roles and readable commitments.
+- Reduced each gate to one seeded full-party spring. Camps still provide services without healing.
+- Raised boss health and pressure, expanded every encounter to six techniques and four phases, and added summoned armaments, breakable shields, frenzy, and a last stand.
+- Completed in-world death sequences for all 21 bosses: nine lasting guardian transformations and twelve shattered champion weapons. Rewards never interrupt these scenes with a victory dialog.
+
+
+## Faster guardians and living aftermaths
+
+- Accelerated boss locomotion and attack timelines separately, shortened posture openings, and made repeated close-range heavies provoke an earlier guarded response.
+- Replaced guardian victory dialogs with immediate rewards and an in-world HUD notice. Ending choices now begin through E at the defeated guardian’s landmark.
+- Added physical chamber entrances and nine distinct defeat transformations: living roots, ash, ink, escaping wings, stopped time, and the remains of the final and forbidden guardians.
+- Made transformed landmarks readable with E, persistent through existing defeat records, and absent while a gate-revived guardian is alive. Continue resumes exploration after completed endings.
+- Added focused movement, pressure, animation, aftermath, interaction, and persistence checks alongside the campaign routes.
+
 ## Guardian escalation and encounter cinematics
 
 - Added skippable chamber introductions for the nine main and forbidden guardians and ending cinematics that reflect the Worldheart’s fate or the chosen covenant.

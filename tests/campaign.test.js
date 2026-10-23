@@ -28,7 +28,7 @@ test('double jumps and wall kicks require earned abilities',()=>{
   p.wall=1;p.jumpCount=2;p.jumpBuffer=0;g.input('jump');g.jump();assert.equal(g.stats.wallJumps,0);g.abilities.add('claw');g.input('jump');g.jump();assert.equal(g.stats.wallJumps,1);
 });
 test('portals and guardian exits enforce fragment and ability progression',()=>{
-  const g=new CampaignEngine();g.player.x=1230;assert(!g.input('interact'));assert.equal(g.roomId,'sanctuary');g.loadRoom('forge-path');g.player.x=2370;assert(!g.input('interact'));assert.match(g.message,/ROOT CLAW/);g.abilities.add('claw');assert(g.input('interact'));assert.equal(g.roomId,'forge-descent');g.loadRoom('forge-heart');g.player.x=1780;assert(!g.input('interact'));
+  const g=new CampaignEngine();g.player.x=1230;assert(!g.input('interact'));assert.equal(g.roomId,'sanctuary');g.loadRoom('forge-path');g.player.x=g.room.objects.find(o=>o.to==='forge-descent').x;assert(!g.input('interact'));assert.match(g.message,/ROOT CLAW/);g.abilities.add('claw');assert(g.input('interact'));assert.equal(g.roomId,'forge-descent');g.loadRoom('forge-heart');g.player.x=g.room.objects.find(o=>o.to==='sanctuary').x;assert(!g.input('interact'));
 });
 test('raising the rootbridge changes collision and persists on revisiting',()=>{
   const g=new CampaignEngine();g.loadRoom('moss-path');g.player.x=1190;assert(g.input('interact'));assert(g.platforms.some(p=>p.x===1260&&p.w===160));g.loadRoom('sanctuary');g.loadRoom('moss-path');assert(g.platforms.some(p=>p.x===1260&&p.w===160));
@@ -58,17 +58,17 @@ test('fast travel requires a discovered destination, a camp, and clear surroundi
 test('boss rewards are unique, unlock abilities and companions, and survive room reloads',()=>{
   const g=new CampaignEngine();g.loadRoom('moss-heart');g.enemies[0].introduced=true;g.player.x=850;assert(fightGuardian(g));assert(g.fragments.has('briar'));assert(g.abilities.has('claw'));assert(g.unlocked.has('mycora'));const coins=g.lumens;g.awardEnemy(g.enemies[0]);assert.equal(g.lumens,coins);g.loadRoom('moss-heart');assert.equal(g.enemies[0].hp,0);
 });
-test('every main guardian retains three phases and individually named, telegraphed mechanics',()=>{
+test('every main guardian has four phases and six individually named, telegraphed mechanics',()=>{
   let previousHealth=0;
   for(const [id,b] of Object.entries(BOSSES).filter(([,b])=>!b.miniboss)){
     const g=new CampaignEngine();g.loadRoom(b.biome+'-heart');const e=g.enemies.find(e=>e.boss===id);
     assert(e);assert(e.maxHp>=Math.round(b.hp*2.2));assert(e.maxHp>previousHealth,'each successive main guardian has a larger health pool');previousHealth=e.maxHp;e.introduced=true;
-    for(const fraction of [.6,.3]){e.hp=e.maxHp*fraction;g.updateBoss(e);assert.equal(e.state,'enrage');}
-    const names=new Set();for(let i=0;i<4;i++){
-      beginBossMove(g,e,i);assert.equal(e.state,'windup');assert(e.telegraph?.events.length>0);assert(e.timer>=28);assert(e.hint&&e.counter);names.add(e.moveName);
+    for(const fraction of [.6,.3,.12]){e.hp=e.maxHp*fraction;g.updateBoss(e);assert.equal(e.state,'enrage');}
+    const names=new Set();for(let i=0;i<6;i++){
+      beginBossMove(g,e,i);assert.equal(e.state,'windup');assert(e.telegraph?.events.length>0);assert(e.timer>=22);assert(e.hint&&e.counter);names.add(e.moveName);
       e.timer=1;g.updateBoss(e);assert.equal(e.telegraph,null);assert(e.attackFrame>=0);
     }
-    assert.equal(names.size,4);assert.equal(BOSS_ENCOUNTERS[id].sequences.length,3);
+    assert.equal(names.size,6);assert.equal(BOSS_ENCOUNTERS[id].sequences.length,4);
   }
 });
 test('a wipe pauses at game over and retry returns to recovery without losing earned progression',()=>{
@@ -85,12 +85,13 @@ test('save loading clamps values, rejects invalid parties, and handles partial d
 for(const id of ['mycora','lumivern','chronowl'])test(`${id} can be rescued, recruited only at a camp, and damage foes with its signature`,()=>{
   const g=new CampaignEngine();g.unlocked.add(id);g.player.x=470;assert(!g.replaceParty(0,id));g.player.x=200;assert(g.replaceParty(0,id));g.loadRoom('moss-path',600);const e=g.enemies[0];e.x=680;e.state='patrol';g.setInputs({});assert(g.input('special'));assert.equal(g.player.spirit,id==='lumivern'?75:79);frames(g,24);assert(e.hp<e.maxHp);assert(g.player.spirit<=100);
 });
-for(const lead of ROSTER.slice(0,8))test(`${lead.name} leads a complete six-biome campaign using real movement, grappling, attacks and party switches`,()=>{
-  const party=[lead.id,...ROSTER.filter(d=>d.id!==lead.id).slice(0,2).map(d=>d.id)],g=new CampaignEngine(party);const s=playCampaign(g);assert(s.finished);assert.equal(s.fragments.length,6);assert.equal(s.visited.length,25);assert.equal(s.abilities.length,Object.keys(ABILITIES).length);assert.equal(s.unlocked.length,11);assert(s.stats.wallJumps>0);assert(s.stats.dashes>0);assert(s.stats.switches>=4);assert.equal(s.stats.wipes,0);assert(g.finishEnding('release'));const r=new CampaignEngine(undefined,{save:JSON.parse(JSON.stringify(g.save()))});assert(r.finished);assert.equal(r.ending,'release');assert.equal(r.fragments.size,6);assert.equal(r.party.length,3);
+for(const lead of ROSTER.slice(0,8))test(`${lead.name} leads the shipped RPG through six biomes using real movement, grappling, attacks and party switches`,async()=>{
+  const {RPGCampaign}=await import('../src/rpg.js');
+  const party=[lead.id,...ROSTER.filter(d=>d.id!==lead.id).slice(0,2).map(d=>d.id)],g=new RPGCampaign(party);const s=playCampaign(g);assert(s.finished);assert.equal(s.fragments.length,6);assert.equal(s.visited.length,25);assert.equal(s.abilities.length,Object.keys(ABILITIES).length);assert.equal(s.unlocked.length,11);assert(s.stats.wallJumps>0);assert(s.stats.dashes>0);assert(s.stats.switches>=4);assert.equal(s.stats.wipes,0);assert(g.finishEnding('release'));const r=new RPGCampaign(undefined,{save:JSON.parse(JSON.stringify(g.save()))});assert(r.finished);assert.equal(r.ending,'release');assert.equal(r.fragments.size,6);assert.equal(r.party.length,3);
 });
 
-test('earned abilities allow real backtracking into both hidden rooms and climbing to both lantern shrines',()=>{
-  const g=new CampaignEngine();playCampaign(g);
+test('earned abilities allow real backtracking into both hidden rooms and climbing to both lantern shrines',async()=>{
+  const {RPGCampaign}=await import('../src/rpg.js');const g=new RPGCampaign();playCampaign(g);
   assert(walkTo(g,1050));assert(g.input('interact'));assert(climbTo(g,820,335));assert(g.input('interact'));assert.equal(g.roomId,'hidden-grove');
   assert(climbTo(g,1080,220));assert(g.useTool('lantern'));assert(climbTo(g,100,520));g.input('interact');assert(climbTo(g,95,520));g.input('interact');assert.equal(g.roomId,'sanctuary');
   assert(walkTo(g,1590));g.input('interact');assert.equal(g.roomId,'storm-path');assert(climbTo(g,1640,400));g.input('interact');assert.equal(g.roomId,'star-observatory');

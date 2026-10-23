@@ -106,8 +106,8 @@ export class RPGCampaign extends CampaignEngine{
     const beforeCoins=this.lumens;
     if(own(CHRONICLE_BOSSES,e.boss)){
       AdventureSystems.prototype.awardEnemy.call(this,e);this.defeated.add(e.key);this.claimedEnemyRewards.add(e.key);this.respawnedEnemies.delete(e.key);this.defeatedBosses.add(e.boss);this.gainXP(100);this.lumens+=55;this.inventory.flask++;this.talentPoints++;this.grantEquipment({palimpsest:'palimpsestKey',belltwin:'bellOath',nullheart:'nullCrown'}[e.boss]);
-      this.say('FORBIDDEN MEMORY RESTORED · '+BOSSES[e.boss].name.toUpperCase());this.emit('bossdefeated',{boss:e.boss});
-      if(e.boss==='nullheart'){this.trueEnding=this.faction||'unwritten';this.emit('trueending',{faction:this.trueEnding});}
+      this.say('FORBIDDEN MEMORY RESTORED · '+BOSSES[e.boss].name.toUpperCase());if(e.boss==='nullheart')this.trueEnding=this.faction||'unwritten';this.emitBossDefeated(e);
+      if(e.boss==='nullheart')this.emit('trueending',{faction:this.trueEnding});
     }else super.awardEnemy(e);
     if(!this.rpgReady)return;
     if(own(CHRONICLE_BOSSES,e.boss)||['candlewraith','clockscarab','oathbound','hushling'].includes(e.kind)){e.state='dying';e.deathTimer=35;}
@@ -153,8 +153,9 @@ export class RPGCampaign extends CampaignEngine{
   applyFactionBoon(){for(const m of this.party){const target=m.data.maxHp+this.level-1+this.upgrades+(this.faction==='wardens'?1:0),delta=target-m.maxHp;m.maxHp=target;m.hp=m.hp>0?Math.min(target,m.hp+Math.max(0,delta)):0;}}
   refreshKnowledge(){if(!this.rpgReady)return;for(const h of HISTORY){const unlock=h.unlock||{};if(!h.requires||this.questFlags.has(h.requires)||this.quests[h.requires]?.state==='complete')if((!unlock.fragments||this.fragments.size>=unlock.fragments)&&(!unlock.boss||this.defeatedBosses.has(unlock.boss)))this.historyKnown.add(h.id);}for(const id of Object.keys(this.quests))this.refreshQuest(id);}
   interact(){
-    const p=this.player,near=this.room.objects.filter(o=>Math.abs(p.x-o.x)<100&&Math.abs(p.y-(o.y??520))<100).sort((a,b)=>Math.hypot(p.x-a.x,p.y-(a.y??520))-Math.hypot(p.x-b.x,p.y-(b.y??520)))[0];
+    const p=this.player,near=this.interactionObjects.filter(o=>Math.abs(p.x-o.x)<100&&Math.abs(p.y-(o.y??520))<100).sort((a,b)=>Math.hypot(p.x-a.x,p.y-(a.y??520))-Math.hypot(p.x-b.x,p.y-(b.y??520)))[0];
     if(!near)return super.interact();
+    if(near.kind==='aftermath')return super.interact();
     if(near.kind==='merchant'){this.questFlags.add('talk:'+near.talk);this.recordObjective('talk',near.talk);this.emit('merchant');return true;}
     if(near.kind==='covenant'){this.emit('factionchoice');return true;}
     if(near.to&&ROOMS[near.to]?.chronicle){

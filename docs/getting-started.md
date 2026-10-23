@@ -40,6 +40,7 @@ The PORT prefix shown here uses POSIX shell syntax; use your shell’s equivalen
 | `npm run test:arrival` | Check the title screen, opening cinematic, and first-area presentation |
 | `npm run test:dialogue` | Check scene conversations, environmental voices, input, and mobile placement |
 | `npm run test:boss-upgrade` | Check guardian cinematics, escalation, and reactive encounter behavior |
+| `npm run test:aftermath` | Check guardian transformations, in-world rewards, lore, and ending access |
 
 npm start does not build first. After editing JavaScript without a watcher, run npm run build before starting or refreshing the game. CSS and HTML are served directly; changing them does not require a JavaScript rebuild.
 
@@ -49,12 +50,13 @@ npm start does not build first. After editing JavaScript without a watcher, run 
 2. Watch or skip the opening, then enter the Last Lantern. Walk right with D to meet Professor Vell.
 3. Vell’s words appear beside the professor. Advance them with E/Enter or the Continue touch button; Space remains jump. You can move away to leave the conversation. Reach the first region portal and press E.
 4. Use J/K/L to fight, Space to jump, and Shift to dash. G raises Guard; H explains the new combat routes and arts.
-5. Walk into a glowing Wellspring to restore the whole party and set your respawn point automatically. Each gate contains two or three in varied interior locations, not a healing bench at its entrance. Open M for the atlas, I for inventory, and N for the chronicle.
-6. If all three companions fall, Game Over explains the gate-wide enemy revival and 10% Lumen loss. Retry returns to your last activated spring; Save & Title keeps the pending death in your save.
+5. Walk into a glowing Wellspring to restore the whole party and set your respawn point automatically. Each gate contains one in a seeded interior location, not a healing bench at its entrance. Open M for the atlas, I for inventory, and N for the chronicle.
+6. Defeat a guardian to receive its unlocks immediately and watch its chamber transform. There is no victory dialog to dismiss. Approach the remaining tree, clock, relic, or other landmark and press E for its lore.
+7. If all three companions fall, Game Over explains the gate-wide enemy revival and 10% Lumen loss. Retry returns to your last activated spring; Save & Title keeps the pending death in your save.
 
 Continue bypasses the opening and resumes your checkpoint. **Watch the Prologue** on the title screen shows the cinematic without starting a new expedition or replacing your save.
 
-Major and forbidden guardians have skippable introductions before combat. The main ending choice and optional final guardian lead into their own ending cinematics. **Skip Scene**, Space, Enter, E, or Escape returns control; rotating to portrait or hiding the tab pauses the presentation. Learn a boss’s tell and punish its recovery rather than repeating heavy attacks at point-blank range.
+Major and forbidden guardians enter through animated, skippable chamber scenes before combat. After the Hollow Sovereign falls, press E at the exposed Worldheart to make the main ending choice; after the Nullheart falls, approach its remains to begin the covenant finale. Their ending cinematics follow those interactions. **Skip Scene**, Space, Enter, E, or Escape returns control; rotating to portrait or hiding the tab pauses the presentation. Continue resumes exploration without reopening an ending automatically. Learn a boss’s tell and punish its recovery rather than repeating heavy attacks at point-blank range.
 
 The [gameplay guide](gameplay.md) lists all controls and resources. The [combat guide](combat.md) explains unlocks and defensive timing. Sound starts muted; use the sound button to enable it. Reduced motion is available in the Arsenal.
 

@@ -342,3 +342,6 @@
 .combat-arsenal:has([data-combat-motion][aria-pressed='true']) *::after,
 body.reduced-motion .combat-hud,
 body.reduced-motion .combat-hud * { animation: none !important; transition: none !important; }
+
+.signature-guide{margin:36px 0}.signature-kit-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}.signature-kit{padding:20px;background:linear-gradient(155deg,#12252a,#101923);border:1px solid #6b8d7a40;border-top:2px solid var(--power);border-radius:12px}.signature-kit h4{color:var(--power);font-size:23px;margin:10px 0}.signature-kit p,.signature-kit small{color:#b2c7bb;font-size:12px;line-height:1.6}.signature-kit dl{margin:16px 0 0}.signature-kit dl>div{padding:9px 0;border-top:1px solid #78948626}.signature-kit dt{font-size:9px}.signature-kit dd{margin:5px 0 0;color:#eee4ce;font-size:12px}.companion-tradeoff{color:#b3c6b7;font-size:11px;line-height:1.7}@media(max-width:760px){.signature-kit-grid{grid-template-columns:1fr}.signature-kit{padding:16px}.signature-kit dl>div{display:grid;grid-template-columns:130px 1fr;align-items:center;gap:8px}.signature-kit dd{margin:0}}
+.signature-kit dd small{display:block;font-size:11px;color:#8fa99d;line-height:1.5;margin-top:4px}

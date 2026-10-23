@@ -10,6 +10,7 @@ These guides describe the implemented **Momentum 4.0** campaign. Original design
 | --- | --- |
 | [Getting started](getting-started.md) | Install, run, and troubleshoot the game |
 | [Gameplay and controls](gameplay.md) | Learn controls, party systems, healing, and RPG progression |
+| [Party and dungeons](party-and-dungeons.md) | Compare eight starter kits, elemental combinations, and all 42 room identities |
 | [Combat reference](combat.md) | Learn combos, defense, movement unlocks, and combat arts |
 | [Boss encounters](boss-encounters.md) | Learn each guardian’s signature attacks, phase patterns, and escape routes |
 | [World and story](world-and-story.md) | Find progression routes; major story reveals are collapsed |

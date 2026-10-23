@@ -8,10 +8,10 @@ function fixture(){
 }
 const hit=(g,e,move='heavy',extra={})=>{g.tick+=36;g.strike(e,10,1,{heavy:move!=='light1',move,...extra});};
 
-test('boss reads three demonstrated grounded heavy hits without reducing their damage',()=>{
+test('boss reads two demonstrated grounded heavy hits without reducing their damage',()=>{
   const {g,e}=fixture(),start=e.hp;
   hit(g,e);assert.equal(e.pressure.chain,1);assert(!e.pressureReady);
-  hit(g,e);assert.equal(e.pressure.chain,2);assert(!e.pressureReady);
+  hit(g,e);assert.equal(e.pressure.chain,2);assert(e.pressureReady);
   hit(g,e);assert.equal(e.pressure.chain,3);assert(e.pressureReady);assert(e.hp<start-30,'the read must not silently negate damage');assert.equal(e.state,'patrol','a hit records a pattern; only the AI may commit to a warned response');
 });
 
@@ -58,8 +58,8 @@ test('light strings, changed heavy routes, aerial attacks, rear hits and riposte
 });
 
 test('posture break keeps its earned combo opening but cannot be refilled by the same follow-up combo',()=>{
-  const {g,e,events}=fixture();for(let n=0;n<6;n++)hit(g,e);assert.equal(e.state,'recover');assert.equal(e.stun,65);assert.equal(e.postureLock,180);assert.equal(e.poise,0);
-  const openedHP=e.hp;for(let n=0;n<12;n++)hit(g,e);assert(e.hp<openedHP,'punishing a broken boss still deals full damage');assert.equal(e.stun,65,'additional hits must not refresh or lengthen the earned stagger');assert.equal(e.poise,0);assert.equal(events.filter(e=>e.type==='bossbreak').length,1);
+  const {g,e,events}=fixture();for(let n=0;n<6;n++)hit(g,e);assert.equal(e.state,'recover');assert.equal(e.stun,24);assert.equal(e.postureLock,180);assert.equal(e.poise,0);
+  const openedHP=e.hp;for(let n=0;n<12;n++)hit(g,e);assert(e.hp<openedHP,'punishing a broken boss still deals full damage');assert.equal(e.stun,24,'additional hits must not refresh or lengthen the earned stagger');assert.equal(e.poise,0);assert.equal(events.filter(e=>e.type==='bossbreak').length,1);
   g.hitstop=0;e.introduced=false;for(let n=0;n<180;n++)g.step();assert.equal(e.postureLock,0);for(let n=0;n<6;n++)hit(g,e);assert.equal(events.filter(e=>e.type==='bossbreak').length,2,'posture becomes available again after the boss gets a response cycle');
 });
 

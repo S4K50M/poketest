@@ -22,6 +22,7 @@ npm run test:bosses
 npm run test:arrival
 npm run test:dialogue
 npm run test:boss-upgrade
+npm run test:aftermath
 ```
 
 | Command | What it verifies |
@@ -41,6 +42,7 @@ npm run test:boss-upgrade
 | `npm run test:arrival` | Viewport-fitting title screen, cinematic lifecycle, first-area art and desktop/mobile presentation |
 | `npm run test:dialogue` | Nonmodal NPC conversation, progression inputs, landmark/boss voices, and mobile scene placement |
 | `npm run test:boss-upgrade` | Essential encounter cinematics, reactive boss pressure, escalation, and mobile lifecycle |
+| `npm run test:aftermath` | In-world victories, guardian transformations/lore, reload/revival, and explicit ending interactions |
 
 Test totals grow with concrete regressions; use the current command output as the result for a change. Documentation-only edits need link/path checks and command review; they do not require rebuilding or rerunning combat routes.
 
@@ -66,6 +68,7 @@ npx playwright install chromium
 | Landing and arrival | 3210 | `ARRIVAL_TEST_PORT` |
 | World dialogue | 3220 | `DIALOGUE_TEST_PORT` |
 | Boss upgrade | 3230 | `BOSS_UPGRADE_TEST_PORT` |
+| Guardian aftermath | 3245 | `AFTERMATH_TEST_PORT` |
 
 Each suite starts and stops its own server. Choose a free override port if another task uses the default. Screenshots are written to ignored test-results/. Inspect screenshots after rendering or layout changes; a passing input test cannot prove visual quality by itself.
 
@@ -91,7 +94,7 @@ Also inspect readable attack telegraphs, foreground occlusion, particle density,
 | --- | --- |
 | Markdown only | Local links/anchors, referenced commands/files, git diff --check |
 | Move data / defense / party | Build/check, Node combat/party tests, live combat suite |
-| Boss moves / arena mechanics | Build/check, Node encounter/pressure tests, test:bosses, test:boss-upgrade, complete campaign routes and relevant combat/recovery checks |
+| Boss moves / arena mechanics | Build/check, Node encounter/pressure/velocity tests, test:bosses, test:boss-upgrade, test:aftermath, complete campaign routes and relevant combat/recovery checks |
 | Rooms / gates / quests / saves | Build/check, Node routes/migrations, campaign or RPG browser suite |
 | Rigs / effects / HUD / CSS | Build/check, Node art checks, test:art, relevant browser suites, desktop/mobile screenshot review |
 | Asset paths / bundle / hosting | Asset tests, check, campaign nested-hosting suite |
@@ -100,11 +103,11 @@ Add tests for meaningful behavior or a concrete regression. Keep generated scree
 
 ## Dungeon difficulty regressions
 
-The dimension suite checks all six main routes, twelve miniboss seals, scarce seeded recovery springs, three-phase encounters and the four new minion AIs. Separate traversal fixtures isolate geometry from combat, walk all six lower dungeon routes without jumping, and exercise optional upper routes with chapter-appropriate abilities. They check continuous floor coverage and recoverable missed jumps. Full campaign controllers retain enemies and earned progression. Echo pickups must keep simulation running immediately; their complete text remains in World History.
+The dimension suite checks all six main routes, twelve miniboss seals, scarce seeded recovery springs, four-phase encounters and the added minion AIs. Separate traversal fixtures isolate geometry from combat, walk all six lower dungeon routes without jumping, and exercise optional upper routes with chapter-appropriate abilities. They check continuous floor coverage and recoverable missed jumps. Full campaign controllers retain enemies and earned progression. Echo pickups must keep simulation running immediately; their complete text remains in World History.
 
 ## Recovery, death and cave regression checks
 
-Recovery tests cover two or three interior springs per gate, different new-journey seeds, stable saved layouts, automatic full-party healing, one activation per attempt, and no healing from camps or travel. Death tests verify that Game Over stops simulation, a penalty is applied once, the dying gate’s enemies return while other gates remain unchanged, first-victory rewards stay claimed, and Retry restores the party at a valid spring. Save/reload and Save & Title must retain a pending death. The focused browser suite checks keyboard/touch retry and portrait rotation over Game Over.
+Recovery tests cover one interior spring per gate, different new-journey seeds, stable saved layouts, automatic full-party healing, one activation per attempt, and no healing from camps or travel. Death tests verify that Game Over stops simulation, a penalty is applied once, the dying gate’s enemies return while other gates remain unchanged, first-victory rewards stay claimed, and Retry restores the party at a valid spring. Save/reload and Save & Title must retain a pending death. The focused browser suite checks keyboard/touch retry and portrait rotation over Game Over.
 
 Review real gameplay screenshots of tunnel ceilings, backwalls, attached rock shelves, local light, recovery basins, and boss telegraphs on desktop and mobile. Check that the grounded passage reads as a tunnel, with visible floor and headroom. Art must match the revised continuous floors and catch shelves; it must not conceal safe landings or imply a collision surface the engine does not have.
 
@@ -112,21 +115,31 @@ The first-gate network tests deliberately walk off ledges at several heights, re
 
 ## Art and animation regressions
 
-The Node art checks draw all eleven companions, nineteen wild species, and twenty-one boss identities through their public entry points. They exercise both facings, playable action poses, enemy action states, boss phases, final-guardian faction variants, and reduced motion. Canvas recorders reject non-finite coordinates and unbalanced context state; frozen inputs check that art does not change entity state or definitions. These checks establish rendering safety, not visual quality.
+The Node art checks draw all eleven companions, thirty-one wild species, and twenty-one boss identities through their public entry points. They exercise both facings, playable action poses, enemy action states, boss phases, final-guardian faction variants, and reduced motion. Canvas recorders reject non-finite coordinates and unbalanced context state; frozen inputs check that art does not change entity state or definitions. These checks establish rendering safety, not visual quality.
 
 The art browser suite uses the real Canvas renderer to produce `art-companions.png`, `art-minions.png`, `art-bosses.png`, and `art-action-poses.png` contact sheets. It also captures actual gameplay in `art-battle-desktop.png` and `art-battle-mobile.png` so composition, floor anchoring, HUD clearance, tunnel lighting, and attack readability can be reviewed together. Inspect these screenshots under ignored `test-results/` after any rig or effects change. Confirm that grounded poses touch their landing surface, different body types fit portraits, and boss phase effects leave avoidance routes visible. Check that pause/hitstop hold player and enemy rig animation and reduced motion retains complete characters without camera shake or dense afterimages.
 
 ## Boss encounter regressions
 
-Encounter tests cover all 21 profiles and their four named moves, rather than expecting the same rush/volley/sigil/slam cycle from every enemy. Check distinct executable event traces, valid phase sequences, finite geometry, locked targets, damage only after warnings, and reachable escape routes. Profile metadata alone is not evidence that a move produces a different fight.
+Encounter tests cover all 21 profiles and their six named moves, rather than expecting the same rush/volley/sigil/slam cycle from every enemy. Check distinct executable event traces, valid phase sequences, finite geometry, locked targets, damage only after warnings, and reachable escape routes. Profile metadata alone is not evidence that a move produces a different fight.
 
 Mechanic checks cover real collision on temporary ledges, damaging areas, beam and ring safe spaces, summons without farmable rewards, and cleanup on phase changes, boss death, full-party death, retry, and room changes. Pause, hitstop, and frozen actors must not advance their attack timelines. Verify parry and posture interruption without retaining stale active scripts.
 
 The boss browser suite renders signature telegraphs and active mechanics and checks actual desktop/mobile play. Inspect warning versus active geometry, safe lanes, execution labels, actor/weapon animation, HUD hints, and landscape touch access. Keep a route controller that responds with normal movement, jumps, dash, shield, healing, and earned attacks. End-to-end boss victories must not rely on direct HP edits, teleportation, or invented unlocks.
 
-Pressure regressions should distinguish an unchanging point-blank heavy loop from reactive play. Verify the guard appears only after its read warning, chips only the recognized grounded frontal heavy, and permits light/alternate-route/rear/aerial/riposte damage and ordinary recovery punishes. Check real knockback, parry/posture cancellation, no perpetual posture-break chain, and the warned phase breakaway. Check all progression tiers, early-boss healing exclusion, late 40% desperation, capped/interrupted healing, and cleanup on death, retry, room changes, and nonlethal falls. Test locked attack targets and minimum reaction/recovery windows after tempo scaling.
+Movement regressions should measure actual position changes and dash/leap/breakaway travel time against the authored values, separately from attack tempo. Verify faster event cadence, minimum tells and recovery, and shorter posture openings through simulation frames rather than only checking configured multipliers.
 
-The boss-upgrade browser suite checks essential encounter introductions and finale destinations. Verify that simulation, attack/hazard timers, and held input stay stopped during the scene, including portrait rotation, blur, and hidden tabs. Exercise natural completion and keyboard/touch skip; retry should not repeat a boss introduction already seen in the loaded session. Continue and reload must preserve ending decisions, resume exploration after a main ending, and show the summary for a completed true ending. Review chosen-party compositions, readable captions, distinct chambers, all ending branches, and reduced-motion stills on desktop and mobile.
+Pressure regressions should distinguish an unchanging point-blank heavy loop from reactive play, including early-gate opponents and legitimately earned builds. Verify the guard appears only after its read warning, chips only the recognized grounded frontal heavy, and permits light/alternate-route/rear/aerial/riposte damage and ordinary recovery punishes. Check real knockback, parry/posture cancellation, no perpetual posture-break chain, and the warned phase breakaway. Check all progression tiers, early-boss healing exclusion, late 40% desperation, capped/interrupted healing, and cleanup on death, retry, room changes, and nonlethal falls. Test locked attack targets and minimum reaction/recovery windows after tempo scaling.
+
+The boss-upgrade browser suite checks essential encounter introductions and finale destinations. Verify that simulation, attack/hazard timers, and held input stay stopped during the scene, including portrait rotation, blur, and hidden tabs. Exercise natural completion and keyboard/touch skip; retry should not repeat a boss introduction already seen in the loaded session. Continue and reload must preserve ending decisions and resume exploration after either ending without automatically reopening a summary. Review chosen-party compositions, readable captions, physical entrances at multiple points in the scene, distinct chambers, all ending branches, and reduced-motion stills on desktop and mobile. A changing caption over one static portrait is not sufficient evidence of an animated entrance.
+
+## Guardian aftermath regressions
+
+`npm run test:aftermath` covers guardian defeat and exploration on desktop and landscape mobile. Check that a major defeat leaves gameplay running without opening the shared overlay, while its unique rewards and unlocks are already committed. Observe each guardian’s distinct transformation and settled form; the Conductor must visibly leave and promise to return, and the Matron’s tree and Stag’s stopped clock must remain readable with E.
+
+Simulation checks should verify copied derived objects, no mutation of shared room definitions, stable anchors after reload, and suppression of remains while a gate-revived guardian is alive. Repeated reads, room revisits, reloads, and repeated victories cannot pay a first-victory reward again. Frozen renderer inputs and balanced Canvas state check presentation safety; reduced motion must draw the settled form immediately.
+
+Check E at the Worldheart requests an unfinished main ending choice, and E at the Open Cradle requests the covenant finale. The boss’s death itself must not open either flow. Continue after a completed ending should resume exploration, while unfinished decisions remain reachable in the world. Review first, middle, and settled transformation frames and the real lore interaction on desktop/mobile; a test that only finds a marker cannot establish animation quality.
 
 ## Landing, opening and first-area checks
 
@@ -145,3 +158,9 @@ Verify live conversations through ordinary movement and interaction: Vell’s gr
 Check that inventory/pause/portrait rotation temporarily hide the voice and preserve its page and timer. Room changes, home, and game over must remove stale speech. Touch Continue/Leave and the existing interaction button must remain usable in landscape after rotation. Review desktop and narrow mobile screenshots for readable text, speaker anchoring, HUD clearance, and unobstructed movement/combat targets; a DOM bounding box alone does not prove the utterance fits.
 
 Node coverage checks text pagination, copied source metadata, presentation-state lifecycle, and landmark/boss content registration. Every live room needs a valid authored landmark anchor, including negative-Y upper rooms and optional dungeons. Automatic whispers must avoid interrupting a manual conversation or starting beside a nearby threat. They must never collect a memory, mutate progression, enter a save, or consume E. Preserve the existing nonblocking echo, campaign, RPG, and mobile suites alongside these focused checks.
+
+## Party, ecology, and room expansion
+
+party-kits.test.js exercises all forty signatures, mobility/strength tradeoffs, directional holds before casting, cross-party combinations, saved reuse, finite Fortress holds and clone bursts against bosses. party-art.test.js checks the eight field shapes and cast identities. minion-ecology.test.js drives all twelve added AIs and verifies their telegraphs, guards, interruptions, projectiles, and art. dungeon-identity.test.js checks 42 geometry identities, increasing passage length/enemy density and landings; traversal and first-gate fixtures use actual physics with the slowest party.
+
+boss-ferocity.test.js measures real body displacement and crossing duration, compares K-only wipes with mixed defensive wins against early guardians, and checks fourth phases, assembled armaments and segmented shields. aftermath-renderer.test.js drives the real defeat-event-to-WorldRenderer lifecycle, local pause clock, settlement/re-entry, and all twelve lesser-champion shatter sequences. boss-afterimage.test.js validates all nine major transformations and physical entrance movement within each caption act. In browser play, inspect the Briar transformation at impact, one second, three seconds and settlement; a dead flag alone is not proof of a visible scene.

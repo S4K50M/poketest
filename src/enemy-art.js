@@ -1,9 +1,11 @@
-// The field bestiary: nineteen original, independently articulated silhouettes.
+// The field bestiary: original, independently articulated silhouettes.
+import {ECOLOGY_MINIONS} from './minion-species.js';
 // Feet remain at the supplied entity origin; this module is presentation only.
 const TAU=Math.PI*2,INK='#101b23';
 const clamp=(v,a=0,b=1)=>Math.max(a,Math.min(b,v));
 const finite=(n,f=0)=>Number.isFinite(n)?n:f;
 const SPECIES=new Set(['sinder','voltlet','pebbleback','dewdrop','sproutlet','thornling','ashwing','inkfin','stormkite','frostmite','riftling','glassmarauder','veilwasp','graveburrower','chaincaster','candlewraith','clockscarab','oathbound','hushling']);
+for(const id of ECOLOGY_MINIONS)SPECIES.add(id);
 function mix(hex,other,ratio){const a=/^#[\da-f]{6}$/i.test(hex)?hex:'#a8cab8',b=/^#[\da-f]{6}$/i.test(other)?other:'#fff4d6';return '#'+[1,3,5].map(i=>Math.round(parseInt(a.slice(i,i+2),16)*(1-ratio)+parseInt(b.slice(i,i+2),16)*ratio).toString(16).padStart(2,'0')).join('');}
 function path(c,commands,fill,edge=INK,width=1.45){c.beginPath();for(const [op,...v]of commands){if(op==='M')c.moveTo(...v);else if(op==='L')c.lineTo(...v);else if(op==='C')c.bezierCurveTo(...v);else if(op==='Q')c.quadraticCurveTo(...v);else c.closePath();}if(fill){c.fillStyle=fill;c.fill();}if(edge){c.strokeStyle=edge;c.lineWidth=width;c.lineJoin='round';c.stroke();}}
 function poly(c,p,fill,edge=INK,w=1.4){path(c,[['M',...p[0]],...p.slice(1).map(p=>['L',...p]),['Z']],fill,edge,w);}
@@ -21,7 +23,7 @@ function crystal(c,x,y,w,h,col){poly(c,[[x-w*.5,y],[x-w*.64,y-h*.65],[x,y-h],[x+
 function pose(e,t){
  const still=!!e.reducedMotion||e.frozen>0,time=still?0:t,s=String(e.kind).split('').reduce((n,v)=>n+v.charCodeAt(0),0);
  const moving=['patrol','chase','charge','attack'].includes(e.state),wind=e.state==='windup',charge=e.state==='charge',recover=e.state==='recover',attack=e.state==='attack',dead=e.hp<=0&&e.deathTimer>0;
- return {t:time,wind,charge,recover,attack,dead,flipped:e.flipped>0,burrow:e.state==='burrow',stun:e.stun>0||e.state==='stun'||e.state==='stagger',death:dead?clamp(1-finite(e.deathTimer,35)/35):0,
+ return {t:time,wind,charge,recover,attack,dead,broken:e.shieldBroken>0,flipped:e.flipped>0,burrow:e.state==='burrow',stun:e.stun>0||e.state==='stun'||e.state==='stagger',death:dead?clamp(1-finite(e.deathTimer,35)/35):0,
   bob:still||dead?0:Math.sin(time*3+s)*.9,walk:moving&&!still&&!dead?Math.sin(time*11+s):0,pace:time*11+s,flap:still||dead?0:Math.sin(time*19+s),anticipation:wind?clamp(1-finite(e.timer,30)/42):0,
   reach:charge?1:attack?.8:wind?-.3:recover?-.14*clamp(finite(e.timer,20)/40):0,blink:dead||!still&&Math.sin(time*.72+s)>.992,hurt:e.flash>0};
 }
@@ -176,7 +178,90 @@ function hushling(c,m,p){
  for(let n=0;n<3;n++)curve(c,[-9,-20+n*4,-27,-6+n*4,-41,-15+n*5,-48,-4+n*6],n%2?p.mid:p.dark,3-n*.6);
  if(m.wind)for(let n=0;n<3;n++){const y=-36+n*8;line(c,[[27,y],[35,y-3],[40,y+1]],p.light,1);}
 }
-const RIGS={sinder,voltlet,pebbleback,dewdrop,sproutlet,thornling,ashwing,inkfin,stormkite,frostmite,riftling,glassmarauder,veilwasp,graveburrower,chaincaster,candlewraith,clockscarab,oathbound,hushling};
+function bloomspitter(c,m,p){
+ for(const side of[-1,1]){curve(c,[0,-11,side*19,-5,side*32,-11,side*43,-2],p.dark,5);leaf(c,side*21,-7,23,side*.9,p.mid,p.edge);}
+ curve(c,[0,-4,-9,-23,8,-40,2,-57-m.anticipation*5],p.dark,9);curve(c,[-2,-4,-11,-25,6,-41,0,-57],p.mid,5);
+ joint(c,2,-55-m.anticipation*5,-.15+m.reach*.25,()=>{for(let i=0;i<8;i++){const a=i*TAU/8,len=24-m.anticipation*10;leaf(c,Math.cos(a)*6,Math.sin(a)*6,len,a+Math.PI/2,p.mid,p.edge);}oval(c,0,0,17,17,p.dark,p.edge);oval(c,4,0,10,10,p.pale,INK);eye(c,9,-3,'#fff2ab',3,m.blink);for(let n=0;n<3;n++)oval(c,-7+n*4,7,2,3,p.light);});
+ if(m.wind){glow(c,2,-56,30,p.light,.2);for(let i=0;i<4;i++)oval(c,-15+i*10,-83-Math.sin(m.t*5+i)*3,2,3,p.light);}
+}
+function sporekeeper(c,m,p){
+ for(const side of[-1,1])limb(c,side*10,-24,[side*14+m.walk*4,-13],[side*20-m.walk*3,-1],4,p.dark,p.edge);
+ path(c,[['M',-19,-20],['Q',-23,-52,-8,-58],['L',12,-58],['Q',25,-41,19,-15],['Q',0,-8,-19,-20],['Z']],p.body);for(let n=0;n<4;n++)curve(c,[-12+n*8,-40,-9+n*6,-30,-14+n*10,-23,-9+n*6,-17],p.edge,.8);
+ poly(c,[[-36,-59],[-29,-77],[-9,-91],[14,-86],[34,-68],[39,-57]],p.body,p.dark,2);curve(c,[-30,-62,-17,-72,15,-75,33,-61],p.edge,1.4);for(const [x,y]of[[-15,-77],[5,-81],[22,-69]])oval(c,x,y,5,3,p.pale);
+ eye(c,-4,-47,'#f6ecc3',2.7,m.blink);eye(c,9,-46,'#f6ecc3',2.5,m.blink);
+ for(const side of[-1,1])curve(c,[side*17,-39,side*30,-46-m.anticipation*7,side*35,-28,side*29,-25],p.mid,4);
+ line(c,[[31,-29],[35,-13]],p.dark,2);oval(c,35,-12,8,11,p.dark,p.edge);glow(c,35,-13,27,p.light,m.wind?.3:.13);oval(c,35,-13,4,7,p.light);
+ for(let n=0;n<5;n++){const a=m.t*1.8+n*TAU/5;oval(c,Math.cos(a)*33,-45+Math.sin(a)*25,1.5+m.anticipation,2,p.light);}
+}
+function cinderdrill(c,m,p){
+ for(const side of[-1,1])for(const x of[-17,16])limb(c,x,-20,[x+side*10+m.walk*3,-10],[x+side*15,-1],4,p.dark,p.edge);
+ path(c,[['M',-31,-15],['Q',-40,-40,-22,-51],['Q',1,-65,23,-45],['L',33,-17],['Q',0,-3,-31,-15],['Z']],p.body);for(let n=0;n<5;n++)poly(c,[[-28+n*12,-25],[-24+n*12,-55-(n%2)*8],[-13+n*12,-30]],p.mid,p.edge,.9);
+ joint(c,22,-26,-m.anticipation*.18+m.reach*.15,()=>{oval(c,0,0,16,18,p.dark,p.edge);poly(c,[[10,-17],[52,-2-m.reach*8],[10,15]],grad(c,10,-20,40,35,p.pale,p.mid));for(let n=0;n<4;n++)line(c,[[15+n*8,-14+n*3],[20+n*7,10-n*3]],p.dark,1.3);eye(c,0,-8,'#ffebae',3,m.blink);});
+ for(let n=0;n<3;n++)curve(c,[-20+n*15,-40,-13+n*13,-35,-20+n*16,-26,-9+n*13,-23],'#ffbc77',1.3);
+ if(m.wind||m.charge){oval(c,0,1,49,5,null,p.light,1.4);glow(c,30,-27,21,'#ffba70',.2);}
+}
+function chainshield(c,m,p){
+ for(const side of[-1,1]){const d=m.walk*side*4;limb(c,side*10,-30,[side*16+d,-15],[side*22-d,0],6,p.dark,p.edge);poly(c,[[side*12+d,-24],[side*23+d,-23],[side*24-d,-1],[side*13-d,0]],p.body);}
+ path(c,[['M',-23,-62],['L',0,-75],['L',25,-58],['L',19,-28],['Q',0,-19,-21,-31],['Z']],p.body);oval(c,0,-49,10,14,p.dark,p.edge);glow(c,0,-49,17,'#ffbc76',.2);for(let i=0;i<3;i++)line(c,[[-6+i*6,-57],[-6+i*6,-42]],'#ffc389',1.7);
+ path(c,[['M',-14,-73],['L',-11,-93],['L',10,-94],['L',22,-76],['L',12,-62],['L',-9,-62],['Z']],p.body);line(c,[[-4,-79],[14,-79]],p.pale,2);poly(c,[[-11,-93],[-9,-107],[0,-96],[9,-106],[13,-93]],p.mid);
+ joint(c,-22,-53,m.anticipation*.12+(m.broken?-.7:0),()=>{limb(c,0,0,[-13,14],[-15,30],5,p.mid,p.edge);poly(c,[[-29,-17],[0,-20],[9,15],[-13,44],[-39,16]],p.body,p.edge,2);poly(c,[[-23,-9],[-5,-11],[0,12],[-13,31],[-29,12]],p.dark,p.mid,1);oval(c,-14,6,9,11,p.pale,p.dark);if(m.broken)line(c,[[-20,-12],[-9,1],[-18,14],[-10,31]],p.light,2);});
+ joint(c,22,-55,-m.anticipation*.55+m.reach*.5,()=>{limb(c,0,0,[12,13],[22,2],5,p.mid,p.edge);for(let n=0;n<8;n++){const x=24+n*(6+m.reach*5),y=3+Math.sin(n*.7+m.t*3)*6;oval(c,x,y,4,2.7,null,p.edge,1.4);}poly(c,[[70+m.reach*35,-8],[85+m.reach*35,3],[71+m.reach*35,15],[57+m.reach*35,3]],p.mid,p.dark);});
+}
+function siphonray(c,m,p){
+ const flap=m.flap*4;
+ for(const side of[-1,1])path(c,[['M',0,-32],['C',side*20,-56,side*42,-60+flap,side*59,-37+flap],['L',side*42,-20],['L',side*23,-5],['Q',side*5,-13,0,-32],['Z']],p.body);
+ for(const side of[-1,1])for(let n=0;n<3;n++)curve(c,[side*4,-34,side*18,-38,side*28,-37+n*7,side*44,-34+n*5+flap*.5],p.edge,.8);
+ oval(c,0,-32,15,24,p.mid,INK);for(const x of[-7,7])eye(c,x,-38,'#f2ffce',2.8,m.blink);
+ for(let n=0;n<5;n++){const x=-12+n*6;curve(c,[x,-17,x-13,-1,x+14,4+Math.sin(m.t*4+n)*6,x-1,16+Math.sin(m.t*3+n)*7],p.mid,2);}
+ oval(c,0,-20,7,5,p.dark,p.edge);if(m.wind||m.charge){for(let n=0;n<3;n++)oval(c,0,-20,17+n*13+m.anticipation*8,7+n*4,null,p.light+'88',1.2);glow(c,0,-20,35,p.light,.15);}
+}
+function inkmortar(c,m,p){
+ for(const side of[-1,1])for(let n=0;n<3;n++)curve(c,[side*(9+n*7),-14,side*(18+n*8),-5,side*(21+n*9),2,side*(33+n*5),-2],p.mid,4-n*.6);
+ oval(c,-3,-34,37,32,p.body,INK,2);for(let n=0;n<4;n++){const r=28-n*6;c.beginPath();c.arc(-6,-36,r,-Math.PI*.3,Math.PI*1.8);c.strokeStyle=n%2?p.edge:p.dark;c.lineWidth=2;c.stroke();}
+ path(c,[['M',13,-31],['Q',25,-50,34,-38],['L',48,-57-m.anticipation*9],['L',63,-48-m.anticipation*8],['L',45,-12],['L',23,-9],['Z']],p.body);oval(c,55,-51-m.anticipation*8,11,5,p.dark,p.edge);eye(c,26,-25,'#f5f1cc',3,m.blink);for(let n=0;n<3;n++)oval(c,-24+n*15,-44,2.3,3.2,p.light);
+ if(m.wind){glow(c,55,-51,26,p.light,.25);for(let n=0;n<3;n++)oval(c,49+n*8,-73-n*5,2,3,p.light);}
+}
+function magnetmoth(c,m,p){
+ for(const side of[-1,1])joint(c,side*6,-32,side*m.flap*.22,()=>{path(c,[['M',0,0],['C',side*11,-44,side*45,-53,side*57,-29],['Q',side*69,-8,side*39,8],['Q',side*13,14,0,0],['Z']],p.body);oval(c,side*35,-20,14,17,p.dark,p.edge);poly(c,[[side*24,-25],[side*32,-36],[side*43,-25],[side*36,-4]],p.mid,p.edge,.9);for(let n=0;n<3;n++)line(c,[[side*(9+n*10),-16],[side*(20+n*8),-29]],p.edge,.9);});
+ oval(c,0,-29,10,23,p.dark,INK);oval(c,1,-51,13,15,p.mid,INK);eye(c,7,-53,'#fff2bc',2.8,m.blink);
+ for(const side of[-1,1]){curve(c,[side*5,-62,side*17,-78,side*23,-66,side*28,-80],p.dark,2);curve(c,[side*8,-28,side*22,-15,side*18,-6,side*31,-5],p.mid,3);poly(c,[[side*25,-15],[side*37,-15],[side*37,1],[side*25,1]],p.pale,p.dark);}
+ if(m.wind||m.charge)for(let n=0;n<3;n++)oval(c,0,-24,40+n*15,24+n*7,null,p.light+'88',1.2);
+}
+function galeswarm(c,m,p){
+ const points=[[-23,-42],[21,-56],[4,-13]];line(c,[...points,points[0]],p.edge+'77',1);
+ for(let n=0;n<3;n++){const [xx,yy]=points[n],off=Math.sin(m.t*8+n)*3;joint(c,xx+m.reach*(n===1?17:8),yy+off,(n-1)*.16,()=>{for(const side of[-1,1])poly(c,[[0,-3],[side*19,-18+m.flap*3],[side*15,-1],[side*7,7]],n%2?p.dark:p.mid,p.edge,.8);oval(c,0,0,8,11,p.body,INK);poly(c,[[5,-5],[17,-1],[6,4]],p.pale,p.dark,.8);eye(c,5,-6,'#fff1be',1.7,m.blink);for(let k=0;k<2;k++)poly(c,[[-4+k*5,7],[-9+k*8,19],[4+k*4,8]],p.dark);});}
+ if(m.wind)for(let n=0;n<3;n++)oval(c,points[n][0],points[n][1]-19,2.5,2.5,p.light);
+}
+function bellspider(c,m,p){
+ curve(c,[0,-58,Math.sin(m.t)*5,-90,-3,-121,0,-150],p.edge+'88',1);
+ for(const side of[-1,1])for(let n=0;n<4;n++){const d=Math.sin(m.pace+n)*5;limb(c,side*11,-38+n*6,[side*(29+n*7),-47+n*8+d],[side*(42+n*6),-1-n%2*6],2.8,p.dark,p.edge);}
+ path(c,[['M',-25,-14],['L',-20,-42],['Q',-14,-63,0,-65],['Q',17,-62,21,-42],['L',29,-14],['Q',0,-2,-25,-14],['Z']],p.body);oval(c,1,-15,25,6,p.dark,p.edge);oval(c,0,-20,5,13,p.pale,p.dark);for(let n=0;n<3;n++)curve(c,[-13+n*11,-45,-17+n*14,-37,-15+n*12,-26,-18+n*15,-21],p.edge,1);
+ oval(c,1,-58,14,12,p.mid,INK);for(let n=0;n<4;n++)eye(c,-8+n*6,-58,2===n?'#fff8d0':'#d5f7f0',1.8,m.blink);poly(c,[[-11,-51],[-6,-42],[-2,-50]],p.pale);poly(c,[[4,-50],[10,-41],[12,-51]],p.pale);
+ if(m.wind)oval(c,0,2,55,7,null,p.light,1.6);
+}
+function crystalfencer(c,m,p){
+ for(const side of[-1,1]){limb(c,side*8,-32,[side*18+m.walk*4,-14],[side*27-m.walk*3,0],4,p.dark,p.edge);poly(c,[[side*10,-30],[side*18,-41],[side*29,-20]],p.mid,p.edge,.9);}
+ path(c,[['M',-18,-63],['L',-3,-78],['L',16,-65],['L',22,-34],['L',4,-22],['L',-15,-32],['Z']],p.body);poly(c,[[-15,-57],[0,-70],[14,-55],[2,-39]],p.mid,p.edge);crystal(c,-17,-52,13,25,p.light);crystal(c,18,-49,12,22,p.mid);
+ joint(c,18,-55,-.6-m.anticipation*.65+m.reach*1.4+(m.broken?.55:0),()=>{limb(c,0,0,[14,11],[30,2],4,p.mid,p.edge);oval(c,32,1,7,12,null,p.pale,2);poly(c,[[31,-4],[85,-15],[97,-12],[38,4]],p.pale,p.dark,1);line(c,[[44,-4],[87,-11]],p.edge,1);});
+ joint(c,-17,-55,-.4+m.anticipation*.7,()=>limb(c,0,0,[-15,5],[-16,20],4,p.mid,p.edge));
+ path(c,[['M',-11,-77],['L',-7,-98],['L',3,-108],['L',17,-89],['L',15,-72],['L',3,-63],['Z']],p.body);line(c,[[-4,-82],[12,-84]],p.light,2);poly(c,[[-7,-99],[-20,-114],[-2,-106],[5,-118],[10,-101]],p.mid,p.edge,.8);
+}
+function phasehound(c,m,p){
+ for(const side of[-1,1])for(const x of[-20,19])limb(c,x,-20,[x+side*10+m.walk*5,-10],[x+side*12-m.walk*5,-1],4,p.dark,p.edge);
+ path(c,[['M',-31,-21],['C',-36,-47,2,-56,27,-31],['L',20,-14],['Q',0,-7,-31,-21],['Z']],p.body);for(let n=0;n<3;n++)poly(c,[[-26+n*14,-37],[-21+n*15,-52],[-9+n*13,-30]],p.mid,p.edge,.8);
+ curve(c,[-27,-25,-52,-9,-63,-27,-74,-11+Math.sin(m.t*5)*6],p.dark,10);curve(c,[-29,-25,-47,-21,-55,-32,-68,-27+Math.sin(m.t*4)*4],p.mid,4);
+ joint(c,25,-33,-.1-m.anticipation*.2+m.reach*.1,()=>{path(c,[['M',-8,-4],['L',-10,-31],['L',3,-19],['L',18,-29],['L',19,-12],['L',37,-2],['L',32,10],['L',4,13],['Z']],p.body);eye(c,13,-10,'#fff1d3',3,m.blink);line(c,[[17,6],[32,5]],p.pale,1.1);});
+ for(let n=0;n<4;n++)line(c,[[-34+n*17,-13-n%2*7],[-22+n*17,-13-n%2*7]],p.light+'99',1.2);
+ if(m.wind){for(let n=0;n<3;n++)poly(c,[[-23+n*16,-43],[-14+n*16,-58],[-9+n*16,-38]],p.light+'55',null);glow(c,29,-37,24,p.light,.15);}
+}
+function voidlantern(c,m,p){
+ for(const side of[-1,1])curve(c,[side*14,-18,side*28,-5,side*19,10,side*35,16+Math.sin(m.t*4+side)*5],p.dark,4);
+ path(c,[['M',-27,-18],['L',-28,-65],['L',-15,-83],['L',15,-83],['L',29,-64],['L',27,-18],['L',0,-6],['Z']],p.body);poly(c,[[-19,-25],[-19,-61],[0,-73],[19,-61],[19,-25],[0,-16]],p.dark,p.edge,1.2);
+ for(const x of[-10,0,10])line(c,[[x,-65],[x,-24]],p.mid,2);glow(c,0,-43,33,p.light,.2);oval(c,0,-43,9,15,p.light);poly(c,[[-31,-17],[31,-17],[23,-9],[-23,-9]],p.mid,p.edge);poly(c,[[-31,-66],[-23,-86],[0,-100],[24,-85],[32,-66]],p.body,p.edge);
+ line(c,[[0,-99],[0,-114]],p.mid,2);oval(c,0,-119,7,7,null,p.edge,2);for(const side of[-1,1]){curve(c,[side*28,-48,side*49,-62,side*52,-32,side*44,-22],p.mid,4);oval(c,side*44,-22,4,6,p.pale,p.dark);}
+ if(m.wind||m.charge)for(let n=0;n<3;n++){const a=m.t*2+n*TAU/3;poly(c,[[Math.cos(a)*42,-45+Math.sin(a)*26-6],[Math.cos(a)*42+4,-45+Math.sin(a)*26],[Math.cos(a)*42,-45+Math.sin(a)*26+6],[Math.cos(a)*42-4,-45+Math.sin(a)*26]],p.light,p.dark,.7);}
+}
+const RIGS={sinder,voltlet,pebbleback,dewdrop,sproutlet,thornling,ashwing,inkfin,stormkite,frostmite,riftling,glassmarauder,veilwasp,graveburrower,chaincaster,candlewraith,clockscarab,oathbound,hushling,bloomspitter,sporekeeper,cinderdrill,chainshield,siphonray,inkmortar,magnetmoth,galeswarm,bellspider,crystalfencer,phasehound,voidlantern};
 
 /** Returns false for unknown species so callers can retain a graceful fallback. */
 export function drawEnemyMinion(c,e,time=0,data={}){

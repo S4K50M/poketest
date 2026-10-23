@@ -47,7 +47,7 @@ test('light attack respects startup and hits each enemy only once per swing',()=
   const g=new TrainingEngine();g.enemies=g.enemies.filter(e=>e.encounter);g.lesson=5;Object.assign(g.player,{x:6480,y:520,invul:90});g.input('light');frames(g,3);assert.equal(g.enemies[0].hp,28);frames(g,9);assert.equal(g.enemies[0].hp,14);assert.equal(g.stats.hits,1);
 });
 test('elemental casting costs focus and can hit a target once',()=>{
-  const g=new TrainingEngine('aqualance');g.enemies=g.enemies.filter(e=>e.encounter);g.lesson=5;g.player.x=6400;g.input('special');assert.equal(g.player.spirit,75);frames(g,25);assert.equal(g.enemies[0].hp,5);g.player.spirit=0;assert(!g.input('special'));
+  const g=new TrainingEngine('aqualance');g.enemies=g.enemies.filter(e=>e.encounter);g.lesson=5;g.player.x=6400;g.input('special');assert.equal(g.player.spirit,75);frames(g,25);assert.equal(g.enemies[0].hp,6);g.player.spirit=0;assert(!g.input('special'));
 });
 test('warden telegraphs its charge and alternates into jumpable ground shockwaves',()=>{
   const g=new TrainingEngine();g.lesson=5;g.player.x=7100;const e=g.enemies[2];e.state='windup';e.timer=2;e.face=-1;const x=e.x;g.step();assert.equal(e.x,x);g.step();assert.equal(e.state,'charge');g.step();assert(e.x<x);

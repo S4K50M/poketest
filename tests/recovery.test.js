@@ -15,16 +15,15 @@ function enterSpring(g,point){
   g.step();
 }
 
-test('each seeded gate has two or three scattered automatic recovery points on real surfaces',()=>{
+test('each seeded gate has one scarce automatic recovery point on a real tunnel surface',()=>{
   const layouts=new Set();
   for(const worldSeed of [1,17,81,2048,987654]){
     const g=new RPGCampaign(undefined,{worldSeed});
     const layout=[];
     for(const ch of CHAPTERS){
       const points=gatePoints(g,ch.id);
-      assert(points.length>=2&&points.length<=3,ch.id+' needs only two or three points for the whole gate');
+      assert.equal(points.length,1,ch.id+' has one full-party refill for the entire gate');
       assert.equal(new Set(points.map(p=>p.id)).size,points.length);
-      assert(new Set(points.map(p=>p.room)).size>=2,'recovery must be distributed across dungeon rooms');
       for(const p of points){
         const room=ROOMS[p.room];assert.equal(room.biome,ch.id);
         assert(p.x>400&&p.x<room.width-150,'a recovery point must not be a routine room-entry refill');
@@ -128,10 +127,10 @@ test('camp roster changes cannot refill injured or defeated companions, includin
 
 test('old elevated spring checkpoints migrate to the new safe tunnel floor',()=>{
   const g=new RPGCampaign(undefined,{worldSeed:17}),saved=JSON.parse(JSON.stringify(g.save()));
-  const current=g.recoveryForRoom('moss-descent').find(p=>p.id==='moss:climb');
-  saved.room='moss-descent';saved.safeRest={id:current.id,room:current.room,x:1090,y:140};
+  const current=gatePoints(g,'moss')[0];
+  saved.room=current.room;saved.safeRest={id:current.id,room:current.room,x:1090,y:140};
   saved.checkpoint={x:1090,y:140};
-  saved.death={gate:'moss',room:'moss-descent',returnTo:{...saved.safeRest},lostLumens:10,restoredEnemies:20};
+  saved.death={gate:'moss',room:current.room,returnTo:{...saved.safeRest},lostLumens:10,restoredEnemies:20};
   saved.party.forEach(m=>m.hp=0);
   const restored=new RPGCampaign(undefined,{save:saved});
   assert.equal(restored.phase,'gameover');assert.equal(restored.safeRest.id,current.id);

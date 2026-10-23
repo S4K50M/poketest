@@ -11,14 +11,11 @@ export function recoveryLayout(seed){
   const points=[{...HUB_RECOVERY}];
   for(const [index,ch] of CHAPTERS.entries()){
     const pick=random((seed^Math.imul(index+1,2654435761))>>>0),id=ch.id;
-    // The first recovery belongs to the lower tunnel; upper shelves are optional.
+    // One shared party refill for the entire gate. Keep the legacy IDs so
+    // surviving checkpoints migrate safely, while seed picks the deep room.
+    const inCourt=pick()<.45;
     const floorSites=[1120,1650,2180],x=floorSites[Math.floor(pick()*floorSites.length)];
-    points.push(point(id+':climb',id+'-descent',x));
-    points.push(point(id+':court',id+'-nexus',pick()<.5?1460:1550));
-    if(pick()<.5){
-      const upper=pick()<.5;
-      points.push(upper?point(id+':secret',id+'-ascent',pick()<.5?565:680,-750):point(id+':secret',id+'-vault',pick()<.5?1210:2760));
-    }
+    points.push(inCourt?point(id+':court',id+'-nexus',pick()<.5?1460:1550):point(id+':climb',id+'-descent',x));
   }
   return points;
 }

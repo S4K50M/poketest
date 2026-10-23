@@ -1,5 +1,6 @@
 import {ROOMS,BOSSES,DIALOGUES} from './world.js';
 import {MINIONS} from './designs.js';
+import {applyRoomIdentities} from './room-identity.js';
 import {CHRONICLE_ROOMS,CHRONICLE_BOSSES,CHRONICLE_LINKS,CHRONICLE_ENEMIES,NPC_DIALOGUES} from './chronicle.js';
 // One additive registry keeps the original route and v2 save identifiers stable.
 Object.assign(ROOMS,CHRONICLE_ROOMS);Object.assign(BOSSES,CHRONICLE_BOSSES);Object.assign(MINIONS,CHRONICLE_ENEMIES);Object.assign(DIALOGUES,NPC_DIALOGUES);
@@ -9,3 +10,5 @@ ROOMS.sanctuary.objects.push({id:'ora',kind:'merchant',talk:'ora',x:610,name:'Or
   {id:'covenant-stone',kind:'covenant',x:825,name:'The Covenant Stone'});
 
 for(const room of Object.values(ROOMS))for(const object of room.objects)if(object.kind==='bench'){object.kind='camp';object.name='Wayfarer’s Camp';}
+
+applyRoomIdentities(CHRONICLE_ROOMS);

@@ -1,3 +1,5 @@
+import {ecologyStrikeDamage} from './minion-behavior.js';
+import { COMPANION_KITS, castCompanionSkill, releaseCompanionSkill, updateCompanionFields, companionStrikeDamage, echoCompanionStrike, companionKitSnapshot } from './companion-kits.js';
 import { clearBossEncounter, resetBossEncounters, updateBossHazards } from './boss-encounters.js';
 import { TrainingEngine, MOTOR } from './training.js';
 import { ROSTER, findFighter } from './roster.js';
@@ -7,6 +9,7 @@ import { COMBAT } from './combat-data.js';
 import { HUB_RECOVERY, validSeed, newWorldSeed, recoveryLayout, recoverySavePoint } from './recovery.js';
 import { DUNGEON_HEAL, bossHealth, updateBossEncounter, updateDungeonMinion } from './difficulty.js';
 import { ROOMS, BOSSES, CHAPTERS, ABILITIES, CHARMS, DIALOGUES, DEFAULT_PARTY } from './world.js';
+import { aftermathObjects } from './boss-aftermath.js';
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const finite=(v,a,b,fallback=0)=>Number.isFinite(v)?clamp(v,a,b):fallback;
 export const CAMPAIGN_MOTOR={...MOTOR,...COMBAT.motor};
@@ -22,7 +25,7 @@ export class CampaignEngine extends TrainingEngine{
     if(options.save)this.loadSave(options.save);
   }
   save(){
-    const state={version:2,room:this.roomId,checkpoint:{...this.checkpoint},safeRest:{...this.safeRest},worldSeed:this.worldSeed,spentRecovery:[...this.spentRecovery],discoveredRecovery:[...this.discoveredRecovery],claimedEnemyRewards:[...this.claimedEnemyRewards],respawnedEnemies:[...this.respawnedEnemies],death:this.death?structuredClone(this.death):null,party:this.party.map(m=>({id:m.data.id,hp:m.hp,maxHp:m.maxHp,spirit:m.spirit})),activeSlot:this.activeSlot,level:this.level,xp:this.xp,lumens:this.lumens,upgrades:this.upgrades,
+    const state={version:2,room:this.roomId,checkpoint:{...this.checkpoint},safeRest:{...this.safeRest},worldSeed:this.worldSeed,spentRecovery:[...this.spentRecovery],discoveredRecovery:[...this.discoveredRecovery],claimedEnemyRewards:[...this.claimedEnemyRewards],respawnedEnemies:[...this.respawnedEnemies],death:this.death?structuredClone(this.death):null,party:this.party.map(m=>({id:m.data.id,hp:m.hp,maxHp:m.maxHp,spirit:m.spirit,skillCooldown:m.skillCooldown})),activeSlot:this.activeSlot,level:this.level,xp:this.xp,lumens:this.lumens,upgrades:this.upgrades,
       abilities:[...this.abilities],unlocked:[...this.unlocked],fragments:[...this.fragments],visited:[...this.visited],opened:[...this.opened],defeated:[...this.defeated],memories:[...this.memories],shrines:[...this.shrines],inventory:{...this.inventory},charms:[...this.charms],equipped:[...this.equipped],discovered:[...this.discovered],stats:{...this.stats},playtime:this.playtime,storyStage:this.storyStage,finished:this.finished,ending:this.ending};
     this.onSave(state);return state;
   }
@@ -35,7 +38,7 @@ export class CampaignEngine extends TrainingEngine{
     this.unlocked=new Set([...starterIds,...list('unlocked',x=>ROSTER.some(d=>d.id===x))]);
     if(s.party.some(m=>!this.unlocked.has(m.id)))return false;
     this.level=finite(s.level,1,5,1);this.xp=finite(s.xp,0,300);this.lumens=finite(s.lumens,0,99999);this.upgrades=finite(s.upgrades,0,3);
-    this.party=s.party.map(m=>{const data=findFighter(m.id),maxHp=data.maxHp+this.level-1+this.upgrades;return {data,maxHp,hp:finite(m.hp,0,maxHp,maxHp),spirit:finite(m.spirit,0,100,100),skillCooldown:0};});
+    this.party=s.party.map(m=>{const data=findFighter(m.id),maxHp=data.maxHp+this.level-1+this.upgrades;return {data,maxHp,hp:finite(m.hp,0,maxHp,maxHp),spirit:finite(m.spirit,0,100,100),skillCooldown:Math.floor(finite(m.skillCooldown,0,COMPANION_KITS[m.id]?.cooldown||COMBAT.reuse.special))};});
     this.activeSlot=Math.floor(finite(s.activeSlot,0,2));const pendingDeath=s.death&&Object.hasOwn(ROOMS,s.death.room)&&ROOMS[s.death.room].biome===s.death.gate;if(!this.party.some(m=>m.hp>0)&&!pendingDeath)this.restoreParty();if(!this.party[this.activeSlot].hp&&this.party.some(m=>m.hp>0))this.activeSlot=this.party.findIndex(m=>m.hp>0);
     for(const key of ['visited','opened','defeated','memories','shrines'])this[key]=list(key);this.claimedEnemyRewards=new Set([...this.defeated,...list('claimedEnemyRewards')]);this.respawnedEnemies=list('respawnedEnemies',key=>Object.values(ROOMS).some(r=>r.enemies.some((e,n)=>r.id+':'+n===key)));
     this.worldSeed=validSeed(s.worldSeed)?s.worldSeed:this.worldSeed;this._recoveryLayout=null;const recoveryIds=new Set(this.allRecovery().map(p=>p.id));this.spentRecovery=list('spentRecovery',id=>recoveryIds.has(id));this.discoveredRecovery=new Set([...this.spentRecovery,...list('discoveredRecovery',id=>recoveryIds.has(id))]);this.discovered=list('discovered',x=>!!MINIONS[x]);
@@ -58,8 +61,8 @@ export class CampaignEngine extends TrainingEngine{
       return {id:n,key,kind:spec.kind,boss:spec.boss,x:spec.x,y:floor,baseY:floor,homeY:floor,home:spec.x,hp:cleared?0:health,maxHp:health,face:-1,state:'patrol',timer:70,flash:0,stun:0,vx:0,slow:0,flipped:0,left:spec.left??Math.max(60,spec.x-(boss?500:240)),right:spec.right??Math.min(this.worldWidth-60,spec.x+(boss?500:240)),introX:spec.introX??spec.x-640,pattern:0,phase:1,rewarded:!!cleared||this.claimedEnemyRewards.has(key)};
     });
     this.relics=this.room.relics.map(r=>({...r,collected:this.opened.has(r.id)}));this.bell={x:-5000,y:430,r:24,flash:0};
-    this.projectiles=[];this.enemyShots=[];this.waves=[];this.hazards=[];this.zones=[];this.effects=[];this.decoy=null;this.skillStrike=null;this.attackBuffer=null;this.grapple=null;
-    const p=this.player;this.cancelHeal();Object.assign(p,{x:arrival.x,y:arrival.y,vx:0,vy:0,grounded:true,jumpCount:0,jumpBuffer:0,dash:0,dashCooldown:0,wall:0,wallLock:0,attack:null,airDashes:0,respawning:0,slow:0,root:0,slick:0,burn:0,guard:0,armor:0,fortress:false,specialHeld:false,skillVector:null,invul:30});
+    this.projectiles=[];this.enemyShots=[];this.waves=[];this.hazards=[];this.zones=[];this.effects=[];this.decoy=null;this.skillStrike=null;this.companionFields=[];this.attackBuffer=null;this.grapple=null;
+    const p=this.player;this.cancelHeal();Object.assign(p,{x:arrival.x,y:arrival.y,vx:0,vy:0,grounded:true,jumpCount:0,jumpBuffer:0,dash:0,dashCooldown:0,wall:0,wallLock:0,attack:null,airDashes:0,respawning:0,slow:0,root:0,slick:0,burn:0,guard:0,armor:0,fortress:false,specialHeld:false,signatureCharge:false,signatureAnim:0,signatureVariant:'neutral',featherFall:0,skillVector:null,invul:30});
     for(const o of this.room.objects)if(o.kind==='lever'&&this.opened.has(id+':'+o.id))this.platforms.push({...o.bridge});
     this.recoveryPoints=this.recoveryForRoom(id);this._insideRecovery=new Set(this.recoveryPoints.filter(r=>Math.abs(r.x-arrival.x)<46&&Math.abs(r.y-arrival.y)<24).map(r=>r.id));
     resetBossEncounters(this);this.combat?.reset();this.checkpoint={...arrival};this.transition=100;this.roomTime=0;this.emit('room',{room:id});if(persist)this.save();return true;
@@ -82,15 +85,15 @@ export class CampaignEngine extends TrainingEngine{
   releaseShield(){this.combat.releaseShield();}
   jump(){
     const p=this.player;if(!p.jumpBuffer)return;
-    if(p.grounded||p.coyote>0){p.vy=this.motor.jump;p.jumpCount=1;p.coyote=0;this.stats.jumps++;}
-    else if(p.wall&&this.abilities.has('claw')){p.vy=-14.6;p.vx=-p.wall*11;p.face=-p.wall;p.wallLock=8;p.jumpCount=1;p.airDashes=0;this.stats.wallJumps++;this.emit('walljump');}
-    else if(p.jumpCount<2&&this.abilities.has('wings')){p.vy=this.motor.doubleJump;p.jumpCount=2;this.stats.doubleJumps++;this.emit('doublejump');}
+    if(p.grounded||p.coyote>0){p.vy=this.motor.jump*(this.data.jump||1);p.jumpCount=1;p.coyote=0;this.stats.jumps++;}
+    else if(p.wall&&this.abilities.has('claw')){p.vy=-14.6*(this.data.jump||1);p.vx=-p.wall*11;p.face=-p.wall;p.wallLock=8;p.jumpCount=1;p.airDashes=0;this.stats.wallJumps++;this.emit('walljump');}
+    else if(p.jumpCount<2&&this.abilities.has('wings')){p.vy=this.motor.doubleJump*(this.data.jump||1);p.jumpCount=2;this.stats.doubleJumps++;this.emit('doublejump');}
     else return;
     if(!p.jumpHeld)p.vy*=.55;p.dash=0;p.grounded=false;p.jumpBuffer=0;this.emit('jump');this.effects.push({type:'jump',x:p.x,y:p.y,life:18});
   }
   step(){
     if(this.paused||this.phase!=='playing')return;
-    this.playtime++;this.roomTime++;this.motor.run=CAMPAIGN_MOTOR.run*(this.equipped.includes('feather')?1.12:1)*(this.runMultiplier?.()||1);this.motor.dashCooldown=this.abilities.has('blink')?12:17;
+    this.playtime++;this.roomTime++;this.motor.run=CAMPAIGN_MOTOR.run*(this.equipped.includes('feather')?1.12:1)*(this.runMultiplier?.()||1);this.motor.dashCooldown=this.abilities.has('blink')?12:17;this.motor.gravity=CAMPAIGN_MOTOR.gravity*(this.data.gravity||1);
     const combatEnemies=this.enemies;if(!this.hitstop)this.combat.step();if(this.enemies!==combatEnemies)return;
     if(this.transition>0)this.transition--;if(this.comboTimer>0)this.comboTimer--;else this.combo=0;if(this.landing>0)this.landing--;
     const wasGrounded=this.player.grounded,vy=this.player.vy,encountersStopped=this.hitstop>0;
@@ -108,7 +111,7 @@ export class CampaignEngine extends TrainingEngine{
       if(h.timer<=0&&h.timer>-18&&Math.abs(this.player.x-h.x)<range&&dy<45&&dy>-(h.type==='lightning'?360:60))this.hurt(Math.sign(this.player.x-h.x),h.damage??1,h.type==='stasis'?{slow:150}:h.type==='root'?{root:18}:{});
       if(this.enemies!==frameEnemies||this.player.respawning)return;
     }
-    if(!encountersStopped)updateBossHazards(this);if(this.enemies!==frameEnemies||this.player.respawning||this.phase!=='playing')return;
+    if(!encountersStopped){updateBossHazards(this);if(this.enemies===frameEnemies&&!this.player.respawning&&this.phase==='playing')updateCompanionFields(this);}if(this.enemies!==frameEnemies||this.player.respawning||this.phase!=='playing')return;
     if(this.equipped.includes('pulse'))this.player.spirit=Math.min(100,this.player.spirit+.012);
     if(!wasGrounded&&this.player.grounded&&vy>4){this.landing=10;this.effects.push({type:'land',x:this.player.x,y:this.player.y,life:20});this.emit('land');}
     this.updateRecovery();
@@ -128,6 +131,7 @@ export class CampaignEngine extends TrainingEngine{
   }
   strike(e,damage,direction,options={}){
     if(e.hp<=0)return;
+    damage=ecologyStrikeDamage(this,e,damage,direction,options);
     if(this.combat.bossReadsStrike(e,options)){
       damage*=.3;options={...options,guarded:true};
       this.emit('bossguard',{boss:e.boss,x:e.x,y:e.y-80});
@@ -137,6 +141,7 @@ export class CampaignEngine extends TrainingEngine{
       if(options.heavy){e.state='recover';e.timer=52;this.emit('slam');}
       else damage*=.22;
     }
+    damage=companionStrikeDamage(this,e,damage,options);
     const before=e.hp,brokenStun=e.stun>20&&e.boss&&e.state==='recover'?e.stun:0,committingCounter=e.boss&&['countertell','evade','enrage'].includes(e.state);const power=(this.equipped.includes('fang')?1.22:1)*(1+this.combat.flow*.0015);
     const owner=this.party[options.source??this.activeSlot],focus=owner.spirit,frameEnemies=this.enemies;
     super.strike(e,damage*power,direction,options);
@@ -146,6 +151,7 @@ export class CampaignEngine extends TrainingEngine{
       if(!options.dot){this.combo++;this.comboTimer=100;this.effects.push({type:'number',x:e.x,y:e.y-80,text:String(Math.round(before-e.hp)),life:35,color:this.data.accent});}
     }
     this.combat.onStrike(e,before,direction,options);
+    if(e.hp<before)echoCompanionStrike(this,e,damage,options);
   }
   hurt(direction=0,amount=1,status={}){
     const frameEnemies=this.enemies;
@@ -165,14 +171,18 @@ export class CampaignEngine extends TrainingEngine{
   awardEnemy(e){
     if(e.summonedBy){e.rewarded=true;this.emit('kill');return;}
     if(e.boss)clearBossEncounter(this,e);
-    if(e.rewarded){this.defeated.add(e.key);this.respawnedEnemies.delete(e.key);this.save();return;}super.awardEnemy(e);this.defeated.add(e.key);this.claimedEnemyRewards.add(e.key);this.respawnedEnemies.delete(e.key);const ch=CHAPTERS.find(c=>c.id===this.room.biome);
+    if(e.rewarded){const revived=this.respawnedEnemies.has(e.key);this.defeated.add(e.key);this.respawnedEnemies.delete(e.key);if(e.boss&&revived)this.emitBossDefeated(e,{repeated:true});this.save();return;}super.awardEnemy(e);this.defeated.add(e.key);this.claimedEnemyRewards.add(e.key);this.respawnedEnemies.delete(e.key);const ch=CHAPTERS.find(c=>c.id===this.room.biome);
     if(ch)this.inventory[BOSSES[ch.boss].material]++;
-    if(e.boss&&BOSSES[e.boss].miniboss){const b=BOSSES[e.boss];this.inventory[b.material]+=3;this.lumens+=35;this.gainXP(50);this.say('GATEKEEPER DEFEATED · '+b.name.toUpperCase());this.emit('bossdefeated',{boss:e.boss,miniboss:true});this.save();return;}
+    if(e.boss&&BOSSES[e.boss].miniboss){const b=BOSSES[e.boss];this.inventory[b.material]+=3;this.lumens+=35;this.gainXP(50);this.say('GATEKEEPER DEFEATED · '+b.name.toUpperCase());this.emitBossDefeated(e,{miniboss:true});this.save();return;}
     if(e.boss){const b=BOSSES[e.boss];this.fragments.add(e.boss);if(b.reward)this.abilities.add(b.reward);if(b.creature)this.unlocked.add(b.creature);this.inventory[b.material]+=5;this.inventory.flask++;this.lumens+=45;this.gainXP(80);
-      this.say('HEART FRAGMENT RESTORED · '+(b.reward?ABILITIES[b.reward].name.toUpperCase():'THE WORLDHEART IS AWAKE'));this.emit('bossdefeated',{boss:e.boss});
-      if(e.boss==='crown'){this.finished=true;this.emit('ending');}
+      this.say('HEART FRAGMENT RESTORED · '+(b.reward?ABILITIES[b.reward].name.toUpperCase():'THE WORLDHEART IS AWAKE'));if(e.boss==='crown')this.finished=true;this.emitBossDefeated(e);
+      if(e.boss==='crown')this.emit('ending');
     }
     this.save();
+  }
+  emitBossDefeated(e,details={}){
+    const info=this.bossInfo?.(e.boss)||BOSSES[e.boss],aftermath=this.bossAftermath.find(o=>o.boss===e.boss);
+    this.emit('bossdefeated',{boss:e.boss,name:info?.name,species:e.kind,x:e.x,y:e.y,room:this.roomId,...details,...(aftermath?{aftermath}:{})});
   }
   allRecovery(){return this._recoveryLayout??=recoveryLayout(this.worldSeed);}
   recoveryForRoom(id){return this.allRecovery().filter(p=>p.room===id).map(p=>({...p,used:p.id!==HUB_RECOVERY.id&&this.spentRecovery.has(p.id)}));}
@@ -193,7 +203,7 @@ export class CampaignEngine extends TrainingEngine{
     if(this.phase==='gameover')return;
     const lethalFall=!wipe&&this.player.hp<=1&&!this.party.some((m,i)=>i!==this.activeSlot&&m.hp>0);
     if(wipe||lethalFall){this.stats.falls++;this.beginGameOver();return;}
-    super.respawn(false);this.combat?.reset();this.grapple=null;
+    super.respawn(false);this.combat?.reset();this.grapple=null;this.companionFields=[];this.player.signatureCharge=false;this.player.signatureAnim=0;
     for(const e of [...this.enemies])if(e.hp>0&&e.boss)clearBossEncounter(this,e);
     resetBossEncounters(this);
     for(const e of this.enemies)if(e.hp>0&&e.boss){e.hp=e.maxHp;e.phase=1;e.pattern=0;}this.save();
@@ -209,7 +219,7 @@ export class CampaignEngine extends TrainingEngine{
     for(const r of this.allRecovery())if(ROOMS[r.room].biome===gate)this.spentRecovery.delete(r.id);
     this.phase='gameover';this.paused=true;this.party.forEach(m=>m.hp=0);this.cancelHeal();this.combat.reset();this.grapple=null;this.setInputs({});
     Object.assign(this.player,{respawning:1,invul:0,vx:0,vy:0,attack:null,dash:0,specialHeld:false,fortress:false,guard:0,armor:0});
-    resetBossEncounters(this);this.projectiles=[];this.enemyShots=[];this.waves=[];this.hazards=[];this.zones=[];this.effects=[];this.decoy=null;this.skillStrike=null;this.enemies=[];
+    resetBossEncounters(this);this.projectiles=[];this.enemyShots=[];this.waves=[];this.hazards=[];this.zones=[];this.effects=[];this.decoy=null;this.skillStrike=null;this.companionFields=[];this.enemies=[];
     this.death={gate,room,returnTo:{...this.safeRest},lostLumens:before-this.lumens,restoredEnemies};
     this.recoveryPoints=this.recoveryForRoom(room);this.save();this.emit('gameover',structuredClone(this.death));
   }
@@ -218,9 +228,16 @@ export class CampaignEngine extends TrainingEngine{
     const rest=recoverySavePoint(this.death.returnTo,this.allRecovery());this.death=null;this.phase='playing';this.paused=false;this.restoreParty();this.loadRoom(rest.room,{x:rest.x,y:rest.y},false);this.safeRest=rest;this.player.respawning=30;this.player.invul=60;this.save();this.emit('retry');return true;
   }
   bossDefeated(id){return this.fragments.has(id)||this.defeatedBosses?.has(id)||Object.values(ROOMS).some(r=>r.enemies.some((e,n)=>e.boss===id&&this.defeated.has(r.id+':'+n)));}
+  get bossAftermath(){return aftermathObjects(this);}
+  get interactionObjects(){return [...this.room.objects,...this.bossAftermath];}
   interact(){
-    const p=this.player,near=this.room.objects.filter(o=>Math.abs(p.x-o.x)<100&&Math.abs(p.y-(o.y??520))<100).sort((a,b)=>Math.hypot(p.x-a.x,p.y-(a.y??520))-Math.hypot(p.x-b.x,p.y-(b.y??520)))[0];
+    const p=this.player,near=this.interactionObjects.filter(o=>Math.abs(p.x-o.x)<100&&Math.abs(p.y-(o.y??520))<100).sort((a,b)=>Math.hypot(p.x-a.x,p.y-(a.y??520))-Math.hypot(p.x-b.x,p.y-(b.y??520)))[0];
     if(!near){this.say('FIND A BENCH, DOOR, OR TRAVELER · E TO INTERACT');return false;}
+    if(near.kind==='aftermath'){
+      if(near.boss==='crown'&&!this.ending){this.emit('worldheartchoice',{boss:near.boss,source:{...near}});return true;}
+      if(near.boss==='nullheart'){this.emit('cradleending',{boss:near.boss,faction:this.trueEnding||this.faction||'unwritten',source:{...near}});return true;}
+      return this.showDialogue(near.lines,near);
+    }
     const key=this.roomId+':'+near.id;
     if(near.requiresBoss&&!this.bossDefeated(near.requiresBoss)){this.say('THE DEPTH WARDEN HOLDS THIS SEAL · DEFEAT '+BOSSES[near.requiresBoss].name.toUpperCase());return false;}
     if(near.kind==='lever'){if(this.opened.has(key)){this.say('THE ROOTBRIDGE IS ALREADY RAISED');return false;}this.opened.add(key);this.platforms.push({...near.bridge});this.say('ROOTBRIDGE RAISED · THE WAY REMEMBERS');this.emit('slam');this.save();return true;}
@@ -288,6 +305,9 @@ export class CampaignEngine extends TrainingEngine{
     this.say('CRAFTED · '+(id==='flask'?'BRAMBLE FLASK':CHARMS[id].name.toUpperCase()));this.emit('upgrade');this.save();return true;
   }
   equip(id){if(!this.charms.has(id))return false;if(this.equipped.includes(id))this.equipped=this.equipped.filter(x=>x!==id);else if(this.equipped.length<2)this.equipped.push(id);else{this.say('TWO CHARM SLOTS · UNEQUIP A CHARM FIRST');return false;}this.save();return true;}
+  switchTo(slot,forced=false){
+    const ok=super.switchTo(slot,forced);if(ok){this.player.signatureCharge=false;this.player.signatureAnim=0;this.player.featherFall=0;this.companionFields=(this.companionFields||[]).filter(f=>!f.charging);}return ok;
+  }
   replaceParty(slot,id){
     if(!Number.isInteger(slot)||slot<0||slot>2||!this.unlocked.has(id)||this.party.some(m=>m.data.id===id))return false;
     if(!this.atBench()){this.say('CHANGE COMPANIONS AT A CAMP OR WELLSPRING');return false;}
@@ -307,10 +327,12 @@ export class CampaignEngine extends TrainingEngine{
     const ok=this.performSkill();if(ok){this.cancelHeal();this.combat.releaseShield();this.combat.buffer=null;this.combat.commit('special');this.party[this.activeSlot].skillCooldown=Math.max(this.party[this.activeSlot].skillCooldown,COMBAT.reuse.special);}return ok;
   }
   releaseSpecial(){
+    if(releaseCompanionSkill(this)){this.combat.commit('special');this.party[this.activeSlot].skillCooldown=Math.max(this.party[this.activeSlot].skillCooldown,COMPANION_KITS[this.data.id].cooldown);return;}
     const shots=this.projectiles.length,held=this.player.specialHeld;super.releaseSpecial();
     if(held&&this.projectiles.length>shots){this.combat.commit('special');this.party[this.activeSlot].skillCooldown=Math.max(this.party[this.activeSlot].skillCooldown,COMBAT.reuse.special);}
   }
   performSkill(){
+    const signature=castCompanionSkill(this);if(signature!==null)return signature;
     if(!['mycora','lumivern','chronowl'].includes(this.data.id))return super.castSkill();
     const p=this.player,m=this.party[this.activeSlot];if(m.skillCooldown||p.spirit<25||p.attack)return false;
     m.skillCooldown=32;p.spirit-=25;this.cancelHeal();
@@ -355,5 +377,5 @@ export class CampaignEngine extends TrainingEngine{
     if(dist<35&&Math.abs(p.y-e.y)<65)this.hurt(Math.sign(p.x-e.x),1,e.kind==='frostmite'?{slow:100}:{});
   }
   updateBoss(e){updateBossEncounter(this,e);}
-  snapshot(){const s=super.snapshot();return {...s,mode:'campaign',worldSeed:this.worldSeed,recoveryPoints:this.recoveryPoints.map(r=>({...r})),spentRecovery:[...this.spentRecovery],discoveredRecovery:[...this.discoveredRecovery],death:this.death?structuredClone(this.death):null,safeRest:{...this.safeRest},combat:this.combat.snapshot(),room:this.roomId,roomName:this.room.name,biome:this.room.biome,chapter:CHAPTERS[Math.min(this.fragments.size,5)].title,abilities:[...this.abilities],fragments:[...this.fragments],unlocked:[...this.unlocked],visited:[...this.visited],inventory:{...this.inventory},charms:[...this.charms],equipped:[...this.equipped],memories:[...this.memories],shrines:[...this.shrines],combo:this.combo,finished:this.finished,ending:this.ending,playtime:this.playtime,bossHazards:(this.bossHazards||[]).map(h=>structuredClone(h)),enemies:this.enemies.map(e=>({id:e.id,boss:e.boss,kind:e.kind,hp:e.hp,maxHp:e.maxHp,state:e.state,x:e.x,y:e.y,phase:e.phase,timer:e.timer,pressureReady:!!e.pressureReady,pressure:e.pressure?{...e.pressure}:null,postureLock:e.postureLock||0,guarding:!!e.guarding,berserk:!!e.berserk,healUsed:!!e.healUsed,healChannel:e.healChannel?{...e.healChannel}:null,counterMotion:e.counterMotion?{...e.counterMotion}:null,counterState:e.counterState||null,moveId:e.moveId,moveName:e.moveName,attackKind:e.attackKind,counter:e.counter,hint:e.hint,attackFrame:e.attackFrame,windupFrames:e.windupFrames,summonedBy:e.summonedBy,telegraph:e.telegraph?structuredClone(e.telegraph):null})),nearby:this.room.objects.filter(o=>Math.abs(o.x-this.player.x)<100).map(o=>o.id)};}
+  snapshot(){const s=super.snapshot();return {...s,mode:'campaign',companionKit:companionKitSnapshot(this),companionFields:this.companionFields.map(f=>{const {hit,...data}=f;return {...data};}),bossAftermath:this.bossAftermath,interactionObjects:this.interactionObjects.map(o=>({id:o.id,kind:o.kind,boss:o.boss,name:o.name,x:o.x,y:o.y??520,form:o.form})),worldSeed:this.worldSeed,recoveryPoints:this.recoveryPoints.map(r=>({...r})),spentRecovery:[...this.spentRecovery],discoveredRecovery:[...this.discoveredRecovery],death:this.death?structuredClone(this.death):null,safeRest:{...this.safeRest},combat:this.combat.snapshot(),room:this.roomId,roomName:this.room.name,biome:this.room.biome,chapter:CHAPTERS[Math.min(this.fragments.size,5)].title,abilities:[...this.abilities],fragments:[...this.fragments],unlocked:[...this.unlocked],visited:[...this.visited],inventory:{...this.inventory},charms:[...this.charms],equipped:[...this.equipped],memories:[...this.memories],shrines:[...this.shrines],combo:this.combo,finished:this.finished,ending:this.ending,playtime:this.playtime,enemyShots:this.enemyShots.map(b=>({x:b.x,y:b.y,vx:b.vx,vy:b.vy,kind:b.kind,color:b.color})),bossHazards:(this.bossHazards||[]).map(h=>structuredClone(h)),enemies:this.enemies.map(e=>({id:e.id,boss:e.boss,kind:e.kind,hp:e.hp,maxHp:e.maxHp,state:e.state,x:e.x,y:e.y,face:e.face,baseY:e.baseY,left:e.left,right:e.right,motion:e.motion?structuredClone(e.motion):null,ward:e.ward?{...e.ward}:null,armament:e.armament?{...e.armament}:null,status:{soaked:e.soaked||0,marked:e.marked||0,fractured:e.fractured||0},phase:e.phase,timer:e.timer,pressureReady:!!e.pressureReady,pressure:e.pressure?{...e.pressure}:null,postureLock:e.postureLock||0,guarding:!!e.guarding,berserk:!!e.berserk,healUsed:!!e.healUsed,healChannel:e.healChannel?{...e.healChannel}:null,counterMotion:e.counterMotion?{...e.counterMotion}:null,counterState:e.counterState||null,moveId:e.moveId,moveName:e.moveName,attackKind:e.attackKind,counter:e.counter,hint:e.hint,attackFrame:e.attackFrame,windupFrames:e.windupFrames,summonedBy:e.summonedBy,telegraph:e.telegraph?structuredClone(e.telegraph):null})),nearby:this.interactionObjects.filter(o=>Math.abs(o.x-this.player.x)<100).map(o=>o.id)};}
 }

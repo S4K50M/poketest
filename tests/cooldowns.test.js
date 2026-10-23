@@ -39,7 +39,7 @@ for(const lead of ROSTER)test(`${lead.name} signature and its charge/release res
 });
 test('Terrakhan cannot bank a long-held charge and immediately cast a second signature',()=>{
   const g=fixture('terrakhan');assert(g.input('special'));frames(g,COMBAT.reuse.special+20);assert(g.player.specialHeld);
-  g.releaseSpecial();assert.equal(g.combat.cooldowns.special,COMBAT.reuse.special);assert(!g.input('special'));assert.equal(g.projectiles.length,1);
+  g.releaseSpecial();assert.equal(g.combat.cooldowns.special,COMBAT.reuse.special);assert(!g.input('special'));assert.equal(g.companionFields.filter(f=>f.type==='fault'&&!f.charging).length,2);assert(g.party[g.activeSlot].skillCooldown>=150);
 });
 test('different arts share cast recovery and equipping, cycling and switching cannot refresh an art',()=>{
   const g=fixture();g.input('power');const cost=POWERS.arcbolt.cost;assert.equal(g.player.spirit,100-cost);

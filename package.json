@@ -20,7 +20,8 @@
     "test:bosses": "node tests/boss-browser.mjs",
     "test:arrival": "node tests/arrival-browser.mjs",
     "test:dialogue": "node tests/world-dialogue-browser.mjs",
-    "test:boss-upgrade": "node tests/boss-upgrade-browser.mjs"
+    "test:boss-upgrade": "node tests/boss-upgrade-browser.mjs",
+    "test:aftermath": "node tests/boss-aftermath-browser.mjs"
   },
   "engines": {
     "node": ">=20"

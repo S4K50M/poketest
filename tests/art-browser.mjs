@@ -62,8 +62,8 @@ try{
     }
     window.__art={items,paint};return {frames,minVisible,failures,counts:{companions:ROSTER.length,minions:Object.keys(MINIONS).length,bosses:Object.keys(BOSSES).length}};
   });
-  assert.deepEqual(raster.counts,{companions:11,minions:19,bosses:21});assert.deepEqual(raster.failures,[]);
-  console.log(`PASS: ${raster.frames} real-Canvas action/facing frames; all 51 silhouettes and reduced-motion attack cues remain visible.`);
+  assert.deepEqual(raster.counts,{companions:11,minions:31,bosses:21});assert.deepEqual(raster.failures,[]);
+  console.log(`PASS: ${raster.frames} real-Canvas action/facing frames; all 63 silhouettes and reduced-motion attack cues remain visible.`);
 
   for(const [type,columns,cellWidth,cellHeight]of[['companion',4,340,300],['minion',5,250,220],['boss',4,360,350]]){
     await art.evaluate(({type,columns,cellWidth,cellHeight})=>{

@@ -108,7 +108,7 @@ export class TrainingEngine extends AdventureSystems{
     const direction=p.root>0||p.healing||p.fortress||p.stagger>0?0:Number(this.inputs.right)-Number(this.inputs.left),oldX=p.x,oldY=p.y,slow=(p.slow>0?.55:1)*(p.shielding?.4:1);
     if(p.dash>0){p.vx=(p.skillVector?.x??p.face)*(p.dashSpeed||(this.motor||MOTOR).dash)*slow;p.vy=(p.skillVector?.y||0)*(p.dashSpeed||(this.motor||MOTOR).dash);p.dash--;this.effects.push({type:'trail',x:p.x,y:p.y,face:p.face,creature:this.data.id,life:13});}
     else{
-      if(!p.wallLock){const speed=(this.motor||MOTOR).run*clamp(.96+(this.data.speed-.059)*2,.90,1.08)*slow;p.vx=approach(p.vx,direction*speed,direction?(p.slick>0?.6:(this.motor||MOTOR).acceleration):(p.slick>0?.12:(this.motor||MOTOR).friction));if(direction)p.face=direction;}
+      if(!p.wallLock){const speed=(this.motor||MOTOR).run*(this.campaign?(this.data.move||1):clamp(.96+(this.data.speed-.059)*2,.90,1.08))*slow;p.vx=approach(p.vx,direction*speed,direction?(p.slick>0?.6:(this.motor||MOTOR).acceleration):(p.slick>0?.12:(this.motor||MOTOR).friction));if(direction)p.face=direction;}
       p.vy=Math.min((this.motor||MOTOR).fall,p.vy+(this.motor||MOTOR).gravity);
       if(p.wall&&(!this.campaign||this.abilities.has('claw'))&&direction===p.wall&&p.vy>2)p.vy=2;
     }
@@ -179,7 +179,7 @@ export class TrainingEngine extends AdventureSystems{
       for(const e of this.enemies){
         if(b.life<=0)break;
         if(e.hp>0&&!b.hit.has(e.id)&&Math.abs(b.x-e.x)<(e.kind==='warden'?50:30)&&Math.abs(b.y-(e.y-(MINIONS[e.kind]?.height||40)))<55&&(b.kind!=='rockwave'||e.y>500)){
-          b.hit.add(e.id);this.strike(e,b.damage||20,Math.sign(b.vx),{source:b.owner,heavy:b.heavy,element:b.element});
+          b.hit.add(e.id);this.strike(e,b.damage||20,Math.sign(b.vx),{source:b.owner,heavy:b.heavy,element:b.element,signature:b.signature,wet:b.wet,fracture:b.fracture});
           if(this.enemies!==frameEnemies||this.player.respawning)return;
           if(b.kind==='water')e.x+=Math.sign(b.vx)*35;
           if(b.kind==='magma')this.zones.push({type:'fire',x:e.x,y:e.y,radius:85,life:210,owner:b.owner});
@@ -210,5 +210,5 @@ export class TrainingEngine extends AdventureSystems{
       if(dist<(e.kind==='warden'?52:32)&&Math.abs(target.y-e.y)<(e.kind==='warden'?100:50)){if(target===p)this.hurt(Math.sign(p.x-e.x));else this.burstDecoy();}
     }
   }
-  snapshot(){const p=this.player;return {mode:'training',phase:this.phase,paused:this.paused,tick:this.tick,lesson:this.lesson,completed:[...this.completed],player:{id:this.data.id,x:p.x,y:p.y,vx:p.vx,vy:p.vy,hp:p.hp,maxHp:p.maxHp,spirit:p.spirit,grounded:p.grounded,dash:p.dash,wall:p.wall,healing:p.healing,healProgress:p.healProgress,slow:p.slow,root:p.root,slick:p.slick},activeSlot:this.activeSlot,switchCooldown:this.switchCooldown,party:this.party.map(m=>({id:m.data.id,hp:m.hp,maxHp:m.maxHp,spirit:m.spirit,cooldown:m.skillCooldown})),level:this.level,xp:this.xp,lumens:this.lumens,upgrades:this.upgrades,discovered:[...this.discovered],stats:{...this.stats},shards:this.relics.filter(r=>r.collected).length,enemies:this.enemies.map(e=>({id:e.id,kind:e.kind,hp:e.hp,state:e.state,encounter:!!e.encounter}))};}
+  snapshot(){const p=this.player;return {mode:'training',phase:this.phase,paused:this.paused,tick:this.tick,lesson:this.lesson,completed:[...this.completed],player:{id:this.data.id,x:p.x,y:p.y,vx:p.vx,vy:p.vy,face:p.face,jumpCount:p.jumpCount,invul:p.invul,stagger:p.stagger||0,signatureAnim:p.signatureAnim||0,signatureVariant:p.signatureVariant||null,hp:p.hp,maxHp:p.maxHp,spirit:p.spirit,grounded:p.grounded,dash:p.dash,wall:p.wall,healing:p.healing,healProgress:p.healProgress,slow:p.slow,root:p.root,slick:p.slick},activeSlot:this.activeSlot,switchCooldown:this.switchCooldown,party:this.party.map(m=>({id:m.data.id,hp:m.hp,maxHp:m.maxHp,spirit:m.spirit,cooldown:m.skillCooldown})),level:this.level,xp:this.xp,lumens:this.lumens,upgrades:this.upgrades,discovered:[...this.discovered],stats:{...this.stats},shards:this.relics.filter(r=>r.collected).length,enemies:this.enemies.map(e=>({id:e.id,kind:e.kind,hp:e.hp,state:e.state,encounter:!!e.encounter}))};}
 }

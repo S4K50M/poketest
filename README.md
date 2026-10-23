@@ -4,23 +4,30 @@ An original browser action RPG about three creature companions, a fractured Worl
 
 The playable prototype includes:
 
+- **Eight distinct starter kits and 40 directional signature techniques**, with real speed, jump, damage, health, and Focus tradeoffs. Water, ice, electricity, traps, and fractures create party combinations.
+- **42 individually authored room identities**, with different gallery routes, landmark architecture, enemy groups, and longer passages in later dimensions.
+- **Twelve new enemy species**: medics, shield infantry, ambushers, artillery, magnetic controllers, duelists, and flankers.
+
 - Conversations woven into the scene: floating NPC speech, landmark whispers across all 42 rooms, and distinct lines from all 21 bosses, with movement and combat continuing.
 - An animated title screen that fits the viewport, with companion and realm controls in one responsive interface.
 - A skippable opening cinematic starring your chosen party, followed by a rebuilt Last Lantern and Mourningwild with distinct landmarks, living root vaults, local lighting, and layered forest scenery.
-- **Twenty-one distinct boss encounters and 84 named attacks**, with reactive movement and attack selection, pressure counters, escalating tiers, arena hazards, summons, and late execution attacks. Learn their tells and escape routes in the [boss encounter guide](docs/boss-encounters.md).
-- Skippable introductions for the nine major and forbidden guardians, plus ending cinematics that follow the Worldheart’s fate and your covenant.
-- A fully redrawn bestiary: **eleven companions, nineteen wild species, and twenty-one bosses**, with distinct anatomy, inked silhouettes, layered materials, and articulated action animation.
+- **Twenty-one distinct boss encounters and 126 named attacks**, with a 2.25× boss movement baseline, faster attack timing, reactive pressure counters, escalating tiers, arena hazards, summons, and late execution attacks. Learn their tells and escape routes in the [boss encounter guide](docs/boss-encounters.md).
+- Animated chamber entrances for the nine major and forbidden guardians, followed by distinct defeat transformations and persistent, E-interactable remains. The Briar Matron becomes a tree; the Storm Conductor escapes with a promise to return.
+- All 21 bosses have visible destruction animations; nine major guardians leave lasting scenery. Guardian rewards arrive during play. Explore their remains for lore and choose when to approach the Worldheart or the final covenant ending.
+- A fully redrawn bestiary: **eleven companions, thirty-one wild species, and twenty-one bosses**, with distinct anatomy, inked silhouettes, layered materials, and articulated action animation.
 - Anticipation, impact, recovery, shield, recoil, and death animation; elemental trails, phase effects, and responsive NPC details finish the combat presentation.
 - A redesigned first gate with branching climbs, shared landings, and recovery platforms that lead back into the route after missed jumps.
-- **42 rooms across six dimensions**, nine major bosses, twelve minibosses, eleven companions, and nineteen wild species.
+- **42 rooms across six dimensions**, nine major bosses, twelve minibosses, eleven companions, and thirty-one wild species.
 - Branching tunnel dungeons with continuous lower floors, optional upper climbs and vaults, looping shortcuts, and a discovered-room atlas without route arrows.
-- Three-phase guardians, stronger knockback, late-game desperation and interruptible healing, scarce automatic Wellsprings, and committed Focus healing make expeditions dangerous.
+- Four-phase guardians, stronger knockback, late-game desperation and interruptible healing, scarce automatic Wellsprings, and committed Focus healing make expeditions dangerous.
 - Three active companions that switch mid-fight, healing, crafting, equipment, and exploration tools.
 - Launchers, aerial combos, dash cancels, directional shields, timed parries, boss posture breaks, and visible attack cooldowns.
 - **Twelve combat arts**, with ten unlocked through progression, optional bosses, and companion mastery.
 - Eight quest lines, three permanent covenants, talent trees, hidden history, and multiple endings.
 - Enclosed tunnels, cavern walls, stone shelves, biome geology, animated Canvas rigs, and reduced-motion controls.
-- Two or three seeded recovery springs per gate; party wipes revive that gate’s enemies and open Game Over with Retry or Save & Title.
+- One seeded recovery spring per gate; party wipes revive that gate’s enemies and open Game Over with Retry or Save & Title.
+
+See the [party and dungeon guide](docs/party-and-dungeons.md) for starter tradeoffs, signatures, enemy roles, and every room’s layout.
 
 This is a single-player 2D campaign prototype. The original 1v1 arena has been replaced.
 
@@ -39,7 +46,7 @@ You can also open `index.html` directly. Keep the complete `assets/`, `src/`, an
 
 ## Start playing
 
-Choose three companions, watch or skip the opening cinematic, and walk right to Professor Vell at the Last Lantern. Continue resumes your saved journey without repeating the opening; **Watch the Prologue** on the title screen lets you watch it again. Vell’s words appear beside the professor in the world. Use **E / Enter** or the conversation’s touch button to continue; Space still jumps, and walking away ends the conversation. Press **E** at the first portal to enter. Walk into a glowing **Wellspring** to restore every companion and bind your respawn point; camps provide services without healing.
+Choose three companions, watch or skip the opening cinematic, and walk right to Professor Vell at the Last Lantern. Continue resumes your saved journey without repeating the opening; **Watch the Prologue** on the title screen lets you watch it again. Vell’s words appear beside the professor in the world. Use **E / Enter** or the conversation’s touch button to continue; Space still jumps, and walking away ends the conversation. Press **E** at the first portal to enter. Walk into a glowing **Wellspring** to restore every companion and bind your respawn point; camps provide services without healing. Guardian victories unlock rewards immediately without a victory dialog. Press **E** beside their transformed remains to hear their history; approach the Worldheart after the final main guardian to choose its fate.
 
 | Input | Action |
 | --- | --- |
@@ -62,6 +69,7 @@ Start with the [documentation index](docs/README.md).
 | --- | --- |
 | [Getting started](docs/getting-started.md) | Installation, commands, first run, common problems |
 | [Gameplay and controls](docs/gameplay.md) | Party, healing, inventory, talents, tools, complete controls |
+| [Party and dungeon guide](docs/party-and-dungeons.md) | Eight kits, elemental combinations, new species, and all 42 chambers |
 | [Combat reference](docs/combat.md) | Frame data, movement, Guard, Flow, twelve arts and unlocks |
 | [Boss encounters](docs/boss-encounters.md) | All 21 move sets, signature mechanics, phase patterns and counterplay |
 | [World and story](docs/world-and-story.md) | Biomes, guardians, optional routes, spoiler-marked story |
@@ -83,4 +91,4 @@ npm test
 
 After changing JavaScript, run `npm run build` before checking and commit the generated `bundle/game.js`. For gameplay, UI, rendering, save, or hosting changes, also run the relevant [Chromium suites](docs/testing.md). Documentation-only changes do not require rebuilding the game.
 
-`npm run test:dialogue` checks world speech, conversation inputs, ambient voices, and mobile placement. `npm run test:arrival` checks the viewport-fitting title screen, opening lifecycle, and first-area presentation. `npm run test:art` renders the full roster and bestiary as contact sheets and checks the actual game view on desktop and mobile. Art renderers remain presentation-only. `npm run test:bosses` checks the distinct encounter mechanics and their desktop/mobile telegraphs; boss attacks now have their own gameplay timelines. Existing progression and saved boss identities remain compatible.
+`npm run test:dialogue` checks world speech, conversation inputs, ambient voices, and mobile placement. `npm run test:arrival` checks the viewport-fitting title screen, opening lifecycle, and first-area presentation. `npm run test:art` renders the full roster and bestiary as contact sheets and checks the actual game view on desktop and mobile. Art renderers remain presentation-only. `npm run test:bosses` checks the distinct encounter mechanics and their desktop/mobile telegraphs; boss attacks now have their own gameplay timelines. `npm run test:aftermath` checks in-world victories, guardian remains, lore interactions, persistence, and finale access. Existing progression and saved boss identities remain compatible.

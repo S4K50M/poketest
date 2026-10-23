@@ -156,7 +156,7 @@ test('perfect evade is earned after Blink and grants its reward once per incomin
 test('boss posture breaks after accumulated heavy hits and creates a real recovery opening',()=>{
   const {g,events}=fixture(),e=target(g,{boss:'briar',introduced:true,phase:1});
   for(let i=0;i<6;i++)g.strike(e,10,1,{heavy:true});
-  assert.equal(e.poise,0);assert.equal(e.state,'recover');assert(e.timer>=COMBAT.riposteWindow);
+  assert.equal(e.poise,0);assert.equal(e.state,'recover');assert.equal(e.timer,36);assert.equal(e.stun,24);
   assert(events.some(e=>e.type==='bossbreak'));assert(e.hp>0);
 });
 

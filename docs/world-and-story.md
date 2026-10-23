@@ -4,7 +4,7 @@
 
 ## Campaign map
 
-There are **42 rooms, six dimensions, nine major bosses, twelve minibosses, 11 companions, and 19 wild species**. The original eight companions are available from the start. Three new companions join after their guardians are freed.
+There are **42 rooms, six dimensions, nine major bosses, twelve minibosses, 11 companions, and 31 wild species**. The original eight companions are available from the start. Three new companions join after their guardians are freed.
 
 | Region | Places | Guardian | Ability / rescue |
 | --- | --- | --- | --- |
@@ -20,7 +20,7 @@ The sanctuary connects the chapters. Each restored fragment opens another portal
 
 The main roads and dungeon passages have continuous lower floors. The rootbridge lever, upper wall routes, grapple anchors, moving shelves, and high frozen balconies remain exploration features, while the physical violet veil still requires an awakened dash. Optional climbs have wider ledges and catch shelves rather than long lethal drop spans. Camps, the workbench, story inscriptions, travelers, material caches, ore veins, and hidden shrines all have interactions. Wellsprings activate automatically when entered.
 
-Room counts include the sanctuary, 12 original main-route rooms, 24 new dungeon chambers, and the five original optional rooms. Each gate contains two or three seeded Wellsprings in its interior chambers; the sanctuary also has a reusable hearth. Former benches are utility camps rather than healing points. The six biome count excludes the sanctuary palette.
+Room counts include the sanctuary, 12 original main-route rooms, 24 new dungeon chambers, and the five original optional rooms. Each gate contains one seeded Wellspring in its interior chambers; the sanctuary also has a reusable hearth. Former benches are utility camps rather than healing points. The six biome count excludes the sanctuary palette.
 
 ```mermaid
 flowchart TD
@@ -45,7 +45,9 @@ Story voices belong to places and creatures. Every room has a brief authored whi
 
 Travelers speak beside their own figures. E/Enter or the Continue touch button advances their conversation; moving away leaves it. The 21 bosses each have their own arrival and defeat words tied to their encounter. Authored whispers and boss lines supply local context; major revelations still follow earned NPC quests, history records, and ending choices.
 
-The six fragment guardians and three forbidden guardians have short chamber introductions before combat. The main ending choice and the optional final covenant each lead into a party-centered finale. These scenes can be skipped and do not change a saved decision or the requirements for reaching an ending.
+The six fragment guardians and three forbidden guardians physically enter their chambers in short animated introductions before combat. Their defeats leave individual landmarks: the Matron becomes a memory tree, Bellows burns down into a small ember censer, the Leviathan releases an ink archive, the Conductor flies away promising to return, and the Stag’s antlers close around a stopped clock. E reads their histories in the scene. The forbidden guardians leave their own garden, letter, and cradle. These remains return on revisit or reload unless a gate death has revived the guardian.
+
+Victories grant their rewards immediately without a blocking reward summary. After the Hollow Sovereign falls, E at the exposed Worldheart requests the main ending choice. E at the defeated Nullheart’s Open Cradle begins the final covenant scene. Each leads into a party-centered finale; the scenes can be skipped and do not change a saved decision or the requirements for reaching an ending. Continue returns to exploration after either ending.
 
 ## Optional chronicle
 

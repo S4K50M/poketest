@@ -181,8 +181,7 @@ try {
   await page.reload();
   await clock(100);
   await page.click('#continue-button');
-  assert(await page.locator('.true-ending').isVisible());
-  await page.click('[data-resume]');
+  assert(!(await page.locator('#overlay').isVisible()),'completed saves resume exploration without reopening ending credits');
   s = await snapshot();
   assert.equal(s.trueEnding, 'unwritten');
   assert.equal(Object.values(s.quests).filter(q => q.state === 'complete').length, 8);
@@ -200,7 +199,6 @@ try {
   await page.reload();
   await clock(100);
   await page.click('#continue-button');
-  await page.click('[data-resume]');
   s = await snapshot();
   assert.deepEqual(s.combat.powerSlots, ['phoenix', 'choir']);
   assert.equal(s.combat.selectedPower, 1);

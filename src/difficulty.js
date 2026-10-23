@@ -1,6 +1,7 @@
 import { BOSSES } from './world.js';
 import { MINIONS } from './designs.js';
 import {bossProgression} from './boss-progression.js';
+import {updateEcologyMinion} from './minion-behavior.js';
 
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 export const DUNGEON_HEAL=Object.freeze({frames:72,cost:40,amount:1});
@@ -13,6 +14,7 @@ const shot=(g,e,angle,speed,damage,status={})=>g.enemyShots.push({x:e.x,y:e.y-70
 export { updateBossEncounter } from './boss-encounters.js';
 
 export function updateDungeonMinion(g,e){
+  if(updateEcologyMinion(g,e))return true;
   if(!DUNGEON_MINIONS.includes(e.kind))return false;
   const p=g.player,d=MINIONS[e.kind],base=e.baseY??520;
   if(Math.abs(e.x-p.x)>1200||Math.abs(base-p.y)>620)return true;

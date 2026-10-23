@@ -6,7 +6,7 @@ const lerp=(a,b,t)=>a+(b-a)*t;
 const ease=t=>1-(1-clamp(t))**3;
 const hash=s=>String(s).split('').reduce((a,c)=>(a*31+c.charCodeAt(0))%997,7);
 const BOUNDS=Object.freeze({
- gator:[-232,-208,235,12],mantis:[-167,-324,180,12],yeti:[-162,-292,229,12],
+ gator:[-232,-222,235,12],mantis:[-167,-324,180,12],yeti:[-162,-292,229,12],
  griffin:[-224,-282,213,12],beetle:[-150,-253,219,12],jackal:[-239,-243,213,12],
  shark:[-148,-309,226,12],dragon:[-166,-312,192,12],deer:[-115,-310,194,12],
  moth:[-193,-296,193,12],owl:[-194,-304,194,12],
@@ -29,6 +29,18 @@ function feather(c,x,y,w,h,angle,col,light){joint(c,x,y,angle,()=>{path(c,[['M',
 function vein(c,x,y,scale,col){curve(c,[x,y,x+9*scale,y+7*scale,x-4*scale,y+16*scale,x+10*scale,y+25*scale],col,1.8);line(c,[[x+4*scale,y+10*scale],[x+15*scale,y+7*scale]],col,1);}
 function plate(c,p,fill,light){poly(c,p,fill,INK,2);if(light)line(c,p.slice(0,3),light,1.5);}
 
+// These are anatomical motion traits, independent of gameplay tuning. A
+// scuttling fortress and a hovering assassin should never share a gait.
+const MOTION=Object.freeze({
+ pyrojaw:{gait:.8,step:1.4,tuck:11,breath:.75,lean:.75},
+ voltantis:{gait:1.6,step:.7,tuck:25,breath:.4,lean:1.25},
+ glaciolith:{gait:.68,step:1.5,tuck:9,breath:1.5,lean:.65},
+ zephyrix:{gait:1.16,step:.75,tuck:26,breath:.65,lean:1.25},
+ terrakhan:{gait:.62,step:.65,tuck:7,breath:.4,lean:.55},
+ noxshade:{gait:1.3,step:.65,tuck:21,breath:.5,lean:1.4},
+ aqualance:{gait:.95,step:.9,tuck:18,breath:.7,lean:1.15},
+ ferrodrake:{gait:.85,step:1.1,tuck:15,breath:1,lean:.85},
+});
 function poseFor(d,input,t,options){
  const p=typeof input==='string'?{state:input}:input||{},state=p.state||(p.hit?'hit':p.heavy?'heavy':p.attack?'attack':p.air?'air':p.land?'land':'idle');
  const attacking=state==='attack'||state==='heavy'||p.attack>0,explicit=options.attackProgress!=null||p.attackProgress!=null||typeof input==='string';
@@ -36,11 +48,11 @@ function poseFor(d,input,t,options){
  const anticipate=attacking&&explicit&&progress<.22?Math.sin(progress/.22*Math.PI/2):0;
  const strike=attacking?(explicit?Math.sin(clamp((progress-.22)/.37)*Math.PI/2)*(1-clamp((progress-.59)/.41)):clamp(p.attack||.5)):0;
  const follow=attacking&&progress>.45?Math.sin(clamp((progress-.45)/.55)*Math.PI):0;
- const walk=p.walk||0,speed=clamp(options.speed??(walk?1:0)),air=state==='air'||state==='launch'||!!p.air,guard=state==='shield'||state==='parry'||p.shield;
- const time=reduced?0:t,id=hash(d.id),breath=Math.sin(time*2.1+id)*1.1;
- return {state,time,progress,heavy,anticipate,strike,follow,attack:strike*(heavy?1.25:1)-anticipate*.45,combo:options.combo||p.combo||1,air,guard,parry:state==='parry',hurt:state==='hit'||p.hit,death:state==='death'?clamp(options.deathProgress??p.deathProgress??.65):0,dash:state==='dash',cast:state==='cast'||options.charged,land:clamp(p.land||0),reduced,walk,speed,breath,
-  stride:Math.sin(walk)*speed,flap:Math.sin(time*(air?10:4))*(air?.45:.1),tuck:air?16:state==='dash'?9:0,
-  lean:(state==='hit'?-.095:guard?-.045:state==='dash'?.12:0)-anticipate*(heavy?.09:.035)+strike*(heavy?.085:.04),
+ const motion=MOTION[d.id]||{gait:1,step:1,tuck:16,breath:1,lean:1},walk=(p.walk||0)*motion.gait,speed=clamp(options.speed??(walk?1:0)),air=state==='air'||state==='launch'||!!p.air,guard=state==='shield'||state==='parry'||p.shield;
+ const time=reduced?0:t,id=hash(d.id),breath=Math.sin(time*2.1+id)*1.1*motion.breath;
+ return {state,time,progress,heavy,castVariant:options.castVariant||p.castVariant||'neutral',castPhase:reduced?.65:(Math.sin(time*9)*.5+.5),anticipate,strike,follow,attack:strike*(heavy?1.25:1)-anticipate*.45,combo:options.combo||p.combo||1,air,guard,parry:state==='parry',hurt:state==='hit'||p.hit,death:state==='death'?clamp(options.deathProgress??p.deathProgress??.65):0,dash:state==='dash',cast:state==='cast'||options.charged,land:clamp(p.land||0),reduced,walk,speed,breath,
+  stride:Math.sin(walk)*speed*motion.step,flap:Math.sin(time*(d.id==='zephyrix'?air?13:5:air?10:4))*(air?.45:.1),tuck:air?motion.tuck:state==='dash'?9:0,
+  lean:((state==='hit'?-.095:guard?-.045:state==='dash'?.12:0)-anticipate*(heavy?.09:.035)+strike*(heavy?.085:.04))*motion.lean,
   tail:Math.sin(time*3.5-walk*.35)*.1+anticipate*.15-strike*.17,head:Math.sin(time*1.8+id)*.015-anticipate*.07+strike*.055,
  };
 }
@@ -60,7 +72,7 @@ function bipedLeg(c,m,x,back,col,armor=false){
 }
 
 function gator(c,d,m,p){
- const body=grad(c,-40,-154,50,-25,'#89917a','#495548','#253836');
+ const body=grad(c,-40,-154,50,-25,'#777d72','#343d3c','#192b2c');
  joint(c,-72,-93,m.tail-m.attack*.25,()=>{
   path(c,[['M',-66,-109],['C',-108,-115,-143,-61,-171,-84],['C',-191,-100,-172,-119,-159,-113],['C',-180,-147,-215,-109,-199,-74],['C',-175,-35,-125,-53,-66,-69],['Z']],body,INK,3);
   plate(c,[[-175,-119],[-197,-108],[-207,-81],[-186,-58],[-158,-66],[-144,-91]],'#263b39','#9eaa8b');
@@ -77,7 +89,7 @@ function gator(c,d,m,p){
   c.translate(m.attack*21,-m.strike*3);
   path(c,[['M',42,-122],['C',49,-148,79,-163,109,-148],['L',126,-132],['C',148,-133,176,-124,183,-109],['L',177,-96],['L',123,-88],['C',98,-70,58,-78,46,-96],['Z']],body,INK,3);
   path(c,[['M',75,-138],['Q',103,-158,123,-130],['L',175,-117],['L',166,-106],['L',110,-110],['Z']],'#6e7960',INK,2);
-  const jaw=m.cast?12:m.strike*8+m.heavy*m.follow*5;
+  const jaw=m.cast?22+m.castPhase*6:m.strike*8+m.heavy*m.follow*5;
   joint(c,102,-101,-jaw*.009,()=>{path(c,[['M',89,-107],['L',176,-108],['Q',169,-82,126,-80],['L',100,-83],['Z']],'#b3a47d',INK,2);curve(c,[102,-92,127,-88,154,-91,171,-99],'#e5d4a3',2);for(let i=0;i<7;i++)poly(c,[[108+i*9,-104],[112+i*9,-92],[117+i*9,-104]],'#f6e8bd',INK,.7);});
   plate(c,[[58,-139],[65,-162],[79,-151],[91,-162],[108,-146],[97,-128]],'#344a43','#a4b191');eye(c,106,-127,10,'#ffdc8d',m,1);oval(c,170,-118,3.5,2.2,INK);
   for(let i=0;i<4;i++)curve(c,[57+i*13,-108,59+i*13,-101,53+i*13,-94,61+i*13,-84],'#f0a455',1.7);
@@ -115,7 +127,7 @@ function mantis(c,d,m,p){
 function yeti(c,d,m,p){
  const frost=grad(c,-75,-220,76,-70,'#e9f6e9','#b6dcd9','#507e90');
  // A smaller lower pair braces the body while the primary arms strike.
- for(const back of[true,false]){const side=back?-1:1,angle=side*(m.guard?.55:.15)-m.strike*.18; joint(c,side*44,-130,angle,()=>{segment(c,[side*44,-130],[side*77,-101],17,13,p.dark);segment(c,[side*77,-101],[side*72,-64],13,16,'#82b1b9');fur(c,side*73,-67,32,20,'#cfe6df',5);});}
+ for(const back of[true,false]){const side=back?-1:1,angle=side*(m.guard?.55:m.cast?-.6:.15)-m.strike*.18,reach=m.cast?29:0; joint(c,side*44,-130,angle,()=>{segment(c,[side*44,-130],[side*(77+reach*.3),-101],17,13,p.dark);segment(c,[side*(77+reach*.3),-101],[side*(72+reach),-64],13,16,'#82b1b9');fur(c,side*(73+reach),-67,32,20,'#cfe6df',5);});}
  bipedLeg(c,m,-39,true,p.dark,true);bipedLeg(c,m,39,false,frost,true);
  path(c,[['M',-67,-181],['C',-80,-153,-79,-114,-51,-83],['Q',-7,-61,39,-84],['C',78,-112,78,-163,57,-186],['Q',-7,-214,-67,-181],['Z']],frost,INK,3);
  fur(c,0,-174,128,61,'#e7f0df',11);fur(c,-9,-128,81,39,'#d4e3d6',8);
@@ -214,8 +226,7 @@ function shark(c,d,m,p){
   path(c,[['M',-26,-228],['L',-12,-255],['L',7,-281],['L',26,-249],['Q',47,-224,32,-193],['L',-12,-193],['Z']],steel,INK,2.4);
   path(c,[['M',-61,-249],['Q',-43,-266,-22,-249],['L',18,-251],['Q',47,-270,70,-249],['L',68,-231],['L',29,-232],['Q',3,-217,-21,-231],['L',-60,-230],['Z']],steel,INK,2.5);
   eye(c,-44,-242,7,'#e7f6df',m,7);eye(c,57,-243,7,'#e7f6df',m,7);
-  path(c,[['M',25,-225],['L',148,-242],['L',154,-233],['L',31,-210],['Z']],grad(c,29,-241,44,-209,'#f7f3d7','#b7ced0','#63879b'),INK,2);
-  for(let i=0;i<7;i++)curve(c,[42+i*13,-224-i*1.6,45+i*13,-231-i*1.6,49+i*13,-229-i*1.7,51+i*13,-219-i*1.8],'#486f83',1.4);
+  path(c,[['M',25,-225],['L',64,-231],['L',71,-220],['L',31,-210],['Z']],grad(c,29,-241,44,-209,'#f7f3d7','#b7ced0','#63879b'),INK,2);
   path(c,[['M',-12,-211],['Q',5,-201,23,-211]],null,'#284f61',2);for(let i=0;i<3;i++)curve(c,[-21+i*8,-221,-24+i*8,-217,-22+i*8,-212,-25+i*8,-207],'#315972',1.3);
  });
 }
@@ -281,6 +292,52 @@ function wingCreature(c,d,m,p,owl){
  });
 }
 
+function signatureAnatomy(c,d,m,p){
+ const t=m.time,cast=m.cast,pulse=m.reduced?.65:m.castPhase;
+ if(d.id==='pyrojaw'){
+  // Open dorsal chimneys vent the same magma as the ground-denial skill.
+  for(let i=0;i<4;i++){const x=-75+i*29,y=-147-i%2*9;poly(c,[[x-9,y+9],[x-8,y-17],[x+8,y-15],[x+12,y+10]],'#202e2f','#8f9a84',1.5);oval(c,x+1,y-13,6,3,'#ffba6e');
+   if(cast||m.dash){const high=12+(cast?25:10)*pulse;curve(c,[x,y-18,x-13,y-high,x+12,y-high-11,x+5,y-high-21],'#f4a05e',4);glow(c,x,y-28,24,'#ffad58',.17);}}
+  for(let i=0;i<6;i++){const x=-78+i*26;curve(c,[x,-104,x+12,-109,x+9,-97,x+18,-91],'#fb9e55',cast?2.8:1.1);}
+ }else if(d.id==='voltantis'){
+  // Exposed neon circuitry and a hard-light scythe edge, not a shared aura.
+  curve(c,[-8,-167,-2,-157,-9,-142,1,-125],'#e6ff72',3);line(c,[[-12,-204],[-8,-215],[6,-215]],'#f9ffb0',2);
+  for(const side of[-1,1]){const reach=cast?23*pulse:0;curve(c,[side*68,-157,side*(98+reach),-183,side*(114+reach),-213,side*(118+reach),-235],'#dfff6e',cast?5:2.3);glow(c,side*(102+reach),-202,31,'#dcff65',cast?.2:.08);}
+  if(cast)for(let i=0;i<3;i++)line(c,[[-40-i*13,-159+i*14],[-77-i*15,-160+i*14]],'#ebff9b88',2);
+ }else if(d.id==='glaciolith'){
+  // The lower hands make a grappling cage; the main arms carry the ice crown.
+  for(const side of[-1,1]){const reach=cast?pulse*21:0;for(let i=0;i<3;i++)poly(c,[[side*(65+i*11+reach),-83],[side*(70+i*11+reach),-107-i*5],[side*(80+i*11+reach),-80]],'#d5f3ee','#719eaf',1.2);}
+  for(let i=0;i<4;i++){const x=-34+i*22;poly(c,[[x,-171],[x+7,-197-(i%2)*12],[x+17,-171]],'#b6e5e5','#effff4',1);}
+  if(cast)curve(c,[-83,-67,-56,-84,47,-84,89,-66],'#dffdf2',3);
+ }else if(d.id==='zephyrix'){
+  // Prayer beads float independently of the monk's collar and wing motion.
+  for(let i=0;i<7;i++){const a=i*TAU/7+t*(cast?1.6:.35),rx=cast?67:42,ry=cast?27:16,x=14+Math.cos(a)*rx,y=-153+Math.sin(a)*ry;oval(c,x,y,cast?5.8:4.6,cast?5.8:4.6,'#d9d4a8','#547c75',1.3);oval(c,x-1,y-1,1.2,1.2,'#ffffdf');}
+  path(c,[['M',37,-129],['Q',7,-118,-31,-128],['L',-53,-104],['Q',-9,-111,27,-111]],'#e2e7cd','#69998a',1.2);
+  if(cast||m.air){curve(c,[-80,-84,-125,-112,-104,-157,-55,-164],'#caffea88',2);curve(c,[72,-89,119,-118,104,-156,76,-161],'#caffea66',1.4);}
+ }else if(d.id==='terrakhan'){
+  // Fractured plates lift apart during tectonic casts, exposing the core.
+  for(let i=0;i<3;i++){const x=-77+i*37,lift=cast?(11+pulse*9):0;poly(c,[[x,-141-lift],[x+11,-174-lift],[x+34,-157-lift],[x+34,-135-lift]],'#596b4c','#c3d198',2);line(c,[[x+10,-149-lift],[x+19,-158-lift],[x+28,-149-lift]],'#b6efac',1.4);}
+  if(cast)for(const side of[-1,1])curve(c,[side*29,-120,side*58,-112,side*63,-95,side*87,-89],'#dcf9b5',2.7);
+ }else if(d.id==='noxshade'){
+  // A visibly detached shadow-flame hand acts as the jackal's third limb.
+  const tx=-159-(cast?pulse*24:0),ty=-162+Math.sin(t*3)*8;
+  for(let i=0;i<3;i++)curve(c,[-83-i*5,-106-i*2,-128-i*4,-112,-100-i*9,ty-5,tx+19-i*3,ty+10],'#bb8ee1'+(i?'66':'aa'),2.2-i*.4);
+  path(c,[['M',tx+15,ty+12],['L',tx-10,ty+14],['L',tx-25,ty-2],['L',tx-36,ty-29],['L',tx-17,ty-14],['L',tx-12,ty-39],['L',tx-1,ty-18],['L',tx+9,ty-36],['L',tx+15,ty-9],['Z']],'#765496aa','#d7a5ed',1.4);
+  for(let i=0;i<3;i++)line(c,[[22+i*20,-119],[27+i*20,-108]],'#f0b6e2',1.2);
+ }else if(d.id==='aqualance'){
+  // A basket-hilt hydro-rapier gives the duelist a clear, held weapon.
+  const thrust=m.attack*24+(cast?pulse*17:0),hx=83+thrust,hy=-132-(m.guard?23:0);
+  segment(c,[42,-166],[67+thrust*.45,-138],13,9,p.body);segment(c,[67+thrust*.45,-138],[hx,hy],9,9,p.light);
+  oval(c,hx+5,hy,8,17,'#557d92','#cde8e4',2);curve(c,[hx-9,hy+8,hx-6,hy-20,hx+13,hy-24,hx+18,hy-3],'#d3e5d9',2);
+  poly(c,[[hx+11,hy-4],[208,hy-14-(cast?9:0)],[hx+13,hy+4]],'#b9f5f6bb','#e8ffff',1.4);line(c,[[hx-15,hy],[hx+12,hy]],'#4b677c',4);
+  if(cast)curve(c,[hx+29,hy+2,hx+62,hy+15,hx+83,hy-14,208,hy-12],'#b8ffff88',2);
+ }else if(d.id==='ferrodrake'){
+  for(const side of[-1,1]){const x=side*52,y=-173;oval(c,x,y,17,19,'#243849','#c4d6ce',2.4);oval(c,x,y,11,13,'#526f7a','#91a9aa',1);
+   for(let i=0;i<5;i++){const a=t*(cast?17:6)+i*TAU/5;line(c,[[x+Math.cos(a)*3,y+Math.sin(a)*3],[x+Math.cos(a+.4)*11,y+Math.sin(a+.4)*13]],'#d5e2d7',2);}
+   oval(c,x,y,4,5,cast?'#ffdfb0':'#df9c95');if(cast||m.dash){curve(c,[x-5,y+14,x-13,y+33,x+14,y+43,x+2,y+65],'#ffb7a2',5);glow(c,x,y+24,30,'#ff9e81',.16);}}
+ }
+}
+
 function accents(c,d,m,p,options){
  const low=['gator','beetle','griffin','jackal'].includes(d.rig),y=low?-105:-158,col=options.elementColor||p.light;
  if(m.strike>.32){c.save();c.globalAlpha*=m.strike*.36;path(c,[['M',70,y+39],['C',133,y+28,148,y-25,102,y-51]],null,col,m.heavy?6:3);path(c,[['M',81,y+31],['C',125,y+16,134,y-22,108,y-40]],null,'#fff4cf',1.2);c.restore();}
@@ -301,7 +358,13 @@ export function drawCreature(c,d,x,y,s=1,face=1,input={},time=0,options={}){
   c.translate(m.hurt?-8:m.strike*3,m.breath-Math.abs(m.stride)*2+m.land*5);c.rotate(m.lean);
   if(m.death){c.translate(0,m.death*5);c.rotate(m.death*.48);c.scale(1,1-m.death*.36);c.globalAlpha*=1-m.death*.55;}
   const squash=m.land*.1+(m.guard?.025:0)+m.anticipate*.035;c.scale(1+squash+(m.dash?.07:0),1-squash-(m.dash?.045:0));
+  if(m.cast&&MOTION[d.id]){
+   // Each species transfers weight differently while its field forms.
+   const q=m.castPhase,poses={pyrojaw:[5,5,.025,1.025,.97],voltantis:[0,-10,-.06,.96,1.04],glaciolith:[0,4,-.025,1.045,.98],zephyrix:[-2,-15,-.045,1.02,1.02],terrakhan:[-2,6,.01,1.04,.96],noxshade:[7,3,.045,1.055,.96],aqualance:[10,-1,.06,1.02,1],ferrodrake:[-2,-5,-.035,1.03,1.02]},v=poses[d.id];
+   c.translate(v[0]*q,v[1]*q);c.rotate(v[2]*q+(m.castVariant==='up'?-.035:m.castVariant==='down'?.025:0));c.scale(1+(v[3]-1)*q,1+(v[4]-1)*q);
+  }
   if(d.rig==='gator')gator(c,d,m,p);else if(d.rig==='mantis')mantis(c,d,m,p);else if(d.rig==='yeti')yeti(c,d,m,p);else if(d.rig==='griffin')griffin(c,d,m,p);else if(d.rig==='beetle')beetle(c,d,m,p);else if(d.rig==='jackal')jackal(c,d,m,p);else if(d.rig==='shark')shark(c,d,m,p);else if(d.rig==='dragon')dragon(c,d,m,p);else if(d.rig==='deer')deer(c,d,m,p);else wingCreature(c,d,m,p,d.rig==='owl');
+  signatureAnatomy(c,d,m,p);
   accents(c,d,m,p,options);
  }finally{c.restore();}
 }

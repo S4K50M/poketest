@@ -16,48 +16,48 @@ const fingerprint=events=>JSON.stringify(events,(key,value)=>['color','name','la
 const fixture=(id,phase=1)=>{
   const g=new RPGCampaign(undefined,{worldSeed:1}),room=Object.values(ROOMS).find(r=>r.enemies.some(e=>e.boss===id));
   g.loadRoom(room.id,Math.max(100,room.enemies.find(e=>e.boss===id).x-240),false);
-  const e=g.enemies.find(e=>e.boss===id);e.introduced=true;e.phase=phase;e.hp=e.maxHp*(phase===1?1:phase===2?.6:.3);e.berserk=bossRank(id)>=4&&phase===3;e.healUsed=true;e.stun=0;e.timer=1;g.transition=0;
+  const e=g.enemies.find(e=>e.boss===id);e.introduced=true;e.phase=phase;e.hp=e.maxHp*(phase===1?1:phase===2?.6:phase===3?.3:.1);e.berserk=phase>=3;e.healUsed=true;e.stun=0;e.timer=1;g.transition=0;
   return {g,e};
 };
 
-test('the entire 21-boss roster has bespoke, executable four-move encounter profiles',()=>{
+test('the entire 21-boss roster has bespoke, executable six-move encounter profiles',()=>{
   assert.deepEqual(Object.keys(BOSS_ENCOUNTERS).sort(),Object.keys(BOSSES).sort());
   const ids=new Set(),identities=new Set(),mechanicalProfiles=new Set();
   for(const[id,p]of Object.entries(BOSS_ENCOUNTERS)){
     assert(p.title&&p.identity,id+' needs a combat identity');assert(!identities.has(p.identity));identities.add(p.identity);
-    assert.equal(p.moves.length,4,id);assert.equal(p.sequences.length,3,id+' must have three phase patterns');
+    assert.equal(p.moves.length,6,id);assert.equal(p.sequences.length,4,id+' must have four phase patterns');
     assert(['stalk','anchor','skirmish','hover'].includes(p.movement));
     const used=new Set();
-    for(const sequence of p.sequences){assert(sequence.length>=4,id+' phase must be authored');for(const n of sequence){assert(Number.isInteger(n)&&n>=0&&n<4);used.add(n);}}
-    assert.equal(used.size,4,id+' must use all four signature moves');
+    for(const sequence of p.sequences){assert(sequence.length>=4,id+' phase must be authored');for(const n of sequence){assert(Number.isInteger(n)&&n>=0&&n<p.moves.length);used.add(n);}}
+    assert.equal(used.size,6,id+' must use all six signature moves');
     const signatures=[];
     for(const m of p.moves){
       assert(m.id&&m.name&&m.hint&&m.counter,id+' has an unnamed or unreadable move');assert(!ids.has(m.id),'move IDs must be globally unique: '+m.id);ids.add(m.id);
       assert(m.tell>=28,'startup must permit a visible reaction: '+m.id);assert(m.recover>=24,'every attack commits to a punish window: '+m.id);assert(m.active>0);
-      for(const phase of[1,2,3]){
+      for(const phase of[1,2,3,4]){
         const events=m.build(context(phase));assert(Array.isArray(events)&&events.length>0,m.id+' must execute mechanics');finite(events,m.id);
         for(const ev of events){
           assert(ev.at>=0&&Number.isInteger(ev.at),m.id+' needs fixed-frame event timing');
-          assert(['zone','dash','warp','shots','summon','platform','force','heal'].includes(ev.type),m.id+' unknown event '+ev.type);
+          assert(['zone','dash','warp','shots','summon','platform','force','heal','armament','shield'].includes(ev.type),m.id+' unknown event '+ev.type);
           if(ev.type==='summon')assert(MINIONS[ev.kind],m.id+' summons an existing species');
           if(ev.type==='platform'){assert(ev.y>=520-150,'new ledges must be reachable without double jump');assert(ev.life>=180);}
           if(ev.type==='zone'){
             assert(ev.delay>=12,'hazards warn before becoming damaging: '+m.id);assert(ev.life>0&&ev.life<=90,'hazard lifetime is bounded');
-            if(ev.damage==='lethal'){assert(m.tell>=90,'execution attacks require a long tell: '+m.id);assert(phase===3,'execution belongs to desperation phase: '+m.id);assert(ev.h<220||ev.w<800,'execution leaves a jump, ledge, or horizontal exit');}
+            if(ev.damage==='lethal'){assert(m.tell>=90,'execution attacks require a long tell: '+m.id);assert(phase>=3,'execution belongs to desperation phase: '+m.id);assert(ev.h<220||ev.w<800,'execution leaves a jump, ledge, or horizontal exit');}
           }
         }
       }
       signatures.push(fingerprint(m.build(context(3))));
     }
-    assert.equal(new Set(signatures).size,4,id+' must change geometry or behavior between its four moves');
+    assert.equal(new Set(signatures).size,6,id+' must change geometry or behavior between its six moves');
     const profileTrace=signatures.join('|');assert(!mechanicalProfiles.has(profileTrace),id+' may not reuse another boss script');mechanicalProfiles.add(profileTrace);
   }
-  assert.equal(ids.size,84);assert.equal(mechanicalProfiles.size,21);
+  assert.equal(ids.size,126);assert.equal(mechanicalProfiles.size,21);
 });
 
 for(const[id,p]of Object.entries(BOSS_ENCOUNTERS))test(id+': every signature reaches the simulation and retains named counterplay',()=>{
   const traces=[];
-  for(let i=0;i<4;i++){
+  for(let i=0;i<p.moves.length;i++){
     const {g,e}=fixture(id,3);if(id==='nullheart'){g.fragments.add('crown');g.defeatedBosses.add('palimpsest');g.defeatedBosses.add('belltwin');g.faction='wardens';}
     beginBossMove(g,e,i);
     assert.equal(e.moveId,p.moves[i].id);assert.equal(e.moveName,p.moves[i].name);assert.equal(e.state,'windup');assert.equal(e.counter,p.moves[i].counter);assert(e.telegraph?.hint);

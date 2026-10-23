@@ -126,16 +126,22 @@ export class CombatDirector{
   noteBossPressure(e,options){
     if(!e.boss||options.dot||e.hp<=0)return;
     const g=this.g,p=g.player,move=options.move||(options.heavy?'heavy':'light'),previous=e.pressure;
-    const close=Math.abs(e.x-p.x)<205&&Math.abs(e.y-p.y)<135,groundedHeavy=options.heavy&&move!=='riposte'&&p.grounded&&close;
+    const close=Math.abs(e.x-p.x)<205&&Math.abs(e.y-p.y)<135,groundedHeavy=options.heavy&&typeof options.move==='string'&&move!=='riposte'&&p.grounded&&close;
     const repeated=previous&&g.tick-previous.lastTick<=150&&previous.lastMove===move;
     e.pressure={lastMove:groundedHeavy?move:null,chain:groundedHeavy?(repeated?previous.chain+1:1):0,lastTick:g.tick,closeHits:close?(previous?.closeHits||0)+1:0};
     // The AI reads a demonstrated pattern, never the player's next input.
     // Mixed strings, aerial routes and a parried riposte reset this read.
-    if(!groundedHeavy)e.pressureReady=false;
-    else if(e.pressure.chain>=3&&!e.postureLock&&e.state!=='heal')e.pressureReady=true;
+    if(!groundedHeavy){e.pressureReady=false;e.guardReadMove=null;e.guarding=false;}
+    else if(e.pressure.chain>=2&&!e.postureLock&&e.state!=='heal')e.pressureReady=true;
+    else if(e.pressure.chain<2)e.pressureReady=false;
   }
   bossReadsStrike(e,options){
     const p=this.g.player;
+    if(e.boss&&e.ward&&!options.dot&&!['recover','heal','enrage'].includes(e.state)){
+      const frontal=Math.sign(p.x-e.x)===e.face,melee=typeof options.move==='string'&&options.move!=='riposte';
+      if(!frontal||!p.grounded||!melee){e.ward=null;this.g.emit('bossshieldbreak',{boss:e.boss,x:e.x,y:e.y-80});}
+      else{e.ward.charges-=options.heavy?2:1;if(e.ward.charges<=0){e.ward=null;this.g.emit('bossshieldbreak',{boss:e.boss,x:e.x,y:e.y-80});}return true;}
+    }
     if(!e.boss||!e.guarding||options.dot||!options.heavy||typeof options.move!=='string'||options.move==='riposte'||!p.grounded||['recover','heal','enrage'].includes(e.state))return false;
     const read=e.guardReadMove||e.pressure?.lastMove;
     return !!read&&Math.abs(e.x-p.x)<205&&Math.abs(e.y-p.y)<135&&Math.sign(p.x-e.x)===e.face&&read===(options.move||'heavy');
@@ -147,10 +153,11 @@ export class CombatDirector{
       g.emit('impact',{x:e.x,y:e.y-(e.boss?80:30),element:options.element||g.data.types[0],heavy:options.heavy,move:options.move});
       e.recoil=12;e.recoilDir=direction;e.stun=e.boss&&['countertell','evade','enrage'].includes(e.state)?0:Math.max(e.stun||0,e.boss?3:options.stun||12);
       this.noteBossPressure(e,options);
+      if(e.boss&&options.guarded)e.guardRetaliation=true;
       if(e.boss&&e.state==='heal'&&e.healChannel&&(options.heavy||options.move==='riposte')){e.healChannel.interrupted=true;e.pressureReady=false;}
       if(options.launch&&!e.boss&&e.hp>0){e.juggle=32;e.launchVy=typeof options.launch==='number'?options.launch:-10.5;e.baseY=e.baseY||520;this.stats.launches++;g.emit('launch',{x:e.x,y:e.y-30});}
-      if(e.boss&&e.hp>0&&!e.postureLock){e.poise=(e.poise||0)+(options.guarded?3:options.heavy?17:6);if(e.poise>=100){e.poise=0;e.postureLock=180;e.pressureReady=false;e.guarding=false;e.stun=65;e.state='recover';e.timer=80;g.emit('bossbreak',{x:e.x,y:e.y-70});g.say('POSTURE BROKEN · UNLEASH YOUR COMBO');}}
-      if(options.element==='Fire'&&options.heavy)g.zones.push({type:'fire',x:e.x,y:e.baseY||520,radius:60,life:90,owner:options.source??g.activeSlot});
+      if(e.boss&&e.hp>0&&!e.postureLock){e.poise=(e.poise||0)+(options.guarded?3:options.heavy?17:6);if(e.poise>=100){e.poise=0;e.postureLock=180;e.pressureReady=false;e.guarding=false;e.stun=24;e.state='recover';e.timer=36;g.emit('bossbreak',{x:e.x,y:e.y-70});g.say('POSTURE BROKEN · UNLEASH YOUR COMBO');}}
+      if(options.element==='Fire'&&options.heavy&&!options.guarded)g.zones.push({type:'fire',x:e.x,y:e.baseY||520,radius:60,life:90,owner:options.source??g.activeSlot});
     }
     if(!e.hp){e.deathTimer=32;e.state='dying';g.emit('shatter',{x:e.x,y:e.y-40,color:e.boss?undefined:g.data.accent});}
     if(this.flow>=70&&p.attack)p.powerAura=Math.max(p.powerAura,12);

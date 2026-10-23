@@ -13,7 +13,7 @@ export const REAVER_ENCOUNTERS={
   moves:[
    {id:'carrion-seed-testament',name:'Seed Testament',kind:'seed-minefield',counter:'dodge',hint:'The seeds open in sequence. Move out of each marked patch.',tell:42,active:84,recover:40,
     build:c=>{
-     const events=[],count=c.phase===3?5:3;
+     const events=[],count=c.phase>=3?5:3;
      for(let i=0;i<count;i++)events.push(zone(i*9,'mine',c.clampX(c.tx+(i-(count-1)/2)*132),c.floor-22,82,68,26+i*3,24,1.25,{status:{root:12},label:'GERMINATING'}));
      return events;
     }},
@@ -29,7 +29,7 @@ export const REAVER_ENCOUNTERS={
     build:c=>[
      {at:0,type:'force',x:c.x,y:c.floor-35,radius:320,pull:.45,duration:38},
      zone(0,'ring',c.x,c.floor-35,530,130,34,24,2,{inner:102,knockback:1.8,status:{root:14},label:'HOLLOW SPORE HALO'}),
-     ...(c.phase===3?[zone(38,'ring',c.x,c.floor-35,650,130,24,16,1.5,{inner:122,label:'SECOND BLOOM'})]:[]),
+     ...(c.phase>=3?[zone(38,'ring',c.x,c.floor-35,650,130,24,16,1.5,{inner:122,label:'SECOND BLOOM'})]:[]),
     ]},
    {id:'carrion-compost-cathedral',name:'Compost Cathedral',kind:'root-bridge-purge',counter:'platform',hint:'Use the new root bridges. The spores crawl along the ground.',tell:64,active:118,recover:58,
     build:c=>[
@@ -83,7 +83,7 @@ export const REAVER_ENCOUNTERS={
     build:c=>[
      {at:0,type:'force',x:c.x+c.face*50,y:c.floor-45,radius:355,pull:.7,duration:42},
      zone(0,'slash',c.clampX(c.x+c.face*105),c.floor-65,182,136,44,16,2.5,{knockback:2.2,status:{slick:95},label:'BOOKMAW SNAP'}),
-     ...(c.phase===3?[zone(52,'blast',c.clampX(c.x+c.face*110),c.floor-30,210,74,18,14,1.5,{label:'INK REGURGITATION'})]:[]),
+     ...(c.phase>=3?[zone(52,'blast',c.clampX(c.x+c.face*110),c.floor-30,210,74,18,14,1.5,{label:'INK REGURGITATION'})]:[]),
     ]},
    {id:'page-boundless-breach',name:'Boundless Breach',kind:'tidal-double-vault',counter:'dodge',hint:'Two splashes: a long breach, then the return vault. Leave the marked water.',tell:46,active:88,recover:44,
     build:c=>{
@@ -153,7 +153,7 @@ export const REAVER_ENCOUNTERS={
     build:c=>[
      platform(0,c.center-75,c.floor-120,150,'metal',480),
      platform(0,c.clampX(c.tx-60),c.floor-100,120,'metal',480),
-     zone(46,'beam',c.center,c.floor-39,Math.max(200,c.right-c.left-36),72,42,20,c.phase===3?'lethal':2.5,{unblockable:true,knockback:2.8,label:c.phase===3?'EXECUTION · LEAVE THE FLOOR':'DEATH NOTE · CLIMB'}),
+     zone(46,'beam',c.center,c.floor-39,Math.max(200,c.right-c.left-36),72,42,20,c.phase>=3?'lethal':2.5,{unblockable:true,knockback:2.8,label:c.phase>=3?'EXECUTION · LEAVE THE FLOOR':'DEATH NOTE · CLIMB'}),
     ]},
   ],
  },
@@ -176,7 +176,7 @@ export const REAVER_ENCOUNTERS={
       zone(40,'floor',c.center-half/2-85,c.floor-14,half,34,28,30,1.5,{status:{slow:140},label:'LEFT ICE BED'}),
       zone(52,'floor',c.center+half/2+85,c.floor-14,half,34,28,26,1.5,{status:{slow:140},label:'RIGHT ICE BED'}),
      ];
-     if(c.phase===3)events.push({at:74,type:'shots',x:c.center,y:c.floor-240,angle:Math.PI/2,count:3,spread:.62,speed:5.2,damage:1,kind:'needle',status:{slow:85}});
+     if(c.phase>=3)events.push({at:74,type:'shots',x:c.center,y:c.floor-240,angle:Math.PI/2,count:3,spread:.62,speed:5.2,damage:1,kind:'needle',status:{slow:85}});
      return sorted(events);
     }},
    {id:'mourner-last-warmth',name:'Last Warmth',kind:'ice-refuge-purge',counter:'platform',hint:'Climb a new ice refuge. The deep frost washes the ground; stay below the high snow.',tell:68,active:126,recover:60,
@@ -235,7 +235,7 @@ export const REAVER_ENCOUNTERS={
      return [
       zone(0,'mine',arrival,c.floor-55,86,130,28,1,1,{label:'FINAL APPEARANCE'}),
       {at:28,type:'warp',x:arrival},
-      zone(34,'beam',c.clampX(c.tx),c.floor-220,126,470,52,20,c.phase===3?'lethal':2.5,{unblockable:true,knockback:2.8,label:c.phase===3?'EXECUTION · LEAVE THE RAY':'FUTURE ERASURE'}),
+      zone(34,'beam',c.clampX(c.tx),c.floor-220,126,470,52,20,c.phase>=3?'lethal':2.5,{unblockable:true,knockback:2.8,label:c.phase>=3?'EXECUTION · LEAVE THE RAY':'FUTURE ERASURE'}),
       ...(c.phase>=2?[-1,1].map((dir,i)=>zone(78+i*12,'slash',c.clampX(c.tx+dir*210),c.floor-68,115,138,24,14,1.75,{label:'DISCARDED FUTURE'})):[]),
      ];
     }},

@@ -19,7 +19,7 @@ export const MAJOR_ENCOUNTERS={
       }),
       move('briar-living-nursery','Living Nursery','summon','minions','Cut down her thornlings while the Matron tends the nursery.',58,55,58,c=>[
         platform(0,c,c.x-c.face*140,'root'),
-        {at:8,type:'summon',kind:'thornling',count:c.phase===3?3:2,x:c.clampX(c.x+c.face*130)},
+        {at:8,type:'summon',kind:'thornling',count:c.phase>=3?3:2,x:c.clampX(c.x+c.face*130)},
         zone(14,'mine',c.clampX(c.x-c.face*145),c.floor-17,90,34,{delay:28,life:28,damage:1,label:'NURSERY SEED'}),
       ]),
       move('briar-mothers-embrace','Mother’s Embrace','ring','get-close','Stand inside the root circle, close to her seed chamber.',64,95,52,c=>[
@@ -45,7 +45,7 @@ export const MAJOR_ENCOUNTERS={
       move('bell-resonant-peal','Resonant Peal','ring','get-close','The outer bell ring hurts. Stay beneath the saint or jump clear.',66,120,48,c=>[
         zone(0,'ring',c.x,c.floor-25,570,58,{inner:100,delay:30,life:18,damage:1.5,knockback:2.2,label:'BELL RADIUS'}),
         zone(42,'ring',c.x,c.floor-25,810,58,{inner:190,delay:28,life:18,damage:1.5,knockback:2.2}),
-        ...(c.phase===3?[zone(78,'ring',c.x,c.floor-25,1000,58,{inner:285,delay:22,life:16,damage:2,knockback:2.5})]:[]),
+        ...(c.phase>=3?[zone(78,'ring',c.x,c.floor-25,1000,58,{inner:285,delay:22,life:16,damage:2,knockback:2.5})]:[]),
       ]),
       move('bell-open-the-grates','Open the Grates','vents','dodge','Orange grates ignite in alternating lanes. Move into the dark gaps.',54,145,42,c=>{
         const events=[];for(let i=0;i<5;i++){const x=c.left+90+i*(c.right-c.left-180)/4;events.push(mark((i%2)*42,c,x,70,{delay:32,life:24,damage:1.5,status:{burn:70},label:'FURNACE GRATE'}));}return events;
@@ -93,7 +93,7 @@ export const MAJOR_ENCOUNTERS={
       move('conductor-thunderstaff','Thunderstaff','beam','jump','Jump the low staff beam; the final high chord passes above grounded creatures.',58,140,42,c=>[
         zone(0,'beam',c.center,c.floor-28,c.right-c.left,42,{delay:28,life:14,damage:2,knockback:2.2,label:'LOW CHORD'}),
         zone(52,'beam',c.center,c.floor-155,c.right-c.left,38,{delay:30,life:16,damage:2,knockback:1.8,label:'HIGH CHORD · LAND'}),
-        ...(c.phase===3?[zone(98,'beam',c.center,c.floor-28,c.right-c.left,42,{delay:22,life:12,damage:2,label:'FINAL DOWNBEAT'})]:[]),
+        ...(c.phase>=3?[zone(98,'beam',c.center,c.floor-28,c.right-c.left,42,{delay:22,life:12,damage:2,label:'FINAL DOWNBEAT'})]:[]),
       ]),
       move('conductor-lost-choir','The Lost Choir','summon','minions','Silence the stormkites during the conductor’s long exposed cadenza.',65,120,65,c=>[
         {at:0,type:'summon',kind:'stormkite',count:2,x:c.clampX(c.x-c.face*180)},
@@ -138,7 +138,7 @@ export const MAJOR_ENCOUNTERS={
       move('crown-break-the-throne','Break the Throne','charge','dodge','Leave the marked lane; the throne’s crash throws everything away.',50,130,55,c=>[
         dash(0,c,c.tx+c.face*170,24,45,{damage:2.5,knockback:2.8}),
         zone(24,'blast',c.clampX(c.tx+c.face*170),c.floor-50,220,100,{delay:22,life:18,damage:2.5,knockback:2.8,label:'THRONE BREAK'}),
-        ...(c.phase===3?[mark(70,c,c.tx-c.face*130,70,{delay:26,damage:1.5,label:'FALLEN CROWN'})]:[]),
+        ...(c.phase>=3?[mark(70,c,c.tx-c.face*130,70,{delay:26,damage:1.5,label:'FALLEN CROWN'})]:[]),
       ]),
       move('crown-orbit-of-ruin','Orbit of Ruin','orbit','shield','The crown fires in two spokes. Deflect a shard or pass through its gaps.',46,130,42,c=>[
         shot(0,c,{y:c.floor-120,count:7,spread:3.5,speed:5.7,kind:'blade',damage:1.5}),
@@ -171,7 +171,7 @@ export const MAJOR_ENCOUNTERS={
       }),
       move('palimpsest-full-stop','Full Stop','execution','platform','EXECUTION: get onto a paper shelf before the horizontal erasure beam.',100,165,68,c=>[
         platform(0,c,c.tx-115,'memory',c.floor-115),platform(0,c,c.tx+150,'memory',c.floor-115),
-        zone(0,'beam',c.center,c.floor-39,c.right-c.left,58,{delay:88,life:24,damage:c.phase===3?'lethal':2.5,knockback:2.2,unblockable:true,label:c.phase===3?'FULL STOP · EXECUTION':'FULL STOP · CLIMB'}),
+        zone(0,'beam',c.center,c.floor-39,c.right-c.left,58,{delay:88,life:24,damage:c.phase>=3?'lethal':2.5,knockback:2.2,unblockable:true,label:c.phase>=3?'FULL STOP · EXECUTION':'FULL STOP · CLIMB'}),
       ]),
     ],
   },
@@ -188,7 +188,7 @@ export const MAJOR_ENCOUNTERS={
         mark(0,c,c.tx,86,{delay:36,life:14,damage:1.5,label:'TOMORROW'}),
         mark(52,c,c.tx-155,76,{delay:34,life:14,damage:1.5,label:'ANSWER LEFT'}),
         mark(52,c,c.tx+155,76,{delay:34,life:14,damage:1.5,label:'ANSWER RIGHT'}),
-        ...(c.phase===3?[shot(105,c,{count:3,spread:.7,speed:6,kind:'orb'})]:[]),
+        ...(c.phase>=3?[shot(105,c,{count:3,spread:.7,speed:6,kind:'orb'})]:[]),
       ]),
       move('belltwin-dawn-procession','Dawn Procession','summon','minions','Defeat the candle attendants while the saints expose their sunseed.',70,115,66,c=>[
         {at:0,type:'summon',kind:'candlewraith',count:2,x:c.clampX(c.x-c.face*155)},
@@ -198,7 +198,7 @@ export const MAJOR_ENCOUNTERS={
       move('belltwin-two-suns','Two Suns','beam','jump','Jump the first low sun, then land beneath tomorrow’s high sun.',80,185,60,c=>[
         zone(0,'beam',c.center,c.floor-24,c.right-c.left,38,{delay:36,life:14,damage:2,knockback:2,label:'FIRST SUN · JUMP'}),
         zone(60,'beam',c.center,c.floor-156,c.right-c.left,42,{delay:34,life:18,damage:2,label:'SECOND SUN · LAND'}),
-        ...(c.phase===3?[zone(121,'beam',c.center,c.floor-24,c.right-c.left,38,{delay:28,life:12,damage:2.5,label:'BORROWED DAWN'})]:[]),
+        ...(c.phase>=3?[zone(121,'beam',c.center,c.floor-24,c.right-c.left,38,{delay:28,life:12,damage:2.5,label:'BORROWED DAWN'})]:[]),
       ]),
     ],
   },
@@ -215,11 +215,11 @@ export const MAJOR_ENCOUNTERS={
         platform(0,c,c.tx-130,'memory',c.floor-120),platform(0,c,c.tx+145,'memory',c.floor-120),
         zone(0,'mine',c.x,c.floor-15,110,30,{delay:36,life:12,damage:1,label:'ASCENDING CRADLE'}),
         {at:40,type:'warp',x:c.clampX(c.x-c.face*180),y:c.floor-175},
-        zone(0,'beam',c.center,c.floor-44,c.right-c.left,64,{delay:100,life:28,damage:c.phase===3?'lethal':3,unblockable:true,knockback:2.5,label:c.phase===3?'ZERO HORIZON · EXECUTION':'ZERO HORIZON · CLIMB'}),
+        zone(0,'beam',c.center,c.floor-44,c.right-c.left,64,{delay:100,life:28,damage:c.phase>=3?'lethal':3,unblockable:true,knockback:2.5,label:c.phase>=3?'ZERO HORIZON · EXECUTION':'ZERO HORIZON · CLIMB'}),
         {at:148,type:'warp',x:c.x,y:c.floor},
       ]),
       move('nullheart-empty-cradles','Empty Cradles','summon','minions','Break the summoned court before the cradle rings close around their empty seats.',76,150,66,c=>[
-        {at:0,type:'summon',kind:c.mechanic==='memorycascade'?'clockscarab':c.mechanic==='tidechoir'?'inkfin':'hushling',count:c.phase===3?3:2,x:c.clampX(c.x-c.face*160)},
+        {at:0,type:'summon',kind:c.mechanic==='memorycascade'?'clockscarab':c.mechanic==='tidechoir'?'inkfin':'hushling',count:c.phase>=3?3:2,x:c.clampX(c.x-c.face*160)},
         platform(0,c,c.center,'memory'),
         zone(40,'ring',c.center,c.floor-35,540,80,{inner:125,delay:40,life:24,damage:2,label:'EMPTY SEATS'}),
       ]),
@@ -228,7 +228,7 @@ export const MAJOR_ENCOUNTERS={
         zone(0,'blast',c.right-100,c.floor-65,165,130,{delay:38,life:18,damage:2,knockback:2.2,label:'LOST FUTURE'}),
         dash(74,c,c.tx,34,225,{damage:2.5,knockback:2.7}),
         zone(94,'blast',c.tx,c.floor-40,205,80,{delay:30,life:20,damage:2.5,knockback:2.8,unblockable:true,label:'FUTURE COLLAPSE'}),
-        ...(c.phase===3?[shot(150,c,{count:7,spread:2.9,speed:6.1,kind:'blade',damage:1.5})]:[]),
+        ...(c.phase>=3?[shot(150,c,{count:7,spread:2.9,speed:6.1,kind:'blade',damage:1.5})]:[]),
       ]),
     ],
   },

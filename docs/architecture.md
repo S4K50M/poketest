@@ -27,7 +27,7 @@ flowchart TD
 
 AdventureSystems owns party resources, healing, signature skills, statuses, and the original minions. TrainingEngine supplies the shared motion, collision, strike, and projectile kernel; its old six-chamber training route remains an isolated regression fixture, not a selectable game mode. CampaignEngine replaces those lesson gates with rooms, guardians, traversal, interaction, crafting, and persistent progression. RPGCampaign adds quests, gear, talents, covenants, mastery, events, optional bosses, and save migration.
 
-CombatDirector is composed into CampaignEngine rather than another inheritance layer. It owns attack states, buffered routes, cancels, Guard/parry, Flow, posture, juggling, and equipped arts. It calls the host engine’s strike/reward path so RPG modifiers and quest attribution remain intact. Party signatures remain in the shared/campaign skill implementations.
+CombatDirector is composed into CampaignEngine rather than another inheritance layer. It owns attack states, buffered routes, cancels, Guard/parry, Flow, posture, juggling, and equipped arts. It calls the host engine’s strike/reward path so RPG modifiers and quest attribution remain intact. The eight starter signatures and fields are implemented in companion-kits.js; rescued companions retain their legacy signatures. Signature reuse belongs to each companion and persists through saves; fields retain the casting owner across switches.
 
 ## Simulation and presentation
 
@@ -39,13 +39,18 @@ WorldRenderer follows the player with a camera, then draws biome layers, enclose
 
 Renderers receive presentation copies of enemies rather than adding animation fields to simulation objects. A renderer-local history and corpse cache completes death animation for enemies removed immediately by gameplay. Those visual bodies cannot collide, delay rewards, keep enemies alive, or enter a save. Room changes clear the caches. Entity wrappers preserve Canvas context state and apply whole-body action/recoil effects around the species-specific art.
 
-Menus, reward summaries, and ending choices use the shared overlay dialog. NPC conversations use a separate nonmodal DOM layer anchored to the speaker in the game scene. The entry cinematic has a separate presentation dialog, and the portrait rotation prompt remains the outer interaction gate. Opening a gameplay overlay pauses the simulation and clears held inputs. Blur and tab hiding also pause through the UI. window.kinetic exposes a defensive snapshot and version for inspection, not a mutable game object or a cheat API.
+Menus and explicitly requested ending choices use the shared overlay dialog. Guardian rewards are committed immediately and announced through the HUD; boss defeat does not open a reward dialog. NPC conversations use a separate nonmodal DOM layer anchored to the speaker in the game scene. The entry cinematic has a separate presentation dialog, and the portrait rotation prompt remains the outer interaction gate. Opening a gameplay overlay pauses the simulation and clears held inputs. Blur and tab hiding also pause through the UI. window.kinetic exposes a defensive snapshot and version for inspection, not a mutable game object or a cheat API.
 
 ## Source map
 
 | File | Responsibility |
 | --- | --- |
 | [src/rpg.js](../src/rpg.js) | RPG quests, equipment, talents, factions, mastery, world events, v2/v3/v4 save migration |
+| [src/companion-kits.js](../src/companion-kits.js) | Eight starter stat profiles, 40 directional techniques, transient fields, cross-party combinations |
+| [src/companion-render.js](../src/companion-render.js) | Read-only signature fields, directional flourishes and casting effects |
+| [src/minion-species.js](../src/minion-species.js), [src/minion-behavior.js](../src/minion-behavior.js) | Twelve biome species with committed attacks, guards, medic channels, and counterplay |
+| [src/room-identity.js](../src/room-identity.js), [src/room-identity-render.js](../src/room-identity-render.js) | 42 authored identities, gallery routes, progressive passage size/ecology, and world landmarks |
+| [src/boss-overdrive-moves.js](../src/boss-overdrive-moves.js) | Two extra signature moves per boss, armament and shield events, and fourth-phase sequences |
 | [src/combat.js](../src/combat.js) | Frame-driven attack controller, movement cancels, Guard/parry, juggle/posture, powers |
 | [src/combat-data.js](../src/combat-data.js) | Move frame data, movement tuning, twelve art definitions and unlock rules |
 | [src/combat-fx.js](../src/combat-fx.js) | Capped particles, biome ambience, elemental impacts, camera and screen feedback |
@@ -64,11 +69,13 @@ Menus, reward summaries, and ending choices use the shared overlay dialog. NPC c
 | [src/designs.js](../src/designs.js) | Supplied creature identities, new companions, wild species |
 | [src/creatures.js](../src/creatures.js) | Compatible companion-drawing re-export and legacy minion fallback rigs |
 | [src/creature-art.js](../src/creature-art.js) | Eleven companion silhouettes, articulated action poses, materials and portrait bounds |
-| [src/enemy-art.js](../src/enemy-art.js) | Nineteen species-specific wild enemy rigs and state animation |
+| [src/enemy-art.js](../src/enemy-art.js) | Thirty-one species-specific wild enemy rigs and state animation |
 | [src/boss-art.js](../src/boss-art.js) | Twenty-one main, forbidden and miniboss rigs, phase details and final-guardian variants |
 | [src/dungeon-art.js](../src/dungeon-art.js) | Dungeon attack telegraphs and legacy enemy fallback art |
 | [src/boss-encounters.js](../src/boss-encounters.js) | Boss profile registry, fixed-frame timelines, encounter hazards, summons and temporary terrain |
-| [src/boss-progression.js](../src/boss-progression.js) | Encounter progression tiers, health and pressure scaling, late-game desperation rules |
+| [src/boss-progression.js](../src/boss-progression.js) | Encounter progression tiers, separate movement/attack tempo tuning, late-game desperation rules |
+| [src/boss-aftermath.js](../src/boss-aftermath.js) | Nine guardian remains, copied lore data, and interactions derived from live defeat state |
+| [src/boss-aftermath-render.js](../src/boss-aftermath-render.js) | Pure guardian transformations, lesser-champion weapon destruction, and settled world landmarks |
 | [src/boss-major-moves.js](../src/boss-major-moves.js) | Nine major/forbidden guardian move sets and phase sequences |
 | [src/boss-warden-moves.js](../src/boss-warden-moves.js) | Six distinct dimensional gatekeeper move sets |
 | [src/boss-reaver-moves.js](../src/boss-reaver-moves.js) | Six distinct optional vault encounter move sets |
@@ -77,7 +84,7 @@ Menus, reward summaries, and ending choices use the shared overlay dialog. NPC c
 | [src/tunnel-render.js](../src/tunnel-render.js) | Enclosed cave layers, geological shelves, lighting, camps and recovery basins |
 | [src/mourningwild-render.js](../src/mourningwild-render.js) | Dedicated sanctuary/first-gate backdrops, landmarks, landing surfaces and foreground layers |
 | [src/opening-cinematic.js](../src/opening-cinematic.js), [src/intro.css](../src/intro.css) | Pure three-act opening timeline, chosen-party Canvas compositions and cinematic dialog layout |
-| [src/boss-cinematic.js](../src/boss-cinematic.js) | Pure guardian introduction and choice-aware ending compositions and captions |
+| [src/boss-cinematic.js](../src/boss-cinematic.js) | Pure physical guardian entrances and choice-aware ending compositions and captions |
 | [src/landing.js](../src/landing.js), [src/landing.css](../src/landing.css) | Viewport-fitting title screen, dynamic panels and realm previews |
 | [src/world-dialogue-state.js](../src/world-dialogue-state.js) | Presentation-only conversation pages, proximity, ambient timing, and session voice history |
 | [src/world-dialogue.js](../src/world-dialogue.js), [src/world-dialogue.css](../src/world-dialogue.css) | Accessible floating scene speech, speaker labels, touch controls, and viewport placement |
@@ -110,7 +117,13 @@ The sanctuary and first gate use dedicated scenery passes in `mourningwild-rende
 
 Guardian introductions and ending scenes use the pure `boss-cinematic.js` renderer. `main.js` owns their elapsed time, caption updates, focus, skip input, and return destination. Combat remains paused and the fixed-step accumulator stays empty throughout. The cinematic clock stops in portrait, on window blur, and in hidden tabs. Reduced motion holds complete scene compositions within each story act.
 
-The nine essential introductions are remembered in an ephemeral set for the current loaded expedition. A retry in that session bypasses an already seen introduction; a new expedition, Continue, or page reload reconstructs presentation state. No cinematic flags are added to a save. A main ending decision leads through the finale into credits; the Nullheart reward leads through the covenant finale into its summary. Continue resumes exploration after a main ending or opens a completed true-ending summary, without replaying its ending transaction.
+The nine essential introductions are remembered in an ephemeral set for the current loaded expedition. A retry in that session bypasses an already seen introduction; a new expedition, Continue, or page reload reconstructs presentation state. No cinematic flags are added to a save. The Hollow Sovereign’s defeat exposes an E-interactable Worldheart; interacting opens the main ending choice and then its finale and credits. The Nullheart’s remains request the covenant finale and summary through E. Continue resumes exploration after either ending without replaying its transaction or reopening a completed summary. An unfinished Worldheart choice remains available at the in-world object.
+
+## Guardian aftermaths
+
+`boss-aftermath.js` derives interaction objects from the current room and authoritative enemy defeat state. `CampaignEngine.bossAftermath` exposes the room’s guardian remains, and `interactionObjects` combines them with authored room objects without modifying the shared room registry. Living bosses restored by a gate death suppress their old remains. Defeat events include copied boss/room/feet metadata for presentation. Interactive landmarks use the authored room spawn as a stable, reachable anchor; reloading reconstructs the settled landmark from existing defeat records. No aftermath or elapsed-animation fields enter the save.
+
+`boss-aftermath-render.js` accepts a copied record and elapsed presentation time. Its transformations cannot collide, delay unlocks, or retain a dead gameplay enemy. The host renderer owns local elapsed time and draws the settled form after reload; reduced motion uses that form immediately. E reads ordinary aftermath lore through scene dialogue. The Worldheart and Nullheart interactions emit explicit ending requests handled by the UI, so defeating a boss does not interrupt exploration with a reward or ending window.
 
 ## Voices in the world
 
@@ -134,7 +147,7 @@ World art is anchored at the actor’s feet in world coordinates. Facing and dra
 
 ## Boss encounter timelines
 
-The 21 boss identities each resolve to a profile with four named moves and three phase sequences. The profile modules describe movement preference, readable counterplay, startup, active duration, recovery, and event builders. The runtime combines those authored patterns with distance, recent-move history, and player pressure when selecting an attack. It owns locked targets, movement scripts, defensive responses, and actual hazard collision. Sharing event primitives does not share a move set: encounters combine them into different spatial and timing problems.
+The 21 boss identities each resolve to a profile with six named moves and four phase sequences. The profile modules describe movement preference, readable counterplay, startup, active duration, recovery, and event builders. The runtime combines those authored patterns with distance, recent-move history, and player pressure when selecting an attack. It owns locked targets, movement scripts, defensive responses, and actual hazard collision. Sharing event primitives does not share a move set: encounters combine them into different spatial and timing problems.
 
 Encounter zones use world coordinates and centered bounds. Warning delay precedes damage; active geometry is also the geometry the renderer displays. Temporary platforms enter the normal collision list as one-way landings. Summoned minions carry an encounter owner and do not pass through ordinary reward/progression payouts. Phase changes, defeat, room changes, and death clear encounter-owned state. Shared room definitions and authored floors are never rewritten by an arena attack.
 
@@ -155,3 +168,11 @@ On a full wipe, beginGameOver finalizes the Lumen penalty and gate enemy reset b
 ## Grounded passage geometry
 
 The mandatory dungeon route now uses continuous Y = 520 floors and ground-level passage exits. Upper ledges keep their coordinates for optional history, loot, and shortcuts; wider landing surfaces and `catch: true` shelves reduce pit deaths. The first seeded spring in each gate keeps its existing identifier but sits on the lower passage. This is a room-data and presentation change: the shared movement kernel, combat damage, and death transaction remain unchanged.
+
+## Party and room identity contracts
+
+The eight starter profiles separate health, strike damage, running speed, takeoff velocity, gravity, Focus cost, and signature reuse. COMPANION_KITS is the authoritative source; generated UI reads the same names and tips. Horizontal signature inputs aim toward or away from the nearest live threat, so retreat works after several walking frames. Companion fields advance in the simulation, retain their owner after switching, and clear on room/death boundaries. Drawing those fields cannot apply hits.
+
+The room registry applies explicit room identities during registration, after the first-gate landing network and after optional Chronicle room registration. Existing save identifiers and enemy indices remain stable; added ecology spawns append. Main floors remain continuous. Door destinations and arrival ledges follow actual authored objects, not historical hardcoded exit coordinates.
+
+Renderer-local defeat clocks display essential transformations for 4800ms and lesser-champion weapon destruction for 2600ms. They use actual impact coordinates before moving material toward stable remains. Pause and hitstop stop those clocks. Rewards commit immediately, with no modal; reloading a cleared room draws settled major remains. E-driven lore and finale decisions use interactionObjects without modifying shared room.objects.

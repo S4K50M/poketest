@@ -143,18 +143,39 @@ export function drawBossProjectile(c,shot,time=0){
 /** Physical weapons follow the committed action clock, including hitstop. */
 export function drawBossWeapon(c,e,time=0){
  if(!e?.moveId||e.hp<=0||!['windup','attack','charge','leap','recover'].includes(e.state))return;
- const kind=e.attackKind||'',id=e.boss||'',weapon=/axe|hammer|sword|cleaver|spear|guillotine|headsman/.test(kind)||['crown','moss-warden','forge-warden','frost-warden','storm-warden','rift-reaver'].includes(id);
+ const kind=e.armament?.kind||e.attackKind||'',id=e.boss||'',weapon=!!e.armament||/axe|hammer|sword|cleaver|spear|guillotine|headsman/.test(kind)||['crown','moss-warden','forge-warden','frost-warden','storm-warden','rift-reaver'].includes(id);
  const wind=e.state==='windup',progress=wind?clamp(1-e.timer/Math.max(1,e.windupFrames)):clamp((e.attackFrame||0)/Math.max(1,e.moveDuration)),face=e.face||1,color=({crown:'#ffd0df','moss-warden':'#c9e7a2','forge-warden':'#ffd4a0','frost-warden':'#d5f8ff','storm-warden':'#ead9ff','rift-reaver':'#f4b6dd'})[id]||'#e4e7ce';
  c.save();
  try{
   c.translate(e.x,e.y);c.scale(face,1);
+  if(e.armament){
+   const assembled=e.reducedMotion?1:clamp((e.armament.age||0)/16),radius=50+(1-assembled)*100;
+   c.save();c.globalAlpha*=1-assembled;for(let i=0;i<7;i++){const a=i*TAU/7+(e.reducedMotion?0:time);diamond(c,35+Math.cos(a)*radius,-150+Math.sin(a)*radius,5,color);}c.restore();
+   c.translate(35,-135);c.scale(.3+.7*assembled,.3+.7*assembled);c.translate(-35,135);
+  }
   if(weapon){
-   const axe=/axe/.test(kind)||id==='moss-warden',hammer=/hammer/.test(kind)||id==='forge-warden',spear=/spear/.test(kind)||id==='storm-warden';
+   const axe=/axe/.test(kind)||!e.armament&&id==='moss-warden',hammer=/hammer/.test(kind)||!e.armament&&id==='forge-warden',spear=/spear|trident|quill/.test(kind)||!e.armament&&id==='storm-warden';
    const swing=wind?-.7-progress*.7:e.state==='recover'?.35:-1.4+Math.sin(Math.min(1,progress*2.7)*Math.PI*.78)*2.4;
    c.translate(35,-135);c.rotate(swing);line(c,[[0,26],[0,-110]],'#131f2d',12);line(c,[[0,22],[0,-110]],'#8c9e93',6);
-   if(hammer){poly(c,[[-36,-137],[38,-137],[45,-82],[-42,-82]],'#65585b',color,2);line(c,[[-28,-129],[29,-129]],color,2);diamond(c,0,-108,13,color);}
+   if(/clock/.test(kind)){
+    oval(c,0,-108,51,51,'#29434b',color,3);for(let i=0;i<12;i++){const a=i*TAU/12;line(c,[[Math.cos(a)*39,-108+Math.sin(a)*39],[Math.cos(a)*46,-108+Math.sin(a)*46]],color,1.3);}const hand=(e.reducedMotion?0:time)*2;line(c,[[Math.sin(hand)*32,-108-Math.cos(hand)*32],[0,-108],[24,-100]],'#f7e8d8',3);
+   }else if(/book|cradle/.test(kind)){
+    poly(c,[[-50,-128],[0,-115],[50,-128],[43,-67],[0,-54],[-43,-67]],'#506675',color,2);line(c,[[0,-111],[0,-58]],'#f5e7cb',3);for(const side of[-1,1])for(let i=0;i<4;i++)line(c,[[side*9,-100+i*9],[side*34,-108+i*9]],color,1);
+   }else if(/tide/.test(kind)){
+    for(let i=0;i<4;i++)oval(c,0,-110,17+i*10,42+i*6,null,alpha(color,.75-i*.12),2);diamond(c,0,-110,20,'#e2fff8');
+   }else if(/seed/.test(kind)){
+    oval(c,0,-112,31,41,'#58755c',color,2);for(let i=0;i<5;i++){const a=i*TAU/5;poly(c,[[0,-112],[Math.cos(a)*48,-112+Math.sin(a)*53],[Math.cos(a+.4)*23,-112+Math.sin(a+.4)*27]],alpha(color,.6),color,1);}diamond(c,0,-112,15,'#eaf0bd');
+   }else if(/chain|censer/.test(kind)){
+    for(let i=0;i<7;i++)oval(c,Math.sin(i*.55)*15,-36-i*12,6,9,null,color,2);oval(c,-6,-139,34,31,'#716159',color,3);for(const side of[-1,1])line(c,[[side*22,-157],[side*12,-124]],'#ffd594',3);diamond(c,-6,-139,10,'#ffe7b3');
+   }else if(/baton/.test(kind)){
+    line(c,[[0,-55],[0,-170]],'#aca6ba',6);diamond(c,0,-178,16,color);for(const side of[-1,1])line(c,[[side*7,-140],[side*24,-127],[side*13,-112]],color,2);
+   }else if(/scythe/.test(kind)){
+    poly(c,[[0,-140],[12,-180],[55,-186],[95,-155],[57,-170],[21,-158]],'#7f9c9b',color,2);line(c,[[0,-160],[0,30]],'#a1b2a8',7);
+   }else if(/thorn/.test(kind)){
+    poly(c,[[-11,-25],[-25,-130],[-12,-127],[0,-196],[18,-141],[32,-158],[17,-80],[11,-25]],'#597656',color,2);line(c,[[-28,-27],[25,-27]],color,5);
+   }else if(hammer){poly(c,[[-36,-137],[38,-137],[45,-82],[-42,-82]],'#65585b',color,2);line(c,[[-28,-129],[29,-129]],color,2);diamond(c,0,-108,13,color);}
    else if(axe){poly(c,[[-8,-158],[49,-146],[72,-101],[21,-76],[-7,-100],[-26,-80],[-42,-109],[-25,-143]],'#587363',color,2);line(c,[[45,-137],[60,-105],[22,-86]],color,3);}
-   else if(spear){poly(c,[[0,-188],[18,-143],[7,-126],[-7,-126],[-18,-143]],'#827397',color,2);line(c,[[0,-177],[0,-117]],color,1.5);}
+   else if(spear){if(/trident/.test(kind))for(const side of[-1,1])poly(c,[[side*9,-144],[side*32,-168],[side*35,-194],[side*45,-164],[side*21,-124]],'#6c969d',color,2);poly(c,[[0,-188],[18,-143],[7,-126],[-7,-126],[-18,-143]],'#827397',color,2);line(c,[[0,-177],[0,-117]],color,1.5);}
    else{poly(c,[[-11,-21],[-18,-150],[0,-194],[19,-150],[12,-21]],id==='frost-warden'?'#80a8bc':'#8d6d91',color,2.2);line(c,[[0,-179],[0,-35]],'#f7e8d8',1.7);line(c,[[-28,-20],[26,-20]],color,6);diamond(c,0,20,8,color);}
   }else if(wind){
    const radius=17+progress*15;c.globalAlpha*=.5+progress*.3;oval(c,0,-120,radius,radius,null,color,1.4);for(let i=0;i<4;i++){const a=i*TAU/4+(e.reducedMotion?0:time)*.5;diamond(c,Math.cos(a)*radius,-120+Math.sin(a)*radius,3,color);}

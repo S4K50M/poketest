@@ -30,7 +30,7 @@ test('sitting benches no longer heal and gate recovery is sparse across deeper c
   assert.equal(rooms.flatMap(r=>r.objects.filter(o=>o.kind==='bench')).length,0);
   for(const ch of CHAPTERS){
     const points=rooms.filter(r=>r.biome===ch.id).flatMap(r=>g.recoveryForRoom(r.id));
-    assert(points.length>=2&&points.length<=3,'each whole gate has only two or three automatic recovery points');
+    assert.equal(points.length,1,'each whole gate has one automatic recovery point');
     assert(points.every(p=>p.x>400),'recovery is placed inside chambers rather than at every entrance');
   }
   g.loadRoom('moss-nexus');g.lumens=100;g.party.forEach(m=>m.hp=0);g.respawn(true);
@@ -38,19 +38,19 @@ test('sitting benches no longer heal and gate recovery is sparse across deeper c
   assert.equal(g.roomId,'sanctuary');assert(g.party.every(m=>m.hp===m.maxHp));
 });
 
-test('guardians have larger health pools, three phases, and four bespoke telegraphed attacks',()=>{
+test('guardians have larger health pools, four phases, and six bespoke telegraphed attacks',()=>{
   const g=new CampaignEngine();g.loadRoom('moss-heart');const e=g.enemies.find(e=>e.boss);
   assert.equal(e.maxHp,bossHealth(BOSSES.briar));assert(e.maxHp>=500);
-  assert.equal(bossPhase({...e,hp:e.maxHp}),1);assert.equal(bossPhase({...e,hp:e.maxHp*.6}),2);assert.equal(bossPhase({...e,hp:e.maxHp*.3}),3);
+  assert.equal(bossPhase({...e,hp:e.maxHp}),1);assert.equal(bossPhase({...e,hp:e.maxHp*.6}),2);assert.equal(bossPhase({...e,hp:e.maxHp*.3}),3);assert.equal(bossPhase({...e,hp:e.maxHp*.12}),4);
   e.introduced=true;
-  for(const [fraction,phase] of [[.6,2],[.3,3]]){e.hp=e.maxHp*fraction;updateBossEncounter(g,e);assert.equal(e.phase,phase);assert.equal(e.state,'enrage');}
+  for(const [fraction,phase] of [[.6,2],[.3,3],[.12,4]]){e.hp=e.maxHp*fraction;updateBossEncounter(g,e);assert.equal(e.phase,phase);assert.equal(e.state,'enrage');}
   const moves=new Set();
-  for(let move=0;move<4;move++){
+  for(let move=0;move<6;move++){
     Object.assign(e,{state:'patrol',timer:1,stun:0,hp:e.maxHp,phase:1});beginBossMove(g,e,move);
     assert.equal(e.state,'windup');assert(e.telegraph.events.length>0);moves.add(e.moveId);
     e.timer=1;updateBossEncounter(g,e);assert(e.attackFrame>=0);
   }
-  assert.equal(moves.size,4);assert.equal(BOSS_ENCOUNTERS.briar.sequences.length,3);
+  assert.equal(moves.size,6);assert.equal(BOSS_ENCOUNTERS.briar.sequences.length,4);
 });
 
 test('boss rewards cannot refill every companion after an expedition',()=>{
@@ -77,17 +77,17 @@ test('four new minions rush, fire aerial spreads, telegraph burrows, and root fr
   }
 });
 
-test('all six main dungeon routes can be completed through real player inputs and earned abilities',()=>{
-  const g=new CampaignEngine();const s=playCampaign(g);
+test('all six main dungeon routes in the shipped RPG can be completed through real player inputs and earned abilities',async()=>{
+  const {RPGCampaign}=await import('../src/rpg.js');const g=new RPGCampaign();const s=playCampaign(g);
   assert.equal(s.fragments.length,6);assert(s.finished);assert.equal(s.stats.wipes,0);
   for(const c of CHAPTERS)for(const suffix of ['path','descent','nexus','heart'])assert(g.visited.has(c.id+'-'+suffix));
   assert.equal(s.stats.falls,0);assert(s.stats.dashes>0);assert(s.stats.wallJumps>0);
 });
 
-test('earned movement abilities open a challenging optional upper dungeon and its vault loop',()=>{
-  const g=new CampaignEngine();playCampaign(g);
+test('earned movement abilities open a challenging optional upper dungeon and its vault loop',async()=>{
+  const {RPGCampaign}=await import('../src/rpg.js');const g=new RPGCampaign();playCampaign(g);
   assert(walkTo(g,200));g.input('interact');
-  assert(walkTo(g,1050));g.input('interact');assert(walkTo(g,2370));g.input('interact');
+  assert(walkTo(g,1050));g.input('interact');assert(walkTo(g,g.room.objects.find(o=>o.to==='moss-descent').x));g.input('interact');
   let door=g.room.objects.find(o=>o.to==='moss-nexus');assert(walkTo(g,door.x));g.input('interact');
   for(const [x,y] of [[450,400],[730,275],[1010,150],[1290,25],[1605,-100]])assert(climbTo(g,x,y),'nexus balcony '+x+','+y);
   door=g.room.objects.find(o=>o.to==='moss-ascent');assert(climbTo(g,door.x,door.y));assert(g.input('interact'));assert.equal(g.roomId,'moss-ascent');
@@ -99,7 +99,7 @@ test('earned movement abilities open a challenging optional upper dungeon and it
   for(let frame=0;frame<800;frame++){g.step();if(g.player.grounded&&g.player.y>-750&&g.player.y<520)landings.add(g.player.y);if(g.player.x>2820&&g.player.grounded&&g.player.y===520)break;}
   g.setInputs({});assert(landings.size>=2,'the descent lands on several playable tiers');
   assert(g.player.x>2820&&g.player.y===520);assert.equal(g.stats.falls,0);
-  assert(walkTo(g,2860));
+  assert(walkTo(g,g.room.objects.find(o=>o.to==='moss-vault').x));
   door=g.room.objects.find(o=>o.to==='moss-vault');assert(climbTo(g,door.x,door.y));assert(g.input('interact'));assert.equal(g.roomId,'moss-vault');
   assert(walkTo(g,1800));assert(fightGuardian(g));assert(g.bossDefeated('moss-reaver'));
   door=g.room.objects.find(o=>o.to==='moss-nexus');assert(climbTo(g,door.x,door.y??520));assert(g.input('interact'));assert.equal(g.roomId,'moss-nexus');

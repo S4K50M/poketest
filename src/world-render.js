@@ -1,5 +1,8 @@
 import { drawEntityAnimated, drawBossAura, drawNPCAnimation } from './entity-animation.js';
+import {drawRoomIdentity} from './room-identity-render.js';
+import { drawCompanionFields, drawCompanionSignature } from './companion-render.js';
 import { drawBossAdaptation } from './boss-adaptation-render.js';
+import { drawBossAftermath, drawChampionDestruction } from './boss-aftermath-render.js';
 import { CombatFX } from './combat-fx.js';
 import { drawEnemyMinion } from './enemy-art.js';
 import { drawBossEncounterWorld, drawBossMoveTelegraph, drawBossPlatform, drawBossProjectile, drawBossWeapon } from './boss-encounter-render.js';
@@ -23,8 +26,15 @@ const text=(c,txt,x,y,col='#dbeae0',size=12,align='center')=>{c.fillStyle=col;c.
 const noise=n=>{const a=Math.sin(n*127.1+37)*43758.5453;return a-Math.floor(a);};
 
 export class WorldRenderer{
-  constructor(canvas){this.canvas=canvas;this.camera=0;this.cameraY=0;this.lastRoom='';this.shake=0;this.flash=0;this.time=0;this.fx=new CombatFX();this.lastClock=0;this.actorTime=0;this.actorHistory=new Map();this.corpses=new Map();}
-  event(e,g){if(e.type!=='hit')this.fx.event(e,g);}
+  constructor(canvas){this.canvas=canvas;this.camera=0;this.cameraY=0;this.lastRoom='';this.shake=0;this.flash=0;this.time=0;this.fx=new CombatFX();this.lastClock=0;this.actorTime=0;this.actorHistory=new Map();this.corpses=new Map();this.aftermathStarts=new Map();this.championDeaths=new Map();this.signatures=[];this.resonances=[];}
+  event(e,g){
+    if(e.type==='room'){this.aftermathStarts.clear();this.championDeaths.clear();this.signatures=[];this.resonances=[];}
+    if(e.type==='resonance')this.resonances.push({...e,start:this.actorTime});
+    if(e.type==='signature')this.signatures.push({...e,start:this.actorTime});
+    if(e.type==='bossdefeated'&&e.aftermath)this.aftermathStarts.set((e.room||g?.roomId)+':'+e.boss,{start:this.actorTime,originX:e.x,originY:e.y});
+    if(e.type==='bossdefeated'&&BOSSES[e.boss]?.miniboss){const actor=g?.enemies.find(a=>a.boss===e.boss);if(actor)this.championDeaths.set(actor.key??actor.id,{actor:{...actor},start:this.actorTime,room:e.room||g.roomId});}
+    if(e.type!=='hit')this.fx.event(e,g);
+  }
   project(x,y){const {width,height}=this.canvas.getBoundingClientRect(),scale=height/660;return {x:(x-this.camera)*scale,y:(y-this.cameraY)*scale,width,height};}
   render(g,clock,{speakerId=null}={}){
     const {c,w,h}=fitCanvas(this.canvas);if(!w||!h)return;const scale=h/660,view=w/scale,t=clock/1000,b=BIOMES[g.room.biome];this.time=t;this.fx.reducedMotion=!!g.combat?.settings?.reducedMotion;const elapsed=Math.min(.05,Math.max(0,(clock-(this.lastClock||clock))/1000));this.fx.update(elapsed);this.lastClock=clock;
@@ -35,6 +45,7 @@ export class WorldRenderer{
     const firstArea=drawMourningwildBackdrop(c,g,this.camera,this.cameraY,view,660,t);if(!firstArea){if(isTunnel(g))drawTunnelBackdrop(c,g,this.camera,this.cameraY,view,660,t);else this.backdrop(c,b,view,660,this.camera,t);}this.fx.drawAmbient(c,g,this.camera,this.cameraY,view,660,t);
     c.save();c.translate(-this.camera,-this.cameraY);
     if(firstArea)drawMourningwildLandmarks(c,g,this.camera,this.cameraY,view,660,t);else if(isTunnel(g))drawTunnelStructure(c,g,this.camera,this.cameraY,view,660,t);
+    drawRoomIdentity(c,g,this.camera,this.cameraY,view,660,actorTime);
     // Luminous dust lives in the scene instead of following the camera.
     for(let i=0;i<55;i++){const x=noise(i+9)*g.worldWidth,y=70+noise(i+72)*420+Math.sin(t*.5+i)*15;glow(c,x,y,4,b.color+'25');oval(c,x,y,.8,.8,b.color+'99');}
     for(const p of g.platforms)if(!p.veil&&p.x+p.w>this.camera-120&&p.x<this.camera+view+120&&p.y+p.h+160>this.cameraY&&p.y<this.cameraY+740)this.platform(c,p,b,t,g);
@@ -50,9 +61,17 @@ export class WorldRenderer{
     for(const r of g.relics)if(!r.collected){const yy=r.y+Math.sin(t*3+r.x)*6;glow(c,r.x,yy,35,b.color+'30');poly(c,[[r.x,yy-13],[r.x+8,yy],[r.x,yy+13],[r.x-8,yy]],b.color,'#efffe6');}
     for(const z of g.zones){glow(c,z.x,z.y-25,z.radius,z.type==='fire'?'#ff9b3833':z.type==='wind'?'#bfffe128':'#e2d6ff33');for(let i=0;i<9;i++){const xx=z.x+Math.sin(t*4+i)*z.radius*.8;line(c,[[xx,z.y],[xx+10,z.y-18-Math.sin(i+t*6)*10]],z.type==='fire'?'#ffb96d88':'#d0f7ed77',2);}}
     drawBossEncounterWorld(c,g,actorTime);
+    drawCompanionFields(c,g,actorTime,{reducedMotion:this.fx.reducedMotion});
     for(const e of g.enemies){const actor={...e,reducedMotion:this.fx.reducedMotion};if(!drawBossMoveTelegraph(c,actor,actorTime))drawDungeonTelegraph(c,actor,actorTime);}
+    const aftermath=g.bossAftermath||[],transformed=new Set(aftermath.map(record=>record.boss));
+    for(const record of aftermath){
+      const arrival=this.aftermathStarts.get(record.room+':'+record.boss);
+      drawBossAftermath(c,{...record,originX:arrival?.originX??record.x,originY:arrival?.originY??record.y},{elapsedMs:arrival?(actorTime-arrival.start)*1000:Infinity,reducedMotion:this.fx.reducedMotion,time:actorTime});
+    }
+    for(const [key,death] of this.championDeaths){const elapsedMs=(actorTime-death.start)*1000;if(elapsedMs>=2600||death.room!==g.roomId){this.championDeaths.delete(key);continue;}drawChampionDestruction(c,death.actor,{elapsedMs,reducedMotion:this.fx.reducedMotion,time:actorTime});}
     for(const e of g.enemies){
       const key=e.key??e.id,previous=this.actorHistory.get(key),actor={...e,reducedMotion:this.fx.reducedMotion};
+      if(e.hp<=0&&(transformed.has(e.boss)||BOSSES[e.boss]?.miniboss)){this.corpses.delete(key);this.actorHistory.set(key,actor);continue;}
       // Enemy death poses are local presentation state. They never keep a
       // defeated simulation body alive or delay an earned reward.
       if(e.hp<=0&&!e.deathTimer){
@@ -62,6 +81,7 @@ export class WorldRenderer{
       if(e.hp>0)this.corpses.delete(key);this.actorHistory.set(key,actor);
       if(e.boss&&e.hp>0){drawBossAura(c,actor,actorTime,BOSSES[e.boss].color);drawBossAdaptation(c,actor,actorTime,BOSSES[e.boss].color);}
       drawEntityAnimated(c,actor,actorTime,()=>e.boss?this.boss(c,actor,actorTime,g):this.minion(c,actor,actorTime));
+      if(e.hp>0){const statuses=[e.soaked>0?'SOAKED':'',e.marked>0?'MARKED':'',e.fractured>0?'BRITTLE':''].filter(Boolean);if(statuses.length)text(c,statuses.join(' · '),e.x,e.y-(e.boss?196:87),e.marked>0?'#dcb6ef':e.soaked>0?'#a2e5ef':'#e5d19f',8);}
       if(e.hp>0&&e.hp<e.maxHp){c.fillStyle='#0c1729';c.fillRect(e.x-24,e.y-(e.boss?180:70),48,3);c.fillStyle=e.boss?BOSSES[e.boss].color:MINIONS[e.kind].color;c.fillRect(e.x-24,e.y-(e.boss?180:70),48*e.hp/e.maxHp,3);}
     }
     for(const [key,corpse] of this.corpses){
@@ -74,7 +94,9 @@ export class WorldRenderer{
     for(let i=0;i<trails.length;i+=trailStride){const e=trails[i];c.save();c.globalAlpha=e.life/48;drawCreature(c,findFighter(e.creature),e.x,e.y,.38,e.face,{state:'dash',air:true},actorTime,{shadow:false,reducedMotion:true});c.restore();}
     const p=g.player,a=p.attack,af=a?Math.sin(Math.PI*Math.min(1,a.frame/(a.start+a.active))):0;
     c.save();if(p.invul&&Math.floor(g.tick/4)%2)c.globalAlpha=.5;
-    drawCreature(c,g.data,p.x,p.y,.38,p.face,{state:p.flash?'hit':p.riposte?'parry':p.shielding?'shield':p.dash?'dash':p.powerAura?'cast':a?a.type==='heavy'?'heavy':'attack':!p.grounded?'air':Math.abs(p.vx)>.5?'walk':'idle',walk:p.walkPhase,attack:af,heavy:a?.type==='heavy',air:!p.grounded,land:g.landing/10,hit:p.flash>0},actorTime,{reducedMotion:this.fx.reducedMotion,attackProgress:a?a.frame/(a.start+a.active+a.recovery):0,combo:a?.swing||1,speed:Math.min(1,Math.abs(p.vx)/10),shieldRatio:p.shield/100,charged:p.powerAura>0,elementColor:g.data.accent});c.restore();
+    drawCreature(c,g.data,p.x,p.y,.38,p.face,{state:p.flash?'hit':p.riposte?'parry':p.shielding?'shield':p.dash?'dash':p.signatureAnim>0||p.powerAura?'cast':a?a.type==='heavy'?'heavy':'attack':!p.grounded?'air':Math.abs(p.vx)>.5?'walk':'idle',walk:p.walkPhase,attack:af,heavy:a?.type==='heavy',air:!p.grounded,land:g.landing/10,hit:p.flash>0},actorTime,{reducedMotion:this.fx.reducedMotion,attackProgress:a?a.frame/(a.start+a.active+a.recovery):0,combo:a?.swing||1,speed:Math.min(1,Math.abs(p.vx)/10),shieldRatio:p.shield/100,charged:p.powerAura>0,elementColor:g.data.accent,castVariant:p.signatureVariant});c.restore();
+    this.signatures=this.signatures.filter(event=>(actorTime-event.start)*60<(event.life||48));
+    for(const event of this.signatures)drawCompanionSignature(c,event,(actorTime-event.start)*60/(event.life||48),actorTime,{reducedMotion:this.fx.reducedMotion});
     drawRPGAuras(c,g,actorTime);
     if(p.healing){glow(c,p.x,p.y-30,80,'#abf2ce38');for(let i=0;i<6;i++){const ang=t*3+i*TAU/6;oval(c,p.x+Math.cos(ang)*32,p.y-35+Math.sin(ang)*35,2,2,'#dcffe0');}}
     if(p.guard||p.fortress){c.strokeStyle='#dce7a4';c.lineWidth=3;c.beginPath();c.arc(p.x,p.y-35,48,-Math.PI*.5,Math.PI*.5);c.stroke();}
@@ -91,11 +113,13 @@ export class WorldRenderer{
         else for(let i=0;i<5;i++)poly(c,[[hz.x-36+i*15,hz.y],[hz.x-25+i*15,hz.y-65-noise(i)*55],[hz.x-13+i*15,hz.y]],col+'99');
       }
     }
+    this.resonances=this.resonances.filter(event=>actorTime-event.start<.75);
+    for(const event of this.resonances){const progress=Math.min(1,(actorTime-event.start)/.75),col=event.color||'#cff1ce';c.save();c.globalAlpha*=1-progress;const radius=this.fx.reducedMotion?36:20+progress*65;c.strokeStyle=col;c.lineWidth=1.5;c.beginPath();c.arc(event.x,event.y-40,radius,0,TAU);c.stroke();text(c,({conduct:'CONDUCT',frost:'FLASH FREEZE',shatter:'SHATTER',shadow:'MARK CONSUMED'})[event.kind]||'RESONANCE',event.x,event.y-100-(this.fx.reducedMotion?0:progress*25),col,10);c.restore();}
     for(const e of g.effects)this.effect(c,e,t,b);
     this.fx.drawWorld(c,g,t);
     for(const f of g.combat?.fields||[]){if(!Number.isFinite(f.x))continue;const radius=f.radius||100;c.save();c.globalAlpha=Math.min(.6,f.life/25);c.strokeStyle=f.color||b.color;c.lineWidth=2;c.setLineDash(f.type==='time'?[8,12]:[]);c.beginPath();c.ellipse(f.x,f.y,radius*(.9+Math.sin(t*5)*.04),f.type==='gravity'?radius*.6:35,t*.15,0,TAU);c.stroke();glow(c,f.x,f.y,radius,(f.color||b.color)+'14');c.restore();}
     if(firstArea)drawMourningwildForeground(c,g,this.camera,this.cameraY,view,660,t);
-    const near=g.room.objects.filter(o=>Math.abs(o.x-p.x)<90&&Math.abs((o.y??520)-p.y)<95).sort((x,y)=>Math.abs(x.x-p.x)-Math.abs(y.x-p.x))[0];
+    const near=(g.interactionObjects||g.room.objects).filter(o=>Math.abs(o.x-p.x)<90&&Math.abs((o.y??520)-p.y)<95).sort((x,y)=>Math.abs(x.x-p.x)-Math.abs(y.x-p.x))[0];
     if(near&&near.id!==speakerId){const defeated=id=>g.bossDefeated?.(id)||g.fragments.has(id)||g.defeatedBosses?.has(id),locked=near.need>g.fragments.size||near.ability&&!g.abilities.has(near.ability)||near.boss&&!defeated(near.boss)||near.requiresBoss&&!defeated(near.requiresBoss);text(c,'[ E ]  '+(locked?'SEALED · ':'')+near.name,near.x,(near.y??520)-110,locked?'#b6acbf':'#f6e5bb',11);}
     c.restore();
     // Soft foreground silhouette and cinematic light rays.

@@ -105,13 +105,80 @@ function chamber(c,w,id,b,t){
 function companions(c,party,x,y,t,reduced,scale=.48,spread=125,face=1){
  for(const i of[2,0,1]){const xx=x+(i-1)*spread,yy=y+(i===1?0:-4);drawCreature(c,party[i],xx,yy,scale*(i===1?1.02:.92),face,{state:'idle'},t,{reducedMotion:reduced,shadow:true,aura:false});}
 }
+function entranceParticles(c,id,x,y,p,t,col){
+ const strength=Math.sin(Math.PI*clamp(p/.85));
+ if(strength<=0)return;
+ for(let i=0;i<30;i++){
+  const a=i*2.399+t*.45,r=(1-p)*(180+noise(i+81)*310)+35,xx=x+Math.cos(a)*r,yy=y-180+Math.sin(a)*r*.6;
+  c.save();c.globalAlpha*=strength*(.3+noise(i)*.6);c.translate(xx,yy);c.rotate(a);
+  if(id==='palimpsest')poly(c,[[-7,-11],[8,-9],[5,12],[-6,9]],col+'99','#d5e8d277');
+  else if(id==='conductor'){curve(c,[-9,3,-6,-9,7,-13,12,-4],col,2);line(c,[[-8,3],[11,-5]],'#f5eee9aa',1);}
+  else gem(c,0,0,3+noise(i+13)*6,col+'bb');c.restore();
+ }
+}
+function entranceBoss(c,id,b,x,y,scale,p,t,reduced){
+ const q=reduced?1:p,emerge=smooth((q-.08)/.55),gesture=smooth((q-.6)/.4);
+ let xx=x,yy=y,rotation=0,sx=1,sy=1,opacity=1;
+ if(id==='briar'){yy+=145*(1-emerge);sx=.58+.42*emerge;sy=.12+.88*emerge;}
+ else if(id==='bell'){const drop=smooth(q/.4);yy-=670*(1-drop);rotation=(1-drop)*-.28;}
+ else if(id==='leviathan'){const breach=smooth(q/.68);xx+=520*(1-breach);yy+=180*(1-breach)-Math.sin(breach*Math.PI)*310;rotation=(1-breach)*-.36;}
+ else if(id==='conductor'){const glide=smooth(q/.66);xx+=600*(1-glide);yy-=380*(1-glide)+Math.sin(glide*Math.PI)*90;rotation=(1-glide)*-.13;}
+ else if(id==='hourglass'){sx=.48+.52*emerge;sy=sx;opacity=smooth((q-.2)/.4);rotation=Math.sin(q*TAU*2)*(1-emerge)*.08;}
+ else if(id==='crown'){sx=.18+.82*emerge;sy=sx;opacity=.3+.7*emerge;yy-=60*(1-emerge);}
+ else if(id==='palimpsest'){xx+=360*(1-emerge);rotation=(1-emerge)*.62;sy=.35+.65*emerge;}
+ else if(id==='belltwin'){sx=.65+.35*emerge;sy=sx;}
+ else{yy+=230*(1-emerge);sx=.4+.6*emerge;sy=sx;opacity=.25+.75*emerge;}
+ // The second act is a physical challenge, not a stationary title card.
+ // Each silhouette commits to a different final gesture before gameplay resumes.
+ if(!reduced&&q>.55){const threat=smooth((q-.55)/.45),sweep=Math.sin(threat*Math.PI);
+  if(id==='briar'){xx-=55*threat;yy-=30*sweep;rotation-=.07*sweep;sx+=.06*sweep;}
+  else if(id==='bell'){yy-=76*sweep;rotation+=.13*Math.sin(threat*TAU);}
+  else if(id==='leviathan'){xx-=70*threat;yy-=58*sweep;rotation+=.1*Math.sin(threat*TAU);}
+  else if(id==='conductor'){xx-=110*threat;yy-=80*sweep;rotation-=.1*sweep;}
+  else if(id==='hourglass'){xx-=44*threat;rotation-=.1*sweep;sy+=.08*sweep;}
+  else if(id==='crown'){yy-=85*sweep;rotation+=.07*sweep;sx+=.08*sweep;}
+  else if(id==='palimpsest'){yy-=45*sweep;rotation-=.16*Math.sin(threat*TAU);sx+=.14*sweep;}
+  else if(id==='belltwin'){yy-=42*sweep;rotation+=.12*Math.sin(threat*TAU);}
+  else{yy-=90*sweep;sx+=.12*sweep;rotation-=.06*sweep;}
+ }
+ c.save();c.globalAlpha*=clamp(opacity);c.translate(xx,yy);c.rotate(rotation);c.scale(scale*sx,scale*sy);
+ drawArenaBoss(c,{boss:id,id:7,x:0,y:0,face:-1,state:q<.58?'leap':gesture>.86?'attack':'windup',phase:q>.62?2:1,timer:90*(1-gesture),windupFrames:90,attackFrame:gesture*65,moveDuration:90,move:2,reducedMotion:reduced},b,t);c.restore();
+}
 function intro(c,w,id,b,beat,t,reduced,party){
- chamber(c,w,id,b,t);const p=reduced?1:smooth(beat.progress),focus=beat.index===0?.92:1.04,appear=reduced?1:beat.index===0?.58+.25*p:1;
- const bx=w*.66,by=680,bossScale=(id==='leviathan'?1.75:id==='conductor'?1.75:1.83)*focus;
- c.save();c.globalAlpha*=appear;c.translate(bx,by);c.scale(bossScale,bossScale);
- drawArenaBoss(c,{boss:id,id:7,x:0,y:0,face:-1,state:beat.index===0?'sealed':'windup',phase:beat.index===0?1:2,timer:beat.index===0?50:25,windupFrames:65,attackFrame:0,reducedMotion:reduced},b,t);c.restore();
- if(beat.index===1){const enter=reduced?0:(1-smooth(beat.progress/.45))*35;companions(c,party,w*.23-enter,690,t,reduced,.49,120,1);}
- else{for(const side of[-1,1]){const xx=w*.19+side*45;line(c,[[xx,690],[xx+18,674]],b.color+'35',1);}}
+ const p=reduced?1:clamp(t/6.5),x=w*.66,y=680,col=b.color;
+ chamber(c,w,id,b,t);
+ const arrive=smooth(p/.62),impact=clamp((p-.34)/.2),bossScale=id==='leviathan'||id==='conductor'?1.75:1.83;
+ // Entrances are continuous choreography across caption acts, with large body
+ // motion, a visible chamber response, and a committed signature gesture.
+ if(id==='briar'){
+  for(const side of[-1,1])for(let n=0;n<4;n++){
+   const grow=smooth((p-n*.035)/.55),xx=x+side*(75+n*68);c.save();c.beginPath();c.rect(xx-110,y-450*grow,220,480*grow);c.clip();roots(c,xx,y+24,-side,'#77925b',t);c.restore();
+   if(p>.4){const a=side*(.2+n*.19);oval(c,xx+side*30,y-160-n*45,24*arrive,8*arrive,col+'66');}
+  }
+ }else if(id==='bell'){
+  const hit=Math.sin(Math.PI*impact);oval(c,x,y-3,40+hit*330,8+hit*18,null,col+'aa',3);
+  if(p>.4)for(let i=0;i<11;i++){const a=i*TAU/11,rr=70+(p-.4)*500;gem(c,x+Math.cos(a)*rr,y-30-Math.abs(Math.sin(a))*rr,5*(1-p)+1,'#ffc47caa');}
+ }else if(id==='leviathan'){
+  for(let i=0;i<7;i++){const xx=x-190+i*65,high=Math.sin(Math.PI*arrive)*(100+noise(i)*170);curve(c,[xx,y+4,xx-32,y-high*.6,xx+27,y-high,xx+21,y-high*.75],col+'88',5);}
+  for(let i=0;i<3;i++)oval(c,x,y-2,80+arrive*(120+i*90),8+i*5,null,col+(i?'44':'88'),2);
+ }else if(id==='conductor'){
+  for(let i=0;i<6;i++){const xx=x+400*(1-arrive)+i*33,yy=y-180-i*54;curve(c,[xx+210,yy-60,xx+80,yy-20,xx-80,yy+40,xx-190,yy+28],col+'55',2);}
+ }else if(id==='hourglass'){
+  const cx=x,cy=y-260,spin=reduced?-.4:-p*TAU*5;
+  c.save();c.translate(cx,cy);c.rotate(spin);line(c,[[0,0],[0,-148]],'#e5fbf2bb',5);line(c,[[0,0],[86,18]],col+'aa',4);c.restore();
+  for(let i=0;i<12;i++){const a=i*TAU/12-p*3,rr=40+(1-arrive)*280;gem(c,cx+Math.cos(a)*rr,cy+Math.sin(a)*rr,10*(1-arrive)+2,col+'bb');}
+ }else if(id==='crown'||id==='nullheart'){
+  const centerY=y-260;
+  for(let i=0;i<9;i++){const a=i*TAU/9+p*2,rr=55+(1-arrive)*350;gem(c,x+Math.cos(a)*rr,centerY+Math.sin(a)*rr*.67,13*(1-arrive)+4,col+'aa','#f2d8e688');}
+  ring(c,x,centerY,70+(1-arrive)*210,col+'77',2);
+ }else if(id==='belltwin'&&p<.65){
+  for(const side of[-1,1]){c.save();c.globalAlpha*=.38*(1-arrive);entranceBoss(c,id,b,x+side*(1-arrive)*260,y,bossScale*.82,1,t,reduced);c.restore();}
+ }
+ entranceBoss(c,id,b,x,y,bossScale,p,t,reduced);
+ entranceParticles(c,id,x,y,p,t,col);
+ const moveIn=reduced?1:smooth(p/.45),partyX=w*.23-(1-moveIn)*330;
+ for(const i of[2,0,1])drawCreature(c,party[i],partyX+(i-1)*120,690+(i===1?0:-4),.49*(i===1?1.02:.92),1,{state:moveIn<1?'walk':'idle',walk:t*7+i},t,{reducedMotion:reduced,shadow:true,aura:false,speed:moveIn<1?.5:0});
+ if(p>.7){const flare=Math.sin(clamp((p-.7)/.3)*Math.PI);glow(c,x,y-250,180+flare*100,col,.06+flare*.09);}
 }
 function lantern(c,x,y,col,t,size=16){
  line(c,[[x,y-45],[x,y-25]],'#b3b58977',2);glow(c,x,y,size*6,col,.2);poly(c,[[x-size*.7,y-20],[x-size*.6,y+18],[x,y+28],[x+size*.6,y+18],[x+size*.7,y-20],[x,y-31]],'#28413a','#a9b58a',2);oval(c,x,y,size*.3,17+Math.sin(t*2)*2,col);line(c,[[x,y-23],[x,y+22]],'#bfbb8a',1.2);

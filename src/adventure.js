@@ -167,7 +167,7 @@ export class AdventureSystems{
   }
   burstDecoy(){
     const decoy=this.decoy;if(!decoy)return;this.decoy=null;
-    for(const e of this.enemies)if(e.hp>0&&Math.abs(e.x-decoy.x)<170){this.strike(e,22,Math.sign(e.x-decoy.x),{source:decoy.owner});e.stun=75;}
+    for(const e of this.enemies)if(e.hp>0&&Math.abs(e.x-decoy.x)<170){this.strike(e,22,Math.sign(e.x-decoy.x),{source:decoy.owner});e.stun=e.boss?Math.min(6,Math.max(e.stun||0,3)):75;}
     this.effects.push({type:'mist',x:decoy.x,y:decoy.y-25,life:45});this.emit('cast');
   }
   explodeVoltlet(e){

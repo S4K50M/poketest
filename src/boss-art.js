@@ -32,12 +32,12 @@ function hand(c,x,y,t,open=0,scale=1){joint(c,x,y,-open*.15,()=>{oval(c,0,0,9*sc
 function arm(c,x,y,side,t,m,weapon=false){const lift=m.wind*(weapon?.95:.65)+(m.cast?.8:0)-m.strike*(weapon?1.4:.8);joint(c,x,y,side*lift,()=>{rib(c,[[0,0],[side*24,34],[side*39,61]],t,13);oval(c,side*23,33,10,10,t.dark,t.mid);path(c,[[side*14,25],[side*37,23],[side*47,54],[side*31,67],[side*17,49]],metal(c,side*29,43,18,25,t));hand(c,side*39,64,t,m.cast,.95);});}
 function legs(c,t,m,width=28,height=75,bulk=14){for(const side of[-1,1]){const stride=Math.sin(m.gait+side)*m.walk*10,raise=Math.max(0,Math.cos(m.gait+side))*m.walk*6;joint(c,side*width,-height,side*m.crouch*.15,()=>{rib(c,[[0,0],[side*9+stride,-height*.38+height],[side*15-stride,height-raise-5]],t,bulk);path(c,[[side*4+stride,20],[side*22+stride,22],[side*24-stride,height-8],[side*3-stride,height-5]],metal(c,side*14,height*.55,15,height*.5,t));path(c,[[side*4-stride,height-11],[side*24-stride,height-11],[side*37-stride,height],[side*1-stride,height]],t.dark);line(c,[[side*9-stride,height-6],[side*29-stride,height-2]],rgba(t.light,.5),2);});}}
 function pose(e,time){
- const motion=e.reducedMotion||e.frozen>0?0:1,phase=Math.max(1,Math.min(3,n(e.phase,1))),healing=e.state==='heal',bracing=e.state==='countertell'||!!e.guarding;
+ const motion=e.reducedMotion||e.frozen>0?0:1,phase=Math.max(1,Math.min(4,n(e.phase,1))),healing=e.state==='heal',bracing=e.state==='countertell'||!!e.guarding;
  const wind=bracing?.7:e.state==='windup'?clamp(1-n(e.timer)/Math.max(1,e.windupFrames||46-phase*5)):0,walk=['patrol','charge','chase','evade'].includes(e.state)?motion:0;
  return {phase,wind,walk,gait:time*(['charge','evade'].includes(e.state)?15:7)+n(e.id),breath:Math.sin(time*2.2+n(e.id))*.012*motion,strike:e.state==='charge'?1:e.state==='attack'?Math.sin(clamp(n(e.attackFrame)/Math.max(1,n(e.moveDuration,60)))*Math.PI):e.state==='recover'?clamp(n(e.timer)/42)*.4:0,cast:healing||e.state==='windup'&&(e.move===1||e.move===2),crouch:healing?.45:e.state==='leap'?.65:e.state==='recover'?.35:wind*.2,flutter:Math.sin(time*4.5)*motion,clock:time*motion,motion};
 }
 function ribs(c,t,width=38,y=-117,count=5){for(let i=0;i<count;i++){const yy=y+i*11;curve(c,[-width,yy,-width*.56,yy+12,width*.56,yy+12,width,yy],rgba(t.light,.54),2);}}
-function crown(c,x,y,t,phase=1){joint(c,x,y,0,()=>{path(c,[[-36,8],[-41,-22],[-23,-8],[-17,-34],[0,-11],[18,-38],[25,-9],[41,-25],[35,8]],metal(c,0,-11,40,30,t));for(const xx of[-24,0,25])gem(c,xx,0,4,t,true);if(phase===3)for(const side of[-1,1])thorn(c,side*32,-19,25,side*.7,t);});}
+function crown(c,x,y,t,phase=1){joint(c,x,y,0,()=>{path(c,[[-36,8],[-41,-22],[-23,-8],[-17,-34],[0,-11],[18,-38],[25,-9],[41,-25],[35,8]],metal(c,0,-11,40,30,t));for(const xx of[-24,0,25])gem(c,xx,0,4,t,true);if(phase>=3)for(const side of[-1,1])thorn(c,side*32,-19,25,side*.7,t);});}
 function aureole(c,t,m,x=0,y=-168,r=61){ring(c,x,y,r,r*.93,rgba(t.light,.24),1.2);ring(c,x,y,r+7,r*.99,rgba(t.energy,.25),.7,m.clock*.08);for(let i=0;i<9;i++){const a=i*TAU/9+m.clock*.07;gem(c,x+Math.cos(a)*(r+7),y+Math.sin(a)*(r+7),2.5,t,i%3===0);}}
 
 function briar(c,t,m){
@@ -66,7 +66,7 @@ function bell(c,t,m,twin=false){
  for(const side of[-1,1])joint(c,side*54,-121,side*(.2+m.wind*.8-m.strike*.9),()=>{rib(c,[[0,0],[side*24,34],[side*29,78]],t,18);path(c,[[side*12,20],[side*34,16],[side*44,61],[side*34,81],[side*13,68]],metal(c,side*27,46,23,40,t));hand(c,side*29,78,t,0,1.3);});
  for(const side of twin?[-1,1]:[1])joint(c,side*(twin?24:0),-195,side*m.flutter*.03,()=>{oval(c,0,0,twin?24:29,33,metal(c,0,0,30,35,t),INK,2);path(c,[[-20,-12],[0,-27],[20,-12],[17,9],[0,23],[-17,8]],t.light);eye(c,-10,-4,t,2.8);eye(c,10,-4,t,2.8);line(c,[[-8,14],[8,14]],t.dark,1.5);thorn(c,-17,-22,23,-.24,t);thorn(c,17,-22,23,.24,t);});
  if(twin){for(const side of[-1,1]){const a=side*(.25+m.flutter*.1+m.wind*.4);joint(c,side*62,-168,a,()=>{line(c,[[0,0],[side*24,31]],t.mid,3);path(c,[[side*12,44],[side*15,24],[side*23,15],[side*32,25],[side*38,44]],metal(c,side*25,32,16,20,t));oval(c,side*25,44,15,4,t.dark,t.light);});}}else{for(const xx of[-22,0,22]){line(c,[[xx,-217],[xx,-239]],t.dark,8);oval(c,xx,-240,8,3,t.mid,t.light);if(m.phase>=2)glow(c,xx,-246,15,t.energy,.13);}}
- if(m.phase===3)aureole(c,t,m,0,-165,76);
+ if(m.phase>=3)aureole(c,t,m,0,-165,76);
 }
 function leviathan(c,t,m){
  for(let i=0;i<7;i++){const xx=-73+i*23,side=i<3?-1:1;curve(c,[xx,-57,xx+side*41,-34,xx-side*28+Math.sin(m.clock*3+i)*24,-7,xx+side*(37+Math.sin(m.clock*2+i)*20),-2],t.dark,14);curve(c,[xx,-57,xx+side*37,-34,xx-side*28+Math.sin(m.clock*3+i)*24,-8,xx+side*(36+Math.sin(m.clock*2+i)*20),-3],t.mid,8);for(let j=0;j<3;j++)oval(c,xx+side*9,-40+j*11,2.5,2,t.light);}
@@ -100,7 +100,7 @@ function hourglass(c,t,m){
  joint(c,26,-138,-m.wind*.18+m.strike*.2,()=>{path(c,[[-19,31],[-15,-30],[0,-68],[28,-61],[41,-19],[18,31]],metal(c,14,-14,35,60,t));path(c,[[0,-57],[28,-48],[22,-25],[44,-11],[29,9],[8,10],[-8,-10]],t.light);eye(c,21,-24,t,4);path(c,[[30,-11],[58,-5],[47,9],[27,7]],t.mid);for(const side of[-1,1]){const xx=side<0?2:20;rib(c,[[xx,-53],[xx+side*9,-81],[xx+side*26,-105]],t,5);for(let j=0;j<3;j++)rib(c,[[xx+side*(8+j*6),-77-j*10],[xx+side*(31+j*9),-87-j*11]],t,2);}});
  aureole(c,t,m,27,-164,44);ring(c,27,-164,35,35,rgba(t.light,.65),1);line(c,[[27,-164],[27+Math.sin(m.clock*.15)*21,-164-Math.cos(m.clock*.15)*21]],t.light,2);line(c,[[27,-164],[42,-151]],t.mid,1.5);
  if(m.phase>=2)for(let i=0;i<6;i++){const a=i*TAU/6+m.clock*.1;gem(c,27+Math.cos(a)*60,-164+Math.sin(a)*57,5,t,true);}
- if(m.phase===3)for(const side of[-1,1])thorn(c,side*60,-92,46,side*.6,t);
+ if(m.phase>=3)for(const side of[-1,1])thorn(c,side*60,-92,46,side*.6,t);
 }
 function sovereign(c,t,m){
  for(const side of[-1,1]){cloth(c,side*25,-165,43,152,t,m.clock+side,m.flutter*5);for(let i=0;i<3;i++)curve(c,[side*30,-118,side*(74+i*10),-98,side*(49+i*13),-41,side*(71+i*13),-7],t.dark,7-i);}
@@ -109,7 +109,7 @@ function sovereign(c,t,m){
  for(const side of[-1,1])arm(c,side*42,-153,side,t,m,true);
  joint(c,0,-204,-m.wind*.15,()=>{path(c,[[-22,-9],[0,-26],[22,-9],[15,20],[0,30],[-15,20]],t.light);eye(c,-8,2,t,3);eye(c,8,2,t,3);path(c,[[-3,13],[3,13],[0,20]],t.dark);crown(c,0,-26,t,m.phase);});
  if(m.phase>=2)aureole(c,t,m,0,-162,95);
- if(m.phase===3)for(let i=0;i<6;i++){const a=i*TAU/6+m.clock*.08;gem(c,Math.cos(a)*108,-153+Math.sin(a)*91,9,t,true);}
+ if(m.phase>=3)for(let i=0;i<6;i++){const a=i*TAU/6+m.clock*.08;gem(c,Math.cos(a)*108,-153+Math.sin(a)*91,9,t,true);}
 }
 function palimpsest(c,t,m){
  // Six writing hands carry an opened, tooth-edged folio. Page layers, spine,
@@ -182,7 +182,7 @@ function warden(c,t,m,biome){
   for(const side of[-1,1])arm(c,side*31,-142,side,t,m,true);aureole(c,t,m,0,-175,59);for(const side of[-1,1])joint(c,side*63,-84,side*m.wind*.5,()=>{line(c,[[0,0],[side*17,-69]],t.mid,5);path(c,[[side*11,-66],[side*30,-109],[side*39,-59],[side*21,-28]],t.light,t.dark);});
  }
  if(m.phase>=2){glow(c,0,-116,64,t.energy,.065*m.phase);for(const side of[-1,1])gem(c,side*40,-139,5,t,true);}
- if(m.phase===3){ring(c,0,-121,67,89,rgba(t.energy,.26),1,m.clock*.05);for(const side of[-1,1])thorn(c,side*46,-132,32,side*.8,t);}
+ if(m.phase>=3){ring(c,0,-121,67,89,rgba(t.energy,.26),1,m.clock*.05);for(const side of[-1,1])thorn(c,side*46,-132,32,side*.8,t);}
 }
 function reaver(c,t,m,biome){
  if(biome==='moss'){
@@ -244,7 +244,7 @@ export function drawArenaBoss(c,e,b,time=0){
   else if(e.boss==='belltwin')bell(c,{...t,base:'#a98b59',mid:'#d2b17a',light:'#f2ddb1'},m,true);
   else nullheart(c,t,m,b.mechanic);
   // Phase-three fissures are part of the new silhouettes, not a global tint.
-  if(m.phase===3){for(let i=0;i<4;i++){const x=(i-1.5)*19,yy=-93-i%2*21;line(c,[[x,yy-12],[x-3,yy],[x+4,yy+9]],rgba(t.energy,.58),1.3);}}
+  if(m.phase>=3){for(let i=0;i<4;i++){const x=(i-1.5)*19,yy=-93-i%2*21;line(c,[[x,yy-12],[x-3,yy],[x+4,yy+9]],rgba(t.energy,.58),1.3);}}
  }finally{c.restore();}
  return true;
 }

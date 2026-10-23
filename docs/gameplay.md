@@ -16,7 +16,7 @@ Conversations appear as floating words beside the traveler or professor in the s
 
 Each room also has a short voice tied to an existing inscription, doorway, shrine, or other landmark. Approach during a quiet moment to hear it; these whispers fade on their own and do not use your interaction input. Bosses speak from their chambers when an encounter begins and when they fall. The world keeps moving while they speak. Reading an echo with E still records its full history separately in **N → World History**.
 
-Menus and portrait rotation hide scene dialogue and hold its elapsed time until you return. Room changes, returning home, and game over clear it. Inventory, crafting, covenant choices, reward summaries, and ending decisions retain their own interfaces.
+Menus and portrait rotation hide scene dialogue and hold its elapsed time until you return. Room changes, returning home, and game over clear it. Inventory, crafting, covenant choices, and ending decisions retain their own interfaces. Guardian unlocks appear as an in-world HUD notice while play continues.
 
 ## Controls
 
@@ -38,7 +38,7 @@ Menus and portrait rotation hide scene dialogue and hold its elapsed time until 
 | F, held while still | Channel one heart for 40 Focus over 72 frames |
 | V | Drink a Bramble Flask; restore three hearts |
 | 1 / 2 / 3, or Q | Switch among the three active companions |
-| E | Advance a conversation; otherwise talk, use services, read, open a cache, pull a lever, enter a door |
+| E | Advance a conversation; otherwise talk, use services, read guardian remains, open a cache, pull a lever, enter a door |
 | Enter | Advance the current conversation |
 | U | Grapple toward a nearby golden anchor after unlocking Ember Thread |
 | T / C | Use / cycle the Resonance Pick and Echo Lantern |
@@ -59,7 +59,13 @@ The eight supplied identities retain their different anatomy and elemental skill
 - **Lumivern:** four moon-patterned wings, a lantern heart, seeking light needles, and a solar cone.
 - **Chronowl:** six feathered wings, an hourglass crown, a stasis ring, and an ice dash.
 
-Minions include shell enemies that need a heavy hit, static grubs that punish close attacks, burrowing ambushers, slippery water creatures, ranged thorn sprites, furnace bats, ink rays, storm birds, frost crawlers, and teleporting rift echoes. Guardians scale with their dimension and role and retain three phase patterns, changing rhythm at two-thirds and one-third health. Twelve dimensional minibosses guard court seals and optional vaults. All 21 bosses have four named attacks and reactive choices: learn their arena hazards, summons, temporary landings, heavy weapon strikes, aerial passes, and late execution moves in the in-game Attack Field Notes or [boss guide](boss-encounters.md). Repeating close-range heavies draws a warned defensive response; use spacing, parries, and recovery windows. Stronger late-game bosses gain speed and power below 40% health and can attempt limited, interruptible healing. Glass Marauders resist light strikes, Veilwasps attack from the air, Graveburrowers mark an eruption under you, and Chaincasters keep their distance while firing rooting bolts.
+Minions include shell enemies that need a heavy hit, static grubs that punish close attacks, burrowing ambushers, slippery water creatures, ranged thorn sprites, furnace bats, ink rays, storm birds, frost crawlers, and teleporting rift echoes. Guardians scale with their dimension and role and have four phase patterns, changing rhythm at 70%, 40%, and 18% health. Twelve dimensional minibosses guard court seals and optional vaults. All 21 bosses have six named attacks and reactive choices: learn their arena hazards, summons, temporary landings, heavy weapon strikes, aerial passes, and late execution moves in the in-game Attack Field Notes or [boss guide](boss-encounters.md). Repeating close-range heavies draws a warned defensive response; use spacing, parries, and recovery windows. Stronger late-game bosses gain speed and power below 40% health and can attempt limited, interruptible healing. Glass Marauders resist light strikes, Veilwasps attack from the air, Graveburrowers mark an eruption under you, and Chaincasters keep their distance while firing rooting bolts.
+
+## What guardians leave behind
+
+Guardian victories grant their abilities, companions, fragments, and other rewards immediately. A HUD notice announces the unlock while the chamber stays playable. The nine main and forbidden guardians have individual defeat sequences: the Briar Matron roots into a living tree, Saint Bellows consumes his last flame, the Storm Conductor flies away promising to return, and the Hourglass Stag leaves a stopped clock. Other guardians leave their own transformed landmarks. Press E nearby for scene-based lore; these remains persist when you revisit or reload. A gate death can revive the guardian, hiding its aftermath until it falls again. Reading the remains cannot duplicate its rewards.
+
+The Hollow Sovereign exposes the Worldheart. Approach it and press E when you are ready to choose its fate. The Nullheart’s remains similarly invite the final covenant scene. Ordinary victories do not open a blocking reward window.
 
 ## Inventory and crafting
 
@@ -69,7 +75,7 @@ Craft flasks and four charms near camps, the Mender’s Workbench, or Wellspring
 
 The original campaign save records party health, progression, inventory, charms, discoveries, claimed rewards, defeated creatures, story notes, endings, and a room checkpoint. Reloading starts at that checkpoint; it does not preserve the exact midair position or a guardian’s partial health. Autosaves happen during play and at room changes, rewards, spring activation, crafting, death, and leaving. A saved pending death reopens Game Over after continuing. An older arena save is not used by the new campaign.
 
-J, K, and L have shared-party repeat cooldowns of 0.2s, 0.6s, and 1.5s. Arts have individual timers plus shared cast recovery; Surge requires its gauge and a 15s cooldown. Time your next input rather than repeatedly tapping. Cooldowns survive swaps and reloads; the HUD and touch controls show remaining time.
+J, K, and L have shared-party repeat cooldowns of 0.2s, 0.9s, and 1.5s. Arts have individual timers plus shared cast recovery; Surge requires its gauge and a 15s cooldown. Time your next input rather than repeatedly tapping. Cooldowns survive swaps and reloads; the HUD and touch controls show remaining time.
 
 ## RPG progression
 
@@ -89,7 +95,7 @@ After fifteen seconds of simulation time in a region path, an uncleared world fr
 
 The 12-second opening tells its story in three scenes and uses the companions you selected. **Skip Story**, Space, Enter, E, or Escape returns control immediately. Gameplay stays paused until it completes or you skip it; held actions do not carry into the first frame. Continue bypasses it, and title-screen replay leaves the expedition save intact. The opening clock pauses during portrait rotation, window blur, or a hidden tab, then resumes from the same point.
 
-The six main guardians and three forbidden guardians also have 6.5-second introductions, once per boss in the current loaded expedition session. Retry does not repeat an introduction already seen in that session. A 9-second finale follows your main ending choice or the Nullheart reward; it leads into the appropriate credits or true-ending summary. The same skip controls, rotation/focus pause, and reduced-motion rules apply. After a main ending, Continue resumes exploration; a completed true ending opens its summary. Neither replays the finale.
+The six main guardians and three forbidden guardians also have 6.5-second introductions with physical entrances: roots grow, bodies breach or descend, flames ignite, and broken forms assemble. They play once per boss in the current loaded expedition session; Retry does not repeat an introduction already seen there. A 9-second finale follows your Worldheart choice or an E interaction with the defeated Nullheart’s remains, then leads into credits or the true-ending summary. The same skip controls and rotation/focus pause apply. Reduced motion retains complete still compositions and captions. Continue resumes exploration after either ending without reopening its summary or replaying the finale.
 
 Use H → Arsenal to toggle reduced motion. It removes camera shake and softens flashes; a new journey initially follows the browser’s motion preference. The title screen, opening, and first-area scenery also honor reduced motion; the cinematic keeps its story beats while decorative movement stays still. The sound button toggles optional synthesized effects. Pausing, opening a menu, losing window focus, or hiding the tab stops active gameplay through the UI.
 
@@ -99,7 +105,7 @@ For exact timing and art unlocks, see the [combat reference](combat.md). For che
 
 Each of the six sanctuary gates leads through a grounded tunnel road, a lower dungeon passage, and a warden court to the guardian’s chamber. The main routes have continuous floors instead of long runs of bottomless gaps. Optional upper climbs, high passages, and buried vaults branch off this route; wider landings and catch shelves make a missed jump recoverable. The high passage loops back toward the gate, while the vault has a stronger optional reaver and a sealed hoard. Earned double jumps, air dashes, wall climbing, and grapples open those optional routes. Read local inscriptions and use M to inspect discovered connections. There are no directional route arrows, and movement abilities do not bypass the court’s guardian seal.
 
-Each dimension gate is one level and contains **two or three Wellsprings**, distributed among its interior chambers. Its first spring is on the lower dungeon floor, so recovery does not require completing an upper platforming route. Their locations vary with a new expedition’s saved world seed and remain stable across reloads. Enter the light while grounded to fully restore all three companions and Focus, with no E press or sitting animation. A spring works once per attempt; remaining beside it cannot repeatedly heal you. Death rearms the springs in that gate. The sanctuary hearth is reusable when you leave and return.
+Each dimension gate contains **one Wellspring**, seeded on the lower floor of its descent or court. Recovery does not require an optional upper climb. Its location varies with the expedition’s saved world seed and remains stable across reloads. Enter the light while grounded to fully restore all three companions and Focus, with no E press or sitting animation. A spring works once per attempt; remaining beside it cannot repeatedly heal you. Death rearms the springs in that gate. The sanctuary hearth is reusable when you leave and return.
 
 Camps replace the old healing benches. They support preparation and travel, but never refill health or change your respawn spring. Crossing a door changes the local fall checkpoint, not the last activated spring. Missing an ordinary upper jump now lands on a lower shelf or the tunnel floor, without a fall penalty. Leaving all authored ground still uses the existing nonlethal-fall rule: lose a heart and return to the local checkpoint. If the party is wiped, **Game Over** holds the simulation until you choose **Retry** or **Save & Title**. Retry returns to the last activated spring; a save made on Game Over still requires that choice after reload.
 

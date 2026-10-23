@@ -3,9 +3,10 @@ import { MINIONS } from './designs.js';
 import { MAJOR_ENCOUNTERS } from './boss-major-moves.js';
 import { WARDEN_ENCOUNTERS } from './boss-warden-moves.js';
 import { REAVER_ENCOUNTERS } from './boss-reaver-moves.js';
-import {bossProgression,bossPhase,bossTempo,bossDamage,bossKnockback} from './boss-progression.js';
+import { extendBossProfiles } from './boss-overdrive-moves.js';
+import {bossProgression,bossPhase,bossTempo,bossMovement,bossDamage,bossKnockback} from './boss-progression.js';
 
-export const BOSS_ENCOUNTERS=Object.freeze({...MAJOR_ENCOUNTERS,...WARDEN_ENCOUNTERS,...REAVER_ENCOUNTERS});
+export const BOSS_ENCOUNTERS=Object.freeze(extendBossProfiles({...MAJOR_ENCOUNTERS,...WARDEN_ENCOUNTERS,...REAVER_ENCOUNTERS}));
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const finite=(n,fallback=0)=>Number.isFinite(n)?n:fallback;
 const ownerOf=e=>e.key??`boss:${e.boss}:${e.id}`;
@@ -14,7 +15,7 @@ const valid=g=>g.phase==='playing'&&!g.player.respawning;
 
 function clearAttack(g,e){
   const owner=ownerOf(e);e.encounter=null;e.motion=null;e.telegraph=null;
-  e.counterMotion=null;e.counterState=null;e.healChannel=null;e.rageMotion=null;e.guarding=false;e.counterGuard=false;e.counterFollowup=false;
+  e.counterMotion=null;e.counterState=null;e.healChannel=null;e.rageMotion=null;e.ward=null;e.armament=null;e.guarding=false;e.counterGuard=false;e.counterFollowup=false;e.guardRetaliation=false;
   g.bossHazards=(g.bossHazards||[]).filter(h=>h.bossOwner!==owner);
   g.enemyShots=g.enemyShots.filter(s=>s.bossOwner!==owner);
   g.hazards=g.hazards.filter(s=>s.bossOwner!==owner);g.waves=g.waves.filter(s=>s.bossOwner!==owner);
@@ -27,7 +28,7 @@ export function clearBossEncounter(g,e){
 }
 export function resetBossEncounters(g){
   g.bossHazards=[];g.platforms=g.platforms.filter(p=>!p.bossOwner);
-  for(const e of g.enemies||[])if(e.boss){e.encounter=null;e.motion=null;e.telegraph=null;e.counterMotion=null;e.counterState=null;e.healChannel=null;e.rageMotion=null;e.healUsed=false;e.healRequest=false;e.berserk=false;e.pressure=null;e.pressureReady=false;e.postureLock=0;e.poise=0;e.guarding=false;e.counterGuard=false;e.counterFollowup=false;e.guardReadMove=null;e.counterCooldown=0;e.attackHistory=[];e.recoveryElapsed=0;e.tactic=null;}
+  for(const e of g.enemies||[])if(e.boss){e.encounter=null;e.motion=null;e.telegraph=null;e.counterMotion=null;e.counterState=null;e.healChannel=null;e.rageMotion=null;e.ward=null;e.armament=null;e.healUsed=false;e.healRequest=false;e.berserk=false;e.pressure=null;e.pressureReady=false;e.postureLock=0;e.poise=0;e.guarding=false;e.counterGuard=false;e.counterFollowup=false;e.guardReadMove=null;e.guardRetaliation=false;e.counterCooldown=0;e.attackHistory=[];e.recoveryElapsed=0;e.tactic=null;}
 }
 function context(g,e,b){
   const left=Math.max(50,finite(e.left,50)),right=Math.min(g.worldWidth-50,finite(e.right,g.worldWidth-50));
@@ -36,24 +37,30 @@ function context(g,e,b){
 /** The same deterministic entry point is used by gameplay and encounter tests. */
 export function beginBossMove(g,e,index,definition=BOSSES[e.boss]){
   const profile=BOSS_ENCOUNTERS[e.boss],move=profile?.moves[index];if(!move||e.hp<=0)return false;
-  const c=context(g,e,definition),tempo=bossTempo(e),events=move.build(c).map((event,n)=>({...event,at:Math.max(0,Math.floor((event.at||0)/tempo)),delay:event.delay===undefined?undefined:Math.max(12,Math.round(event.delay/tempo)),duration:event.duration===undefined?undefined:Math.max(10,Math.round(event.duration/tempo)),order:n})).sort((a,b)=>a.at-b.at||a.order-b.order);
+  const c=context(g,e,definition),tempo=bossTempo(e),events=move.build(c).map((event,n)=>({...event,at:Math.max(0,Math.floor((event.at||0)/tempo)),delay:event.delay===undefined?undefined:Math.max(12,Math.round(event.delay/tempo)),duration:event.duration===undefined?undefined:event.type==='dash'?Math.max(4,Math.floor(event.duration/bossMovement(e))):Math.max(10,Math.round(event.duration/tempo)),order:n})).sort((a,b)=>a.at-b.at||a.order-b.order);
+  const armament=events.find(event=>event.type==='armament');if(armament)e.armament={...armament,remaining:Math.round(move.tell/tempo)+(armament.duration||100),total:Math.round(move.tell/tempo)+(armament.duration||100),age:0};
   e.move=index;e.moveId=move.id;e.moveName=move.name;e.attackKind=move.kind;e.counter=move.counter;e.hint=move.hint;e.face=c.face;
   const execution=events.some(event=>event.damage==='lethal');
-  e.guarding=!!e.counterGuard;e.counterGuard=false;
-  e.windupFrames=Math.max(execution?90:28,Math.round(move.tell/tempo));e.moveDuration=Math.ceil(move.active/tempo);e.attackFrame=-1;e.state='windup';e.timer=e.windupFrames;e.targetX=c.tx;e.targetY=c.ty;e.recoveryElapsed=0;
+  e.guarding=!!e.counterGuard||(e.pressure?.chain>=2&&!e.postureLock);e.counterGuard=false;
+  if(e.guarding)e.guardReadMove=e.pressure?.lastMove||e.guardReadMove;
+  e.windupFrames=Math.max(execution?90:22,Math.round(move.tell/tempo));e.moveDuration=Math.ceil(move.active/tempo);e.attackFrame=-1;e.state='windup';e.timer=e.windupFrames;e.targetX=c.tx;e.targetY=c.ty;e.recoveryElapsed=0;
   e.attackHistory=[...(e.attackHistory||[]),index].slice(-4);
-  e.encounter={events,frame:-1,next:0,context:{...c,clampX:undefined},recover:Math.max(28,Math.round(move.recover/tempo)),active:e.moveDuration};
+  e.encounter={events,frame:-1,next:0,context:{...c,clampX:undefined},recover:Math.max(18,Math.round(move.recover/tempo)),active:e.moveDuration};
   e.telegraph={kind:move.kind,x:c.x,y:c.floor,targetX:c.tx,targetY:c.ty,radius:100,name:move.name,hint:move.hint,counter:move.counter,events};
   g.emit('warning',{boss:e.boss,move:move.id});return true;
 }
 function execute(g,e,event,b){
   const owner=ownerOf(e),color=b.color,base=e.baseY??520;
-  if(event.type==='zone'){
+  if(event.type==='armament'){
+    e.armament={...event,remaining:event.duration||100,total:event.duration||100,age:e.armament?.age||0};g.emit('bossarmament',{boss:e.boss,kind:event.kind,x:e.x,y:e.y});
+  }else if(event.type==='shield'){
+    e.ward={remaining:event.duration||160,total:event.duration||160,charges:event.charges||3,maxCharges:event.charges||3,name:event.name||'OATH SHIELD'};g.emit('bossshield',{boss:e.boss,x:e.x,y:e.y});
+  }else if(event.type==='zone'){
     const life=clamp(finite(event.life,20),1,180),delay=clamp(finite(event.delay,18),0,180);
     const h={...event,type:'zone',damage:event.damage==='lethal'?'lethal':bossDamage(e,event.damage??1.5),knockback:bossKnockback(e,event.knockback||1),x:finite(event.x,e.x),y:finite(event.y,base-25),w:Math.max(8,finite(event.w,120)),h:Math.max(8,finite(event.h,70)),delay,maxDelay:delay,life,maxLife:life,bossOwner:owner,boss:e.boss,color,name:event.label||e.moveName,hint:e.hint,counter:e.counter,lethal:event.damage==='lethal'};
     g.bossHazards??=[];if(g.bossHazards.filter(n=>n.bossOwner===owner).length<36)g.bossHazards.push(h);
   }else if(event.type==='dash'){
-    e.motion={x:e.x,y:e.y,to:clamp(finite(event.to,e.targetX),e.left,e.right),duration:Math.max(10,event.duration||18),height:Math.max(0,event.height||0),frame:0,damage:bossDamage(e,event.damage??1.5),knockback:bossKnockback(e,event.knockback||1.4)};
+    e.motion={x:e.x,y:e.y,to:clamp(finite(event.to,e.targetX),e.left,e.right),duration:Math.max(4,event.duration||8),height:Math.max(0,event.height||0),frame:0,damage:bossDamage(e,event.damage??1.5),knockback:bossKnockback(e,event.knockback||1.4)};
     e.face=Math.sign(e.motion.to-e.x)||e.face;e.state=e.motion.height?'leap':'charge';
   }else if(event.type==='warp'){
     g.effects.push({type:'bossTrail',x:e.x,y:e.y,color,life:22});e.x=clamp(event.x,e.left,e.right);e.y=finite(event.y,base);e.face=Math.sign(g.player.x-e.x)||e.face;
@@ -94,7 +101,7 @@ function moveBoss(g,e){
 }
 /** Choose a signature for the situation rather than replaying a fixed loop. */
 export function chooseBossMove(g,e,profile=BOSS_ENCOUNTERS[e.boss]){
-  const sequence=profile.sequences[(e.phase||1)-1],history=e.attackHistory||[],last=history.at(-1),distance=Math.abs(g.player.x-e.x),air=g.player.y<(e.baseY??520)-90;
+  const sequence=profile.sequences[Math.min(profile.sequences.length-1,(e.phase||1)-1)],history=e.attackHistory||[],last=history.at(-1),distance=Math.abs(g.player.x-e.x),air=g.player.y<(e.baseY??520)-90;
   e.attackCursor=(e.attackCursor||0)+1;
   const seed=e.attackCursor+(e.phase||1)+(e.id||0),preferred=sequence[(e.attackCursor-1)%sequence.length];
   const scores=profile.moves.map((move,index)=>{
@@ -122,11 +129,12 @@ function breakawayWarning(g,e,profile,{delay,phase=false}={}){
 }
 function startCounter(g,e,profile){
   const p=g.player,config=bossProgression(e.boss),away=Math.sign(e.x-p.x)||-e.face;
-  clearAttack(g,e);e.pressureReady=false;e.counterCooldown=config.counterCooldown;e.counterState='read';e.state='countertell';e.timer=config.readFrames;e.stun=0;
+  clearAttack(g,e);e.face=Math.sign(p.x-e.x)||e.face;e.pressureReady=false;e.counterCooldown=config.counterCooldown;e.counterState='read';e.state='countertell';e.timer=config.readFrames;e.stun=0;
   const style=profile.movement,reach=style==='anchor'?135:style==='hover'?255:style==='skirmish'?190:210;
   let target=style==='skirmish'?p.x-away*reach:e.x+away*reach;
   if(target<e.left+24||target>e.right-24)target=p.x-away*reach;
-  e.counterMotion={x:e.x,y:e.y,to:clamp(target,e.left+24,e.right-24),height:style==='anchor'?38:style==='hover'?160:style==='skirmish'?170:75,duration:style==='anchor'?28:24,frame:0};
+  e.counterMotion={x:e.x,y:e.y,to:clamp(target,e.left+24,e.right-24),height:style==='anchor'?38:style==='hover'?160:style==='skirmish'?170:75,duration:Math.max(4,Math.floor((style==='anchor'?28:24)/bossMovement(e))),frame:0};
+  e.guardReadMove=e.pressure?.lastMove||e.guardReadMove;
   e.moveName=profile.title+' · Breakaway';e.hint=style==='anchor'?'The rooted body braces, then shifts away. Let it settle before attacking.':style==='skirmish'?'It is reading your heavy rhythm. Do not chase under the crossing vault.':style==='hover'?'Watch the rising body. Reposition below it, then punish the next landing.':'The heavy steps back and changes its angle. Follow the tell, not the retreat.';
   e.tactic=style==='anchor'?'ROOTED RESET':style==='skirmish'?'CROSSING VAULT':style==='hover'?'ASCENDING RESET':'FLANKING STEP';
   breakawayWarning(g,e,profile,{delay:config.readFrames});g.emit('bosscounter',{boss:e.boss,x:e.x,y:e.y,stage:'tell'});g.say('HEAVY PATTERN READ · '+e.tactic);
@@ -135,12 +143,15 @@ function updateCounter(g,e,profile){
   const m=e.counterMotion;
   if(!m){e.state='patrol';e.timer=10;e.counterState=null;return;}
   if(e.state==='countertell'){
-    if(e.timer<=bossProgression(e.boss).readFrames-12)e.guarding=true;
+    if(e.timer<=bossProgression(e.boss).readFrames-6)e.guarding=true;
     if(e.timer>0)return;
     e.state='evade';e.counterState='escape';g.emit('bosscounter',{boss:e.boss,x:e.x,y:e.y,stage:'escape'});return;
   }
-  const t=clamp(++m.frame/m.duration,0,1),base=e.baseY??520;
+  const oldX=e.x,oldY=e.y,t=clamp(++m.frame/m.duration,0,1),base=e.baseY??520;
   e.x=m.x+(m.to-m.x)*t;e.y=m.y+(base-m.y)*t-Math.sin(Math.PI*t)*m.height;
+  // The announced escape is a real counterstrike, not a harmless retreat
+  // that a held-forward heavy attack can chase without consequence.
+  if(g.player.x>Math.min(oldX,e.x)-48&&g.player.x<Math.max(oldX,e.x)+48&&Math.abs(g.player.y-(oldY+e.y)/2)<105)g.hurt(Math.sign(g.player.x-e.x)||-e.face,bossDamage(e,2),{knockback:bossKnockback(e,3)});
   if(g.tick%4===0)g.effects.push({type:'bossTrail',x:e.x,y:e.y,color:BOSSES[e.boss].color,life:15});
   if(t>=1){e.y=base;e.counterMotion=null;e.counterState=null;e.counterFollowup=true;e.counterGuard=true;beginBossMove(g,e,chooseBossMove(g,e,profile));}
 }
@@ -167,14 +178,26 @@ function updateHeal(g,e){
 export function updateBossEncounter(g,e,definition=BOSSES[e.boss]){
   if(!e.introduced||e.hp<=0||g.paused||g.hitstop>0||!valid(g)||e.frozen>0)return;
   const profile=BOSS_ENCOUNTERS[e.boss];if(!profile)return;
-  const config=bossProgression(e.boss),phase=phaseOf(e),base=e.baseY??520,newRage=config.late&&!e.berserk&&e.hp<=e.maxHp*.4;
+  const config=bossProgression(e.boss),phase=phaseOf(e),base=e.baseY??520,newRage=!e.berserk&&e.hp<=e.maxHp*.4;
   if(newRage||phase>(e.phase||1)){
-    clearBossEncounter(g,e);e.phase=Math.max(phase,e.phase||1);e.berserk=!!e.berserk||newRage;e.state='enrage';e.timer=newRage?60:54;e.stun=0;e.poise=0;e.y=base;e.attackCursor=0;e.pressureReady=false;
-    const away=Math.sign(e.x-g.player.x)||-e.face,target=e.x+away*235;e.rageMotion={x:e.x,y:e.y,to:clamp(target,e.left+24,e.right-24),frame:0,duration:30,height:profile.movement==='anchor'?55:profile.movement==='hover'?180:120};
+    clearBossEncounter(g,e);e.phase=Math.max(phase,e.phase||1);e.berserk=!!e.berserk||newRage;e.state='enrage';e.stun=0;e.poise=0;e.y=base;e.attackCursor=0;e.pressureReady=false;
+    const away=Math.sign(e.x-g.player.x)||-e.face,target=e.x+away*235;e.rageMotion={x:e.x,y:e.y,to:clamp(target,e.left+24,e.right-24),frame:0,duration:Math.max(4,Math.floor(30/bossMovement(e))),height:profile.movement==='anchor'?55:profile.movement==='hover'?180:120};e.timer=24+e.rageMotion.duration;
     breakawayWarning(g,e,profile,{delay:24,phase:true});
-    g.effects.push({type:'burst',x:e.x,y:base-70,color:definition.color,life:40});g.emit(newRage?'bossrage':'enrage',{boss:e.boss,x:e.x,y:e.y});g.say(definition.name.toUpperCase()+(newRage?' · DESPERATION · FASTER / STRONGER':' · PHASE '+phase+' · '+profile.title));return;
+    e.ward={remaining:180,total:180,charges:3,maxCharges:3,name:phase>=4?'LAST STAND SHIELD':'PHASE SHIELD'};
+    g.effects.push({type:'burst',x:e.x,y:base-70,color:definition.color,life:40});g.emit(newRage?'bossrage':'enrage',{boss:e.boss,x:e.x,y:e.y});g.say(definition.name.toUpperCase()+(phase>=4?' · LAST STAND · OATH UNLEASHED':newRage?' · FRENZY · FASTER / STRONGER':' · PHASE '+phase+' · '+profile.title));return;
   }
+  if(e.ward&&--e.ward.remaining<=0)e.ward=null;
+  if(e.armament){e.armament.age++;if(--e.armament.remaining<=0)e.armament=null;}
   if(e.flash>0)e.flash--;if(e.slow>0)e.slow--;if(e.counterCooldown>0)e.counterCooldown--;
+  if(e.guardRetaliation){
+    e.guardRetaliation=false;
+    // A demonstrated heavy hitting the visible brace earns a short, local
+    // retaliation. Its marker leaves enough time to cancel into dash/parry;
+    // continuing the same forward-heavy loop walks into the counter instead.
+    const face=Math.sign(g.player.x-e.x)||e.face,damage=3.6+Math.min(2,(Math.max(2,e.pressure?.chain||2)-2)*.3);
+    g.bossHazards??=[];g.bossHazards.push({type:'zone',shape:'slash',x:e.x+face*90,y:base-65,w:230,h:130,delay:16,maxDelay:16,life:9,maxLife:9,damage:bossDamage(e,damage),knockback:bossKnockback(e,3.4),bossOwner:ownerOf(e),boss:e.boss,color:definition.color,name:'HEAVY REVERSAL',hint:'Dash, cross behind, or deflect the readied counter.',counter:'dodge'});
+    g.emit('bosscounter',{boss:e.boss,x:e.x,y:e.y,stage:'reversal'});
+  }
   if(e.healChannel){updateHeal(g,e);return;}
   // Parry and posture break interrupt the entire uncommitted attack timeline.
   if((e.encounter||e.counterMotion)&&(e.state==='recover'||e.stun>12)){clearAttack(g,e);e.y=base;e.recoveryElapsed=0;if(e.state!=='recover'){e.state='recover';e.timer=Math.max(55,e.timer);}}
@@ -182,19 +205,19 @@ export function updateBossEncounter(g,e,definition=BOSSES[e.boss]){
   e.timer--;
   if(e.state==='countertell'||e.state==='evade'){updateCounter(g,e,profile);return;}
   if(e.state==='enrage'){
-    const m=e.rageMotion;if(m&&e.timer<30){const t=clamp(++m.frame/m.duration,0,1);e.x=m.x+(m.to-m.x)*t;e.y=m.y+(base-m.y)*t-Math.sin(Math.PI*t)*m.height;}
-    if(e.timer<=0){e.y=base;e.rageMotion=null;e.state='patrol';e.timer=12;}return;
+    const m=e.rageMotion;if(m&&e.timer<m.duration){const t=clamp(++m.frame/m.duration,0,1);e.x=m.x+(m.to-m.x)*t;e.y=m.y+(base-m.y)*t-Math.sin(Math.PI*t)*m.height;}
+    if(e.timer<=0){e.y=base;e.rageMotion=null;e.state='patrol';e.timer=6;}return;
   }
   // A committed active swing finishes, but a repeatedly stuffed startup can
   // change its plan. The separate read tell remains fully punishable.
-  if(e.state==='windup'&&e.pressureReady&&!e.counterCooldown&&!e.postureLock&&e.windupFrames-e.timer>=18&&Math.abs(g.player.x-e.x)<230){startCounter(g,e,profile);return;}
+  if(e.state==='windup'&&e.pressureReady&&!e.counterCooldown&&!e.postureLock&&e.windupFrames-e.timer>=6&&Math.abs(g.player.x-e.x)<230){startCounter(g,e,profile);return;}
   if(e.state==='recover'){
     e.guarding=false;e.y=base;e.recoveryElapsed=(e.recoveryElapsed||0)+1;
-    if(e.pressureReady&&!e.counterCooldown&&!e.postureLock&&e.recoveryElapsed>=24&&Math.abs(g.player.x-e.x)<230){startCounter(g,e,profile);return;}
-    if(e.timer<=0){e.state='patrol';e.timer=12;}return;
+    if(e.pressureReady&&!e.counterCooldown&&!e.postureLock&&e.recoveryElapsed>=12&&Math.abs(g.player.x-e.x)<230){startCounter(g,e,profile);return;}
+    if(e.timer<=0){e.state='patrol';e.timer=6;}return;
   }
   if(e.state==='patrol'){
-    const dx=g.player.x-e.x,distance=Math.abs(dx),range=profile.preferredRange??140,speed=(profile.speed??2.4)*bossTempo(e)*(e.slow>0?.55:1);e.face=Math.sign(dx)||e.face;
+    const dx=g.player.x-e.x,distance=Math.abs(dx),range=profile.preferredRange??140,speed=(profile.speed??2.4)*bossMovement(e)*(e.slow>0?.55:1);e.face=Math.sign(dx)||e.face;
     if(e.pressureReady&&!e.counterCooldown&&!e.postureLock&&distance<230){startCounter(g,e,profile);return;}
     if(config.late&&e.berserk&&!e.healUsed&&e.hp<=e.maxHp*.4&&distance>190){startHeal(g,e,profile);return;}
     // Anchored bosses still turn the arena and yield ground under crowding;
@@ -207,6 +230,9 @@ export function updateBossEncounter(g,e,definition=BOSSES[e.boss]){
     if(e.timer<=0)beginBossMove(g,e,chooseBossMove(g,e,profile),definition);return;
   }
   if(e.state==='windup'){
+    // Track an opponent during the preparation, then lock the committed
+    // facing for the last ten frames so a deliberate cross-up still works.
+    if(e.timer>10)e.face=Math.sign(g.player.x-e.x)||e.face;
     if(e.timer>0)return;e.state='attack';e.telegraph=null;
   }
   const encounter=e.encounter;if(!encounter){e.state='recover';e.timer=30;e.y=base;e.recoveryElapsed=0;return;}

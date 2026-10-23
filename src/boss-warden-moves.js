@@ -24,10 +24,10 @@ export const WARDEN_ENCOUNTERS={
         zone(0,'pillar',c.tx,c.floor-70,105,140,32,18,{damage:2.5,knockback:2.2,unblockable:true}),
         dash(0,c.clampX(c.tx),32,180,{damage:1}),
         ledge(c,53,c.tx,'root',c.floor-95,130),
-        ...(c.phase===3?[zone(40,'floor',c.tx-c.face*100,c.floor-10,130,28,18,18,{status:{root:12}})]:[]),
+        ...(c.phase>=3?[zone(40,'floor',c.tx-c.face*100,c.floor-10,130,28,18,18,{status:{root:12}})]:[]),
       ]},
       {id:'rootbound-chainroot-prison',name:'Chainroot Prison',kind:'roots',counter:'minions',hint:'Cut the burrower down; roots erupt beside your marked position.',tell:58,active:114,recover:54,build:c=>[
-        {at:0,type:'summon',kind:'graveburrower',count:c.phase===3?2:1,x:c.clampX(c.x-c.face*160)},
+        {at:0,type:'summon',kind:'graveburrower',count:c.phase>=3?2:1,x:c.clampX(c.x-c.face*160)},
         ...[-1,1].map((side,i)=>zone(i*24,'pillar',c.clampX(c.tx+side*105),c.floor-65,65,130,25,20,{damage:1.5,status:{root:18}})),
         ...(c.phase>=2?[zone(52,'pillar',c.tx,c.floor-60,60,120,24,18,{damage:2,status:{root:18}})]:[]),
       ]},
@@ -53,7 +53,7 @@ export const WARDEN_ENCOUNTERS={
       {id:'bailiff-vacuum-contempt',name:'Vacuum Contempt',kind:'vacuum',counter:'retreat',hint:'Run out of the intake. The crushing blow lands close to the furnace.',tell:56,active:106,recover:58,build:c=>[
         {at:0,type:'force',x:c.x,y:c.floor-35,radius:330,pull:.55+c.phase*.1,duration:38},
         zone(25,'blast',c.x,c.floor-60,220,120,26,20,{damage:3,knockback:2.7,unblockable:true}),
-        ...(c.phase===3?[shot(54,c.x,c.floor-100,-Math.PI/2,5,1.4,5,{gravity:.25,kind:'orb',status:{burn:90}})]:[]),
+        ...(c.phase>=3?[shot(54,c.x,c.floor-100,-Math.PI/2,5,1.4,5,{gravity:.25,kind:'orb',status:{burn:90}})]:[]),
       ]},
       {id:'bailiff-redline-appeal',name:'Redline Appeal',kind:'leap',counter:'platform',hint:'Use the metal plate to clear the returning floor shock.',tell:62,active:126,recover:55,build:c=>[
         ledge(c,0,c.tx-c.face*150,'metal',c.floor-100,180),
@@ -76,12 +76,12 @@ export const WARDEN_ENCOUNTERS={
       {id:'gaoler-shackle-harpoons',name:'Shackle Harpoons',kind:'harpoon',counter:'shield',hint:'Deflect the chain needles, then close the gap during the reload.',tell:38,active:88,recover:46,build:c=>[
         shot(0,c.x,c.floor-72,undefined,3,.32,8,{kind:'needle',status:{root:16}}),
         shot(28,c.x,c.floor-115,undefined,c.phase>=2?3:1,.45,6,{kind:'droplet',status:{slick:120}}),
-        ...(c.phase===3?[shot(54,c.x,c.floor-45,undefined,3,.2,9,{kind:'needle',status:{root:12}})]:[]),
+        ...(c.phase>=3?[shot(54,c.x,c.floor-45,undefined,3,.2,9,{kind:'needle',status:{root:12}})]:[]),
       ]},
       {id:'gaoler-drowning-cells',name:'Drowning Cells',kind:'cells',counter:'dodge',hint:'Wait between the first water walls, then leave before the middle cell seals.',tell:50,active:122,recover:48,build:c=>[
         ...[-1,1].map(side=>zone(0,'pillar',c.clampX(c.tx+side*135),c.floor-120,80,240,24,28,{damage:2,status:{slick:95}})),
         zone(48,'pillar',c.tx,c.floor-110,110,220,30,22,{damage:2,status:{root:14}}),
-        ...(c.phase===3?[ledge(c,7,c.tx,'water',c.floor-100,150)]:[]),
+        ...(c.phase>=3?[ledge(c,7,c.tx,'water',c.floor-100,150)]:[]),
       ]},
       {id:'gaoler-breaker-arrest',name:'Breaker Arrest',kind:'leap',counter:'jump',hint:'Jump the low returning breaker after the jailer vaults past you.',tell:46,active:122,recover:44,build:c=>[
         dash(0,c.clampX(c.tx+c.face*130),30,140,{damage:1.5,knockback:2}),
@@ -113,7 +113,7 @@ export const WARDEN_ENCOUNTERS={
       {id:'magistrate-ascendant-circuit',name:'Ascendant Circuit',kind:'dive',counter:'get-close',hint:'The storm ring has a calm eye. Stand near its marked center after the dive.',tell:53,active:114,recover:46,build:c=>[
         dash(0,c.clampX(c.tx),30,220,{damage:1.5,knockback:1.5}),
         zone(27,'ring',c.tx,c.floor-48,470,110,24,24,{inner:92,damage:2,knockback:2}),
-        ...(c.phase===3?[zone(68,'pillar',c.clampX(c.tx+c.face*230),c.floor-160,65,320,22,12,{damage:2})]:[]),
+        ...(c.phase>=3?[zone(68,'pillar',c.clampX(c.tx+c.face*230),c.floor-160,65,320,22,12,{damage:2})]:[]),
       ]},
     ],
   },
@@ -126,7 +126,7 @@ export const WARDEN_ENCOUNTERS={
       {id:'headsman-meridian-drop',name:'Meridian Drop',kind:'guillotine',counter:'dodge',hint:'Leave the thin guillotine lines. Each blade falls on an old position.',tell:52,active:116,recover:54,build:c=>[
         zone(0,'pillar',c.tx,c.floor-155,60,310,24,16,{damage:2.5,knockback:1.8,status:{slow:100}}),
         zone(38,'pillar',c.clampX(c.tx+c.face*160),c.floor-155,70,310,26,16,{damage:2,status:{slow:80}}),
-        ...(c.phase===3?[zone(70,'pillar',c.clampX(c.tx-c.face*160),c.floor-155,70,310,22,14,{damage:2,status:{slow:80}})]:[]),
+        ...(c.phase>=3?[zone(70,'pillar',c.clampX(c.tx-c.face*160),c.floor-155,70,310,22,14,{damage:2,status:{slow:80}})]:[]),
       ]},
       {id:'headsman-rewind-sentence',name:'Rewind Sentence',kind:'rewind',counter:'jump',hint:'The headsman reappears at the ice marker, then cuts back toward its old position.',tell:50,active:112,recover:52,build:c=>[
         zone(0,'mine',c.clampX(c.tx-c.face*150),c.floor-20,80,45,26,12,{damage:1,status:{slow:90}}),
@@ -140,7 +140,7 @@ export const WARDEN_ENCOUNTERS={
           ledge(c,0,gap-170,'ice',c.floor-105,170),ledge(c,0,gap+170,'ice',c.floor-105,170),
           ...(leftWidth>30?[zone(0,'floor',c.left+leftWidth/2,c.floor-13,leftWidth,34,46,62,{damage:2,status:{slow:140},unblockable:true})]:[]),
           ...(rightWidth>30?[zone(0,'floor',gap+88+rightWidth/2,c.floor-13,rightWidth,34,46,62,{damage:2,status:{slow:140},unblockable:true})]:[]),
-          ...(c.phase===3?[zone(77,'pillar',gap,c.floor-95,55,190,29,18,{damage:2})]:[]),
+          ...(c.phase>=3?[zone(77,'pillar',gap,c.floor-95,55,190,29,18,{damage:2})]:[]),
         ];
       }},
       {id:'headsman-stasis-jury',name:'Stasis Jury',kind:'clockcourt',counter:'minions',hint:'Break the clockscarabs. The court’s pulse leaves a safe center beneath the headsman.',tell:58,active:128,recover:54,build:c=>[
@@ -167,7 +167,7 @@ export const WARDEN_ENCOUNTERS={
           zone(0,'mine',arrival,c.floor-18,92,42,30,14,{damage:1.5}),
           {at:15,type:'warp',x:arrival},
           zone(34,'slash',arrival+direction*142,c.floor-65,245,115,25,16,{damage:2.5,knockback:2.3}),
-          ...(c.phase===3?[shot(71,arrival,c.floor-145,undefined,3,.5,7,{kind:'blade'})]:[]),
+          ...(c.phase>=3?[shot(71,arrival,c.floor-145,undefined,3,.5,7,{kind:'blade'})]:[]),
         ];
       }},
       {id:'witness-fracture-bridge',name:'Fracture Bridge',kind:'riftbridge',counter:'platform',hint:'Memory footholds appear before the rifts open. Ground between the rifts remains safe.',tell:60,active:142,recover:52,build:c=>{
